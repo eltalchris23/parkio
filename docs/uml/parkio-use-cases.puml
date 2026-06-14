@@ -1,0 +1,38 @@
+@startuml
+left to right direction
+
+actor ADMIN
+actor PROPIETARIO
+actor OPERADOR
+
+rectangle Parkio {
+
+    usecase "Iniciar Sesión" as UC1
+
+    usecase "Gestionar Usuarios" as UC2
+    usecase "Gestionar Roles" as UC3
+
+    usecase "Gestionar Estacionamientos" as UC4
+    usecase "Asignar Usuario a Estacionamiento" as UC5
+
+    usecase "Gestionar Cajones" as UC6
+
+    usecase "Consultar Cajones" as UC7
+
+}
+
+ADMIN --> UC1
+ADMIN --> UC2
+ADMIN --> UC3
+ADMIN --> UC4
+ADMIN --> UC5
+ADMIN --> UC6
+
+PROPIETARIO --> UC1
+PROPIETARIO --> UC4
+PROPIETARIO --> UC6
+
+OPERADOR --> UC1
+OPERADOR --> UC7
+
+@enduml

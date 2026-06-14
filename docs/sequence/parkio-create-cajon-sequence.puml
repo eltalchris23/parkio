@@ -1,0 +1,68 @@
+@startuml
+
+actor Usuario
+
+participant JwtFilter
+participant CajonController
+participant CajonService
+participant EstacionamientoRepository
+participant CajonRepository
+database PostgreSQL
+
+Usuario -> JwtFilter : Authorization Bearer Token
+
+JwtFilter --> Usuario : Token válido
+
+Usuario -> CajonController : POST /api/cajones
+
+activate CajonController
+
+CajonController -> CajonService : crear(request)
+
+activate CajonService
+
+CajonService -> EstacionamientoRepository : findById()
+
+activate EstacionamientoRepository
+
+EstacionamientoRepository -> PostgreSQL : SELECT estacionamiento
+
+PostgreSQL --> EstacionamientoRepository : Estacionamiento
+
+EstacionamientoRepository --> CajonService : Estacionamiento
+
+deactivate EstacionamientoRepository
+
+CajonService -> CajonRepository : existsByEstacionamientoIdAndNumero()
+
+activate CajonRepository
+
+CajonRepository -> PostgreSQL : SELECT cajon
+
+PostgreSQL --> CajonRepository : resultado
+
+CajonRepository --> CajonService : false
+
+deactivate CajonRepository
+
+CajonService -> CajonRepository : save(cajon)
+
+activate CajonRepository
+
+CajonRepository -> PostgreSQL : INSERT cajon
+
+PostgreSQL --> CajonRepository : id generado
+
+CajonRepository --> CajonService : Cajon
+
+deactivate CajonRepository
+
+CajonService --> CajonController : CajonResponse
+
+deactivate CajonService
+
+CajonController --> Usuario : 201 Created
+
+deactivate CajonController
+
+@enduml

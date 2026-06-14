@@ -1,0 +1,35 @@
+@startuml
+
+start
+
+:Usuario ingresa email y password;
+
+:POST /api/auth/login;
+
+:AuthController;
+
+:AuthService;
+
+if (Usuario existe?) then (Sí)
+
+    if (Password correcta?) then (Sí)
+
+        :Generar JWT;
+
+        :Devolver access token;
+
+    else (No)
+
+        :401 Unauthorized;
+
+    endif
+
+else (No)
+
+    :401 Unauthorized;
+
+endif
+
+stop
+
+@enduml

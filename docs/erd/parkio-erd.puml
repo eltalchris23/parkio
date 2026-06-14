@@ -1,0 +1,68 @@
+@startuml
+hide circle
+skinparam linetype ortho
+
+entity usuario {
+    * id : BIGINT
+    --
+    nombre : VARCHAR(100)
+    apellido : VARCHAR(100)
+    email : VARCHAR(150)
+    password_hash : VARCHAR(255)
+    activo : BOOLEAN
+    fecha_creacion : TIMESTAMP
+    fecha_actualizacion : TIMESTAMP
+}
+
+entity rol {
+    * id : BIGINT
+    --
+    nombre : VARCHAR(50)
+    activo : BOOLEAN
+    fecha_creacion : TIMESTAMP
+    fecha_actualizacion : TIMESTAMP
+}
+
+entity usuario_rol {
+    * usuario_id : BIGINT
+    * rol_id : BIGINT
+}
+
+entity estacionamiento {
+    * id : BIGINT
+    --
+    nombre : VARCHAR(150)
+    descripcion : VARCHAR(500)
+    latitud : NUMERIC(10,8)
+    longitud : NUMERIC(11,8)
+    activo : BOOLEAN
+    fecha_creacion : TIMESTAMP
+    fecha_actualizacion : TIMESTAMP
+}
+
+entity usuario_estacionamiento {
+    * usuario_id : BIGINT
+    * estacionamiento_id : BIGINT
+}
+
+entity cajon {
+    * id : BIGINT
+    --
+    estacionamiento_id : BIGINT
+    numero : VARCHAR(20)
+    tipo : VARCHAR(30)
+    estado : VARCHAR(30)
+    activo : BOOLEAN
+    fecha_creacion : TIMESTAMP
+    fecha_actualizacion : TIMESTAMP
+}
+
+usuario ||--o{ usuario_rol
+rol ||--o{ usuario_rol
+
+usuario ||--o{ usuario_estacionamiento
+estacionamiento ||--o{ usuario_estacionamiento
+
+estacionamiento ||--o{ cajon
+
+@enduml

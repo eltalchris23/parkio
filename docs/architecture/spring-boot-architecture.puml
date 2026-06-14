@@ -1,0 +1,56 @@
+@startuml
+
+package "Controller Layer" {
+    class AuthController
+    class UsuarioController
+    class EstacionamientoController
+    class CajonController
+}
+
+package "Service Layer" {
+    class AuthService
+    class UsuarioService
+    class EstacionamientoService
+    class CajonService
+}
+
+package "Repository Layer" {
+    interface UsuarioRepository
+    interface RolRepository
+    interface EstacionamientoRepository
+    interface CajonRepository
+}
+
+package "Domain" {
+    class Usuario
+    class Rol
+    class Estacionamiento
+    class Cajon
+}
+
+package "Security" {
+    class JwtFilter
+    class JwtService
+    class SecurityConfig
+}
+
+AuthController --> AuthService
+UsuarioController --> UsuarioService
+EstacionamientoController --> EstacionamientoService
+CajonController --> CajonService
+
+AuthService --> UsuarioRepository
+UsuarioService --> UsuarioRepository
+EstacionamientoService --> EstacionamientoRepository
+CajonService --> CajonRepository
+
+UsuarioRepository --> Usuario
+RolRepository --> Rol
+EstacionamientoRepository --> Estacionamiento
+CajonRepository --> Cajon
+
+SecurityConfig --> JwtFilter
+JwtFilter --> JwtService
+JwtFilter --> UsuarioRepository
+
+@enduml

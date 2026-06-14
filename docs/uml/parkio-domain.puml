@@ -1,0 +1,59 @@
+@startuml
+
+hide circle
+skinparam classAttributeIconSize 0
+skinparam linetype ortho
+
+class Usuario {
+    id : Long
+    nombre : String
+    apellido : String
+    email : String
+    password : String
+    activo : Boolean
+}
+
+class Rol {
+    id : Long
+    nombre : String
+    activo : Boolean
+}
+
+class Estacionamiento {
+    id : Long
+    nombre : String
+    descripcion : String
+    latitud : BigDecimal
+    longitud : BigDecimal
+    activo : Boolean
+}
+
+class Cajon {
+    id : Long
+    numero : String
+    tipo : TipoCajon
+    estado : EstadoCajon
+    activo : Boolean
+}
+
+enum TipoCajon {
+    AUTO
+    MOTO
+    DISCAPACITADO
+    ELECTRICO
+}
+
+enum EstadoCajon {
+    LIBRE
+    OCUPADO
+    FUERA_SERVICIO
+}
+
+Usuario "*" -- "*" Rol
+Usuario "*" -- "*" Estacionamiento
+Estacionamiento "1" -- "*" Cajon
+
+Cajon --> TipoCajon
+Cajon --> EstadoCajon
+
+@enduml

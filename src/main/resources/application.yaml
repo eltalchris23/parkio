@@ -1,0 +1,20 @@
+server:
+  port: 8023
+
+spring:
+  application:
+    name: parkio
+
+  datasource:
+    url: jdbc:postgresql://localhost:5432/parkio
+    username: postgres
+    password: 123123
+
+  jpa:
+    hibernate:
+      ddl-auto: validate
+
+    show-sql: true
+
+  flyway:
+    enabled: true

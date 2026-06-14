@@ -1,0 +1,89 @@
+@startuml
+
+package auth
+package usuario
+package rol
+package estacionamiento
+package cajon
+package security
+package common
+package exception
+package config
+package audit
+package shared
+
+auth --> security
+
+usuario --> common
+estacionamiento --> common
+cajon --> common
+
+usuario --> exception
+estacionamiento --> exception
+cajon --> exception
+
+security --> usuario
+
+usuario --> shared
+estacionamiento --> shared
+cajon --> shared
+rol --> shared
+
+@enduml
+
+/* Creacion de packages guia para cuando los haga
+
+src/main/java/com/parkio
+│
+├── auth
+│   ├── controller
+│   ├── service
+│   ├── dto
+│   └── mapper
+│
+├── usuario
+│   ├── controller
+│   ├── service
+│   ├── repository
+│   ├── entity
+│   ├── dto
+│   └── mapper
+│
+├── rol
+│   ├── repository
+│   └── entity
+│
+├── estacionamiento
+│   ├── controller
+│   ├── service
+│   ├── repository
+│   ├── entity
+│   ├── dto
+│   └── mapper
+│
+├── cajon
+│   ├── controller
+│   ├── service
+│   ├── repository
+│   ├── entity
+│   ├── dto
+│   └── mapper
+│
+├── security
+│   ├── filter
+│   ├── service
+│   └── config
+│
+├── common
+│   ├── dto
+│   ├── mapper
+│   ├── constants
+│   └── util
+│
+├── exception
+│
+├── config
+│
+└── audit
+
+*/

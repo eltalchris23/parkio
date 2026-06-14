@@ -1,0 +1,61 @@
+@startuml
+
+actor Usuario
+
+participant AuthController
+participant AuthService
+participant UsuarioRepository
+participant PasswordEncoder
+participant JwtService
+
+database PostgreSQL
+
+Usuario -> AuthController : POST /api/auth/login
+
+activate AuthController
+
+AuthController -> AuthService : login(email, password)
+
+activate AuthService
+
+AuthService -> UsuarioRepository : findByEmail(email)
+
+activate UsuarioRepository
+
+UsuarioRepository -> PostgreSQL : SELECT usuario
+
+activate PostgreSQL
+
+PostgreSQL --> UsuarioRepository : Usuario
+
+deactivate PostgreSQL
+
+UsuarioRepository --> AuthService : Usuario
+
+deactivate UsuarioRepository
+
+AuthService -> PasswordEncoder : matches(password, passwordHash)
+
+activate PasswordEncoder
+
+PasswordEncoder --> AuthService : true
+
+deactivate PasswordEncoder
+
+AuthService -> JwtService : generateToken(usuario)
+
+activate JwtService
+
+JwtService --> AuthService : JWT
+
+deactivate JwtService
+
+AuthService --> AuthController : LoginResponse
+
+deactivate AuthService
+
+AuthController --> Usuario : 200 OK + JWT
+
+deactivate AuthController
+
+@enduml

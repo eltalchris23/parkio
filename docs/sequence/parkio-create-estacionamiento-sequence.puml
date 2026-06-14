@@ -1,0 +1,49 @@
+@startuml
+
+actor Usuario
+
+participant JwtFilter
+participant EstacionamientoController
+participant EstacionamientoService
+participant EstacionamientoRepository
+database PostgreSQL
+
+Usuario -> JwtFilter : Authorization Bearer Token
+
+JwtFilter --> Usuario : Token válido
+
+Usuario -> EstacionamientoController : POST /api/estacionamientos
+
+activate EstacionamientoController
+
+EstacionamientoController -> EstacionamientoService : crear(request)
+
+activate EstacionamientoService
+
+EstacionamientoService -> EstacionamientoService : validarDatos()
+
+EstacionamientoService -> EstacionamientoRepository : save(estacionamiento)
+
+activate EstacionamientoRepository
+
+EstacionamientoRepository -> PostgreSQL : INSERT estacionamiento
+
+activate PostgreSQL
+
+PostgreSQL --> EstacionamientoRepository : id generado
+
+deactivate PostgreSQL
+
+EstacionamientoRepository --> EstacionamientoService : Estacionamiento
+
+deactivate EstacionamientoRepository
+
+EstacionamientoService --> EstacionamientoController : EstacionamientoResponse
+
+deactivate EstacionamientoService
+
+EstacionamientoController --> Usuario : 201 Created
+
+deactivate EstacionamientoController
+
+@enduml
