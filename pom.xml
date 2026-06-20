@@ -17,9 +17,14 @@
 	<licenses>
 		<license/>
 	</licenses>
-	<developers>
-		<developer/>
-	</developers>
+    <developers>
+        <developer>
+            <name>Christian Salazar</name>
+            <email>eltalchris@gmail.com</email>
+            <url>https://github.com/eltalchris23</url>
+            <organization>Kasaca</organization>
+        </developer>
+    </developers>
 	<scm>
 		<connection/>
 		<developerConnection/>
