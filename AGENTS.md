@@ -24,25 +24,25 @@ Parkio es un backend en desarrollo para administrar:
 - Cajones pertenecientes a un estacionamiento.
 - Estado y tipo de los cajones.
 
-El proyecto contiene actualmente el modelo persistente, DTOs, repositorios, contratos de servicio, migraciones y documentación de arquitectura.
+El proyecto contiene actualmente el modelo persistente, DTOs, repositorios, contratos de servicio, migraciones y documentación de arquitectura. El módulo Rol cuenta además con mapper, servicio transaccional, controlador REST, validaciones y pruebas unitarias.
 
-La API REST, la autenticación JWT, la autorización y la lógica funcional de los servicios todavía no están implementadas.
+La API REST está implementada únicamente para el módulo Rol. La autenticación JWT, la autorización y la lógica funcional de Usuario, Estacionamiento y Cajón todavía no están implementadas.
 
 ## Estado Actual
 
 Antes de realizar cambios, considerar lo siguiente:
 
-- No existen controladores en `src/main/java`.
+- `RolController` expone el CRUD `/api/roles`; no existen controladores para los módulos restantes.
 - No existe implementación de Spring Security.
 - No existen componentes JWT.
-- No existen mappers.
-- No existe manejo global de excepciones.
-- Los DTOs no tienen anotaciones de validación.
-- Las implementaciones de servicio no están registradas como beans de Spring.
-- Los servicios devuelven listas vacías o lanzan `UnsupportedOperationException`.
-- Solo existe una prueba de carga del contexto.
+- `RolMapper` está implementado; no existen mappers para los módulos restantes.
+- El manejo global de excepciones está implementado mediante `GlobalExceptionHandler` y `ApiError`.
+- `RolRequest` tiene validaciones Jakarta Validation; los DTOs de los módulos restantes aún no.
+- `RolServiceImpl` está registrado como bean y usa transacciones; los demás servicios permanecen incompletos.
+- Los servicios de Usuario, Estacionamiento y Cajón devuelven listas vacías o lanzan `UnsupportedOperationException`.
+- Existen pruebas unitarias para el mapper, servicio y controlador de Rol, además de la prueba de carga del contexto.
 - La documentación describe parcialmente una arquitectura futura.
-- `UsuarioRepository`, `EstacionamientoRepository` y `CajonRepository` utilizan `Integer` como identificador, aunque `BaseEntity` define el identificador como `Long`.
+- Todos los repositorios utilizan `Long` como identificador, en concordancia con `BaseEntity`.
 
 Una IA no debe ocultar estas limitaciones ni asumir que ya fueron corregidas.
 
@@ -64,8 +64,10 @@ Cada módulo existente puede contener:
 
 ```text
 modulo/
+├── controller/
 ├── dto/
 ├── entity/
+├── mapper/
 ├── repository/
 └── service/
 ```
@@ -83,7 +85,7 @@ Las responsabilidades deben permanecer separadas:
 - Repository: acceso a datos.
 - Entity: representación persistente.
 - DTO: contrato de entrada o salida.
-- Mapper: conversión entre DTOs y entidades, cuando se implemente.
+- Mapper: conversión entre DTOs y entidades.
 
 No se deben saltar capas sin una justificación explícita.
 
@@ -262,15 +264,9 @@ public interface EntidadRepository extends JpaRepository<Entidad, Long> {
 }
 ```
 
-Existe una inconsistencia pendiente:
+Todos los repositorios existentes utilizan `Long`, en concordancia con el identificador heredado por las entidades desde `BaseEntity`.
 
-- `RolRepository` utiliza `Long`.
-- `UsuarioRepository` utiliza `Integer`.
-- `EstacionamientoRepository` utiliza `Integer`.
-- `CajonRepository` utiliza `Integer`.
-- Todas las entidades heredan un identificador `Long`.
-
-El código nuevo debe utilizar `Long`. La corrección de repositorios existentes debe hacerse de manera explícita y verificando todas sus referencias.
+El código nuevo también debe utilizar `Long` y mantener esta consistencia en todas sus referencias.
 
 Las consultas derivadas deben usar nombres que representen exactamente el criterio aplicado. La documentación propone consultas que todavía no existen, como búsqueda de usuario por correo o comprobación de número de cajón por estacionamiento. No deben considerarse implementadas hasta encontrarlas en el código.
 
@@ -290,17 +286,18 @@ Reglas obligatorias:
 - Las operaciones que modifiquen varias entidades deben definir límites transaccionales adecuados.
 - No se deben devolver valores ficticios para aparentar una implementación.
 - No se deben mantener `UnsupportedOperationException` en operaciones que se declaren como completadas.
-- Las dependencias deben inyectarse por constructor.
+- Las dependencias de las implementaciones de servicio deben declararse como campos `final` e inyectarse por constructor mediante Lombok `@RequiredArgsConstructor`.
+- No se deben escribir constructores manuales en las implementaciones de servicio cuando `@RequiredArgsConstructor` pueda generarlos.
 - No se debe usar inyección mediante campos.
 - Una implementación que deba ser administrada por Spring debe registrarse explícitamente como bean, normalmente con `@Service`.
 
-Las implementaciones actuales no tienen `@Service` ni dependencias inyectadas. Esto debe considerarse código incompleto, no una convención que deba replicarse.
+`RolServiceImpl` es la implementación de referencia actual: utiliza `@Service`, transacciones, dependencias `final` y Lombok `@RequiredArgsConstructor`. Las implementaciones de los demás módulos siguen incompletas y no deben replicarse como referencia.
 
 No se deben modificar las firmas existentes sin evaluar el impacto en documentación, pruebas y futuros controladores.
 
 ## Convenciones para Controllers
 
-Actualmente no existen controladores.
+Actualmente existe `RolController`, que expone el CRUD `/api/roles`. Los módulos restantes todavía no tienen controladores.
 
 La documentación propone una API con base:
 
@@ -312,6 +309,7 @@ y recursos como:
 
 ```text
 /api/auth
+/api/roles
 /api/usuarios
 /api/estacionamientos
 /api/cajones
@@ -342,11 +340,20 @@ Los códigos HTTP documentados son:
 - `409` para conflictos.
 - `500` para errores internos.
 
-Esto representa el contrato objetivo; todavía no existe una implementación HTTP.
+Estos códigos forman parte del contrato común. El módulo Rol ya implementa respuestas `200`, `201`, `204`, `400`, `404`, `409` y `500` según corresponda; los demás endpoints continúan como objetivo.
 
 ## Manejo de Excepciones
 
-No existe actualmente un mecanismo de manejo global de excepciones.
+Existe un mecanismo global basado en `GlobalExceptionHandler` y el record `ApiError`.
+
+Mapeo HTTP implementado:
+
+- `ResourceNotFoundException`: `404 Not Found`.
+- `ConflictException`: `409 Conflict`.
+- `MethodArgumentNotValidException`: `400 Bad Request`.
+- `HttpMessageNotReadableException`: `400 Bad Request`.
+- `DataIntegrityViolationException`: `409 Conflict`.
+- Excepciones no controladas: `500 Internal Server Error`.
 
 Cuando sea requerido:
 
@@ -357,13 +364,11 @@ Cuando sea requerido:
 - Diferenciar entre recurso inexistente, conflicto, validación y error inesperado.
 - Mantener respuestas de error consistentes.
 
-No se debe afirmar que existe un formato estándar de error porque todavía no está definido en el código ni completamente especificado en la documentación.
-
-La introducción de `@RestControllerAdvice` o de un modelo de error debe tratarse como una decisión explícita de arquitectura.
+El formato estándar actual incluye fecha y hora, estado HTTP, descripción, mensaje seguro, ruta y errores de validación por campo.
 
 ## Validaciones
 
-El proyecto incluye `spring-boot-starter-validation`, pero los DTOs actuales no utilizan restricciones Jakarta Validation.
+El proyecto incluye `spring-boot-starter-validation`. `RolRequest` utiliza `@NotBlank`, `@Size` y `@NotNull`; los DTOs restantes todavía no tienen restricciones declarativas.
 
 Cuando se implemente validación:
 
@@ -465,7 +470,7 @@ La documentación técnica se encuentra en `docs/`.
 
 Incluye:
 
-- Contrato propuesto de API.
+- Contrato implementado del módulo Rol y contratos propuestos para los módulos restantes.
 - Arquitectura por capas.
 - Estructura objetivo de paquetes.
 - Flujo JWT.
@@ -495,7 +500,7 @@ Toda IA que modifique este repositorio debe:
 - Mantener compatibilidad con Java 21 y Spring Boot 3.5.15.
 - Utilizar `Long` para identificadores JPA.
 - Mantener separadas las responsabilidades por capa.
-- Usar inyección por constructor.
+- Usar inyección por constructor y Lombok `@RequiredArgsConstructor` en las implementaciones de servicio con dependencias `final`.
 - Evitar exponer entidades JPA.
 - Proteger datos sensibles.
 - Mantener entidades y migraciones sincronizadas.
@@ -592,7 +597,7 @@ El código nuevo debe:
 - Utilizar `Long` como identificador.
 - Usar repositorios basados en `JpaRepository`.
 - Separar interfaz e implementación de servicio si se conserva el patrón actual.
-- Inyectar dependencias por constructor.
+- Declarar las dependencias del servicio como campos `final` e inyectarlas mediante Lombok `@RequiredArgsConstructor`.
 - Incluir validaciones coherentes.
 - Incluir manejo explícito de errores.
 - No filtrar información sensible.

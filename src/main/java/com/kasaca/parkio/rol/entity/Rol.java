@@ -34,5 +34,6 @@ public class Rol extends BaseEntity {
     private String nombre;
 
     @ManyToMany(mappedBy = "roles")
+    @Builder.Default
     private Set<Usuario> usuarios = new HashSet<>();
 }

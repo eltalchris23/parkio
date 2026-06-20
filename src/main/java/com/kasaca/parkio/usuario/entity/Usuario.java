@@ -61,6 +61,7 @@ public class Usuario extends BaseEntity {
             joinColumns = @JoinColumn(name = "usuario_id"),
             inverseJoinColumns = @JoinColumn(name = "rol_id")
     )
+    @Builder.Default
     private Set<Rol> roles = new HashSet<>();
 
     @ManyToMany(fetch = FetchType.LAZY)
@@ -69,5 +70,6 @@ public class Usuario extends BaseEntity {
             joinColumns = @JoinColumn(name = "usuario_id"),
             inverseJoinColumns = @JoinColumn(name = "estacionamiento_id")
     )
+    @Builder.Default
     private Set<Estacionamiento> estacionamientos = new HashSet<>();
 }

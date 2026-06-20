@@ -61,8 +61,10 @@ public class Estacionamiento extends BaseEntity{
             mappedBy = "estacionamiento",
             fetch = FetchType.LAZY
     )
+    @Builder.Default
     private Set<Cajon> cajones = new HashSet<>();
 
     @ManyToMany(mappedBy = "estacionamientos")
+    @Builder.Default
     private Set<Usuario> usuarios = new HashSet<>();
 }

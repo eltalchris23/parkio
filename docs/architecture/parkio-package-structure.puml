@@ -7,7 +7,7 @@ package estacionamiento
 package cajon
 package security
 package common
-package exception
+package "shared.exception" as shared_exception
 package config
 package audit
 package shared
@@ -18,9 +18,7 @@ usuario --> common
 estacionamiento --> common
 cajon --> common
 
-usuario --> exception
-estacionamiento --> exception
-cajon --> exception
+rol --> shared_exception
 
 security --> usuario
 
@@ -50,8 +48,12 @@ src/main/java/com/parkio
 │   └── mapper
 │
 ├── rol
+│   ├── controller
+│   ├── dto
+│   ├── entity
+│   ├── mapper
 │   ├── repository
-│   └── entity
+│   └── service
 │
 ├── estacionamiento
 │   ├── controller
@@ -80,7 +82,9 @@ src/main/java/com/parkio
 │   ├── constants
 │   └── util
 │
-├── exception
+├── shared
+│   ├── entity
+│   └── exception
 │
 ├── config
 │

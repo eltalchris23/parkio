@@ -2,6 +2,7 @@
 
 package "Controller Layer" {
     class AuthController
+    class RolController <<implementado>>
     class UsuarioController
     class EstacionamientoController
     class CajonController
@@ -9,9 +10,14 @@ package "Controller Layer" {
 
 package "Service Layer" {
     class AuthService
+    class RolService <<implementado>>
     class UsuarioService
     class EstacionamientoService
     class CajonService
+}
+
+package "Mapper Layer" {
+    class RolMapper <<implementado>>
 }
 
 package "Repository Layer" {
@@ -34,12 +40,22 @@ package "Security" {
     class SecurityConfig
 }
 
+package "Shared Error Handling" {
+    class GlobalExceptionHandler <<implementado>>
+    class ApiError <<implementado>>
+    class ResourceNotFoundException <<implementado>>
+    class ConflictException <<implementado>>
+}
+
 AuthController --> AuthService
+RolController --> RolService
 UsuarioController --> UsuarioService
 EstacionamientoController --> EstacionamientoService
 CajonController --> CajonService
 
 AuthService --> UsuarioRepository
+RolService --> RolRepository
+RolService --> RolMapper
 UsuarioService --> UsuarioRepository
 EstacionamientoService --> EstacionamientoRepository
 CajonService --> CajonRepository
@@ -48,6 +64,10 @@ UsuarioRepository --> Usuario
 RolRepository --> Rol
 EstacionamientoRepository --> Estacionamiento
 CajonRepository --> Cajon
+
+GlobalExceptionHandler --> ApiError
+GlobalExceptionHandler --> ResourceNotFoundException
+GlobalExceptionHandler --> ConflictException
 
 SecurityConfig --> JwtFilter
 JwtFilter --> JwtService

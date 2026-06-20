@@ -1,14 +1,20 @@
 package com.kasaca.parkio.rol.service;
 
-import com.kasaca.parkio.rol.entity.Rol;
+import com.kasaca.parkio.rol.dto.RolRequest;
+import com.kasaca.parkio.rol.dto.RolResponse;
 
 import java.util.List;
 
 public interface RolService {
 
-    List<Rol> getRoles();
-    Rol getRol(Long rolId);
-    Rol addRol(Rol rol);
-    Rol updateRol(Long rolId,Rol rol);
+    List<RolResponse> getRoles();
+
+    RolResponse getRol(Long rolId);
+
+    RolResponse addRol(RolRequest request);
+
+    RolResponse updateRol(Long rolId, RolRequest request);
+
     void deleteRol(Long rolId);
+
 }

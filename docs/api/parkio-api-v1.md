@@ -10,7 +10,19 @@
 
 ### Autenticación
 
-La API utiliza JWT.
+La autenticación JWT está planificada, pero todavía no está implementada. Los endpoints actuales de Rol no requieren token y no deben considerarse seguros para un entorno productivo.
+
+### Estado de implementación
+
+| Módulo | Estado |
+|---|---|
+| Rol | CRUD REST implementado |
+| Auth | Propuesto; no implementado |
+| Usuario | Propuesto; no implementado |
+| Estacionamiento | Propuesto; no implementado |
+| Cajón | Propuesto; no implementado |
+
+El siguiente encabezado representa el formato de autenticación previsto para el futuro:
 
 Ejemplo:
 
@@ -56,6 +68,104 @@ POST /api/auth/login
   "message": "Credenciales inválidas"
 }
 ```
+
+---
+
+# Módulo Rol
+
+## Listar Roles
+
+```http
+GET /api/roles
+```
+
+### Response 200
+
+```json
+[
+  {
+    "id": 1,
+    "nombre": "ADMIN",
+    "activo": true,
+    "fechaCreacion": "2026-06-20T12:00:00"
+  }
+]
+```
+
+## Consultar Rol
+
+```http
+GET /api/roles/{rolId}
+```
+
+### Response 200
+
+```json
+{
+  "id": 1,
+  "nombre": "ADMIN",
+  "activo": true,
+  "fechaCreacion": "2026-06-20T12:00:00"
+}
+```
+
+### Response 404
+
+Se devuelve cuando el identificador no corresponde a un rol existente.
+
+## Crear Rol
+
+```http
+POST /api/roles
+```
+
+### Request
+
+```json
+{
+  "nombre": "ADMIN",
+  "activo": true
+}
+```
+
+Validaciones:
+
+- `nombre` es obligatorio y admite hasta 50 caracteres.
+- `activo` es obligatorio.
+- El nombre no puede estar duplicado.
+
+### Response 201
+
+```json
+{
+  "id": 1,
+  "nombre": "ADMIN",
+  "activo": true,
+  "fechaCreacion": "2026-06-20T12:00:00"
+}
+```
+
+## Actualizar Rol
+
+```http
+PUT /api/roles/{rolId}
+```
+
+Utiliza el mismo cuerpo y las mismas validaciones de la creación.
+
+### Response 200
+
+Devuelve el rol actualizado.
+
+## Eliminar Rol
+
+```http
+DELETE /api/roles/{rolId}
+```
+
+### Response 204
+
+La eliminación actual es física y la respuesta no contiene cuerpo.
 
 ---
 
@@ -237,6 +347,7 @@ GET /api/cajones?estacionamientoId=1
 | ------ | --------------------- |
 | 200    | Operación exitosa     |
 | 201    | Recurso creado        |
+| 204    | Operación exitosa sin cuerpo |
 | 400    | Datos inválidos       |
 | 401    | No autenticado        |
 | 403    | Sin permisos          |
@@ -244,5 +355,19 @@ GET /api/cajones?estacionamientoId=1
 | 409    | Conflicto             |
 | 500    | Error interno         |
 
-```
+## Formato de Error Implementado
+
+Las operaciones del módulo Rol utilizan el siguiente formato:
+
+```json
+{
+  "timestamp": "2026-06-20T16:30:00",
+  "status": 400,
+  "error": "Bad Request",
+  "message": "La solicitud contiene datos inválidos",
+  "path": "/api/roles",
+  "validationErrors": {
+    "nombre": "El nombre del rol es obligatorio"
+  }
+}
 ```
