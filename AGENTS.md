@@ -24,23 +24,23 @@ Parkio es un backend en desarrollo para administrar:
 - Cajones pertenecientes a un estacionamiento.
 - Estado y tipo de los cajones.
 
-El proyecto contiene actualmente el modelo persistente, DTOs, repositorios, contratos de servicio, migraciones y documentación de arquitectura. El módulo Rol cuenta además con mapper, servicio transaccional, controlador REST, validaciones y pruebas unitarias.
+El proyecto contiene actualmente el modelo persistente, DTOs, repositorios, contratos de servicio, migraciones y documentación de arquitectura. Los módulos Rol y Estacionamiento cuentan además con mapper, servicio transaccional, controlador REST, validaciones y pruebas unitarias.
 
-La API REST está implementada únicamente para el módulo Rol. La autenticación JWT, la autorización y la lógica funcional de Usuario, Estacionamiento y Cajón todavía no están implementadas.
+La API REST está implementada para Rol y Estacionamiento. La autenticación JWT, la autorización y la lógica funcional de Usuario y Cajón todavía no están implementadas.
 
 ## Estado Actual
 
 Antes de realizar cambios, considerar lo siguiente:
 
-- `RolController` expone el CRUD `/api/roles`; no existen controladores para los módulos restantes.
+- `RolController` y `EstacionamientoController` exponen los CRUD `/api/roles` y `/api/estacionamientos`; no existen controladores para Usuario y Cajón.
 - No existe implementación de Spring Security.
 - No existen componentes JWT.
-- `RolMapper` está implementado; no existen mappers para los módulos restantes.
+- `RolMapper` y `EstacionamientoMapper` están implementados; no existen mappers para Usuario y Cajón.
 - El manejo global de excepciones está implementado mediante `GlobalExceptionHandler` y `ApiError`.
-- `RolRequest` tiene validaciones Jakarta Validation; los DTOs de los módulos restantes aún no.
-- `RolServiceImpl` está registrado como bean y usa transacciones; los demás servicios permanecen incompletos.
-- Los servicios de Usuario, Estacionamiento y Cajón devuelven listas vacías o lanzan `UnsupportedOperationException`.
-- Existen pruebas unitarias para el mapper, servicio y controlador de Rol, además de la prueba de carga del contexto.
+- `RolRequest` y `EstacionamientoRequest` tienen validaciones Jakarta Validation; los DTOs de Usuario y Cajón aún no.
+- `RolServiceImpl` y `EstacionamientoServiceImpl` están registrados como beans y usan transacciones; los demás servicios permanecen incompletos.
+- Los servicios de Usuario y Cajón devuelven listas vacías o lanzan `UnsupportedOperationException`.
+- Existen pruebas unitarias para mapper, servicio y controlador de Rol y Estacionamiento, además de la prueba de carga del contexto.
 - La documentación describe parcialmente una arquitectura futura.
 - Todos los repositorios utilizan `Long` como identificador, en concordancia con `BaseEntity`.
 
@@ -130,7 +130,7 @@ Los componentes compartidos deben colocarse en `shared` únicamente cuando sean 
 
 No se debe crear un paquete genérico para código que pertenece claramente a un dominio.
 
-Los paquetes `auth`, `security`, `common`, `exception`, `config`, `controller` y `mapper` aparecen en la arquitectura propuesta, pero no existen actualmente. Solo deben crearse cuando una tarea autorizada requiera implementar esas capacidades.
+Los paquetes `auth`, `security`, `common` y `config` aparecen en la arquitectura propuesta, pero no existen actualmente. Los paquetes `controller` y `mapper` ya existen dentro de Rol y Estacionamiento, y las excepciones compartidas se encuentran en `shared.exception`. Las capacidades pendientes solo deben crearse cuando una tarea autorizada requiera implementarlas.
 
 ## Convenciones de Nomenclatura
 
@@ -291,13 +291,13 @@ Reglas obligatorias:
 - No se debe usar inyección mediante campos.
 - Una implementación que deba ser administrada por Spring debe registrarse explícitamente como bean, normalmente con `@Service`.
 
-`RolServiceImpl` es la implementación de referencia actual: utiliza `@Service`, transacciones, dependencias `final` y Lombok `@RequiredArgsConstructor`. Las implementaciones de los demás módulos siguen incompletas y no deben replicarse como referencia.
+`RolServiceImpl` y `EstacionamientoServiceImpl` son las implementaciones de referencia actuales: utilizan `@Service`, transacciones, dependencias `final` y Lombok `@RequiredArgsConstructor`. Las implementaciones de Usuario y Cajón siguen incompletas y no deben replicarse como referencia.
 
 No se deben modificar las firmas existentes sin evaluar el impacto en documentación, pruebas y futuros controladores.
 
 ## Convenciones para Controllers
 
-Actualmente existe `RolController`, que expone el CRUD `/api/roles`. Los módulos restantes todavía no tienen controladores.
+Actualmente existen `RolController` y `EstacionamientoController`, que exponen los CRUD `/api/roles` y `/api/estacionamientos`. Usuario y Cajón todavía no tienen controladores.
 
 La documentación propone una API con base:
 
@@ -470,7 +470,7 @@ La documentación técnica se encuentra en `docs/`.
 
 Incluye:
 
-- Contrato implementado del módulo Rol y contratos propuestos para los módulos restantes.
+- Contrato implementado de Rol y Estacionamiento, y contratos propuestos para los módulos restantes.
 - Arquitectura por capas.
 - Estructura objetivo de paquetes.
 - Flujo JWT.

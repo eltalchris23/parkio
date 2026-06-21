@@ -24,6 +24,7 @@ security --> usuario
 
 usuario --> shared
 estacionamiento --> shared
+estacionamiento --> shared_exception
 cajon --> shared
 rol --> shared
 
@@ -55,7 +56,7 @@ src/main/java/com/parkio
 │   ├── repository
 │   └── service
 │
-├── estacionamiento
+├── estacionamiento (implementado)
 │   ├── controller
 │   ├── service
 │   ├── repository

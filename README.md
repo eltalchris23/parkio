@@ -12,14 +12,14 @@ Actualmente, el proyecto contiene:
 - DTOs de entrada y salida.
 - Repositorios Spring Data JPA.
 - Contratos de servicio.
-- CRUD REST completo para el módulo Rol.
+- CRUD REST completo para los módulos Rol y Estacionamiento.
 - Manejo global de excepciones y validación para las operaciones implementadas.
-- Pruebas unitarias del mapper, servicio y controlador de Rol.
-- Implementaciones incompletas para Usuario, Estacionamiento y Cajón.
+- Pruebas unitarias de mapper, servicio y controlador para Rol y Estacionamiento.
+- Implementaciones incompletas para Usuario y Cajón.
 - Migraciones iniciales de base de datos.
 - Documentación de arquitectura, dominio, API implementada y funcionalidades propuestas.
 
-El proyecto expone actualmente una API REST funcional para administrar roles en `/api/roles`. Los módulos Usuario, Estacionamiento y Cajón todavía no cuentan con controladores funcionales y sus servicios permanecen incompletos.
+El proyecto expone APIs REST funcionales para administrar roles en `/api/roles` y estacionamientos en `/api/estacionamientos`. Los módulos Usuario y Cajón todavía no cuentan con controladores funcionales y sus servicios permanecen incompletos.
 
 La autenticación JWT y los endpoints descritos en `docs/` corresponden a una arquitectura objetivo y no están implementados actualmente.
 
@@ -43,12 +43,12 @@ La autenticación, autorización por roles y exposición de estas operaciones me
 |---|---|
 | Java | 21 |
 | Spring Boot | 3.5.15 |
-| Spring Web | API REST del módulo Rol y base para los módulos restantes |
+| Spring Web | API REST de Rol y Estacionamiento, y base para los módulos restantes |
 | Spring Data JPA | Persistencia y repositorios |
 | Hibernate | Implementación JPA |
 | PostgreSQL | Base de datos relacional |
 | Flyway | Versionado y migración del esquema |
-| Jakarta Validation | Validación declarativa implementada en `RolRequest` |
+| Jakarta Validation | Validación declarativa implementada en `RolRequest` y `EstacionamientoRequest` |
 | Lombok | Generación de getters, setters, constructores y builders |
 | Maven | Gestión de dependencias y construcción |
 | Maven Wrapper | Maven 3.9.16 |
@@ -74,9 +74,9 @@ Estado actual de las capas:
 | Entidades | Implementadas |
 | DTOs | Definidos |
 | Repositorios | Definidos con Spring Data JPA |
-| Servicios | Rol implementado; Usuario, Estacionamiento y Cajón incompletos |
-| Controladores | `RolController` implementado |
-| Mappers | `RolMapper` implementado |
+| Servicios | Rol y Estacionamiento implementados; Usuario y Cajón incompletos |
+| Controladores | `RolController` y `EstacionamientoController` implementados |
+| Mappers | `RolMapper` y `EstacionamientoMapper` implementados |
 | Seguridad | No implementada |
 | Manejo global de errores | Implementado mediante `GlobalExceptionHandler` y `ApiError` |
 | Auditoría JPA | Habilitada |
@@ -122,8 +122,10 @@ parkio/
 │   │   │   │   ├── repository/
 │   │   │   │   └── service/
 │   │   │   ├── estacionamiento/
+│   │   │   │   ├── controller/
 │   │   │   │   ├── dto/
 │   │   │   │   ├── entity/
+│   │   │   │   ├── mapper/
 │   │   │   │   ├── repository/
 │   │   │   │   └── service/
 │   │   │   ├── rol/
@@ -148,6 +150,10 @@ parkio/
 │   │       └── banner.txt
 │   └── test/
 │       └── java/com/kasaca/parkio/
+│           ├── estacionamiento/
+│           │   ├── controller/
+│           │   ├── mapper/
+│           │   └── service/
 │           ├── rol/
 │           │   ├── controller/
 │           │   ├── mapper/
@@ -278,8 +284,12 @@ Incluye:
 - `EstacionamientoRepository`.
 - `EstacionamientoService`.
 - `EstacionamientoServiceImpl`.
+- `EstacionamientoMapper`.
+- `EstacionamientoController`.
+- Validaciones de entrada.
+- Pruebas unitarias de mapper, servicio y controlador.
 
-El repositorio utiliza `Long` como tipo de identificador, en concordancia con `BaseEntity`. El servicio todavía no implementa operaciones reales.
+El módulo implementa operaciones para listar, consultar, crear, actualizar y eliminar estacionamientos. Utiliza DTOs, mapper, transacciones y `ResourceNotFoundException` para recursos inexistentes. La eliminación actual es física; una restricción de integridad se traduce a `409 Conflict` mediante el manejador global.
 
 ### Cajón
 
@@ -392,7 +402,7 @@ La URL del repositorio remoto y un procedimiento oficial para aprovisionar Postg
    ./mvnw clean package
    ```
 
-El proyecto contiene una prueba de carga del contexto de Spring y pruebas unitarias para el mapper, servicio y controlador del módulo Rol. Todavía no existe una suite de integración con PostgreSQL.
+El proyecto contiene una prueba de carga del contexto de Spring y pruebas unitarias para mapper, servicio y controlador de Rol y Estacionamiento. Todavía no existe una suite de integración con PostgreSQL.
 
 ## Ejecución Local
 
@@ -414,7 +424,7 @@ Si la conexión con PostgreSQL y las migraciones son correctas, la aplicación i
 http://localhost:8023
 ```
 
-Actualmente están disponibles los endpoints CRUD de roles bajo `/api/roles`. Los endpoints de autenticación, usuarios, estacionamientos y cajones incluidos en `docs/api/parkio-api-v1.md` continúan siendo una propuesta.
+Actualmente están disponibles los endpoints CRUD de roles bajo `/api/roles` y de estacionamientos bajo `/api/estacionamientos`. Los endpoints de autenticación, usuarios y cajones incluidos en `docs/api/parkio-api-v1.md` continúan siendo una propuesta.
 
 También es posible ejecutar el artefacto compilado:
 
@@ -485,7 +495,7 @@ La carpeta `docs/` contiene:
 
 | Documento | Descripción |
 |---|---|
-| `api/parkio-api-v1.md` | Contrato implementado para Rol y propuesta para los módulos restantes |
+| `api/parkio-api-v1.md` | Contrato implementado para Rol y Estacionamiento, y propuesta para los módulos restantes |
 | `architecture/spring-boot-architecture.puml` | Arquitectura objetivo por capas |
 | `architecture/parkio-package-structure.puml` | Organización propuesta de paquetes |
 | `architecture/parkio-jwt-flow.puml` | Flujo propuesto de autenticación JWT |
@@ -497,13 +507,13 @@ La carpeta `docs/` contiene:
 | `sequence/parkio-create-cajon-sequence.puml` | Secuencia propuesta para registrar cajones |
 | `use-cases/mvp-use-cases.md` | Casos de uso iniciales del MVP |
 
-Parte de esta documentación describe componentes futuros. El módulo Rol y el manejo global de errores están implementados; JWT, Spring Security y los controladores de los módulos restantes todavía no existen.
+Parte de esta documentación describe componentes futuros. Los módulos Rol y Estacionamiento y el manejo global de errores están implementados; JWT, Spring Security y los controladores de Usuario y Cajón todavía no existen.
 
 ## Roadmap Futuro
 
 A partir de las brechas entre el código y la documentación, el trabajo pendiente incluye:
 
-- Implementar la lógica de Usuario, Estacionamiento y Cajón.
+- Implementar la lógica de Usuario y Cajón.
 - Registrar sus implementaciones como componentes de Spring.
 - Incorporar sus mappers entre entidades y DTOs.
 - Agregar validación declarativa a sus DTOs de entrada.

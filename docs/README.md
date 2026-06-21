@@ -25,4 +25,4 @@
 
 ## Estado actual
 
-El CRUD REST del módulo Rol y el manejo global de excepciones están implementados. Los flujos de autenticación, Usuario, Estacionamiento y Cajón documentados en esta carpeta continúan como arquitectura objetivo.
+Los módulos Rol y Estacionamiento cuentan con CRUD REST, validaciones, servicios transaccionales, mappers y pruebas unitarias. El manejo global de excepciones está implementado. Los flujos de autenticación, Usuario y Cajón documentados en esta carpeta continúan como arquitectura objetivo.

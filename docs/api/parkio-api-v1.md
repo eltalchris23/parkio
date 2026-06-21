@@ -19,7 +19,7 @@ La autenticación JWT está planificada, pero todavía no está implementada. Lo
 | Rol | CRUD REST implementado |
 | Auth | Propuesto; no implementado |
 | Usuario | Propuesto; no implementado |
-| Estacionamiento | Propuesto; no implementado |
+| Estacionamiento | CRUD REST implementado |
 | Cajón | Propuesto; no implementado |
 
 El siguiente encabezado representa el formato de autenticación previsto para el futuro:
@@ -226,6 +226,56 @@ GET /api/usuarios/{id}
 
 # Módulo Estacionamiento
 
+## Listar Estacionamientos
+
+### Endpoint
+
+```http
+GET /api/estacionamientos
+```
+
+### Response 200
+
+```json
+[
+  {
+    "id": 1,
+    "nombre": "Parkio Centro",
+    "descripcion": "Sucursal Centro Histórico",
+    "latitud": 19.432608,
+    "longitud": -99.133209,
+    "activo": true,
+    "fechaCreacion": "2026-06-21T12:00:00"
+  }
+]
+```
+
+## Consultar Estacionamiento
+
+### Endpoint
+
+```http
+GET /api/estacionamientos/{estacionamientoId}
+```
+
+### Response 200
+
+```json
+{
+  "id": 1,
+  "nombre": "Parkio Centro",
+  "descripcion": "Sucursal Centro Histórico",
+  "latitud": 19.432608,
+  "longitud": -99.133209,
+  "activo": true,
+  "fechaCreacion": "2026-06-21T12:00:00"
+}
+```
+
+### Response 404
+
+Se devuelve cuando el identificador no corresponde a un estacionamiento existente.
+
 ## Crear Estacionamiento
 
 ### Endpoint
@@ -245,42 +295,54 @@ POST /api/estacionamientos
 }
 ```
 
+Validaciones:
+
+- `nombre` es obligatorio y admite hasta 150 caracteres.
+- `descripcion` es opcional y admite hasta 500 caracteres.
+- `latitud` es obligatoria, admite hasta 8 decimales y debe estar entre `-90` y `90`.
+- `longitud` es obligatoria, admite hasta 8 decimales y debe estar entre `-180` y `180`.
+
 ### Response 201
 
-```json
-{
-  "id": 1,
-  "nombre": "Parkio Centro",
-  "descripcion": "Sucursal Centro Histórico",
-  "latitud": 19.432608,
-  "longitud": -99.133209
-}
-```
+Devuelve el estacionamiento creado con el mismo formato de la consulta individual.
 
----
-
-## Listar Estacionamientos
+## Actualizar Estacionamiento
 
 ### Endpoint
 
 ```http
-GET /api/estacionamientos
+PUT /api/estacionamientos/{estacionamientoId}
 ```
+
+Utiliza el mismo cuerpo y las mismas validaciones de la creación.
 
 ### Response 200
 
-```json
-[
-  {
-    "id": 1,
-    "nombre": "Parkio Centro"
-  },
-  {
-    "id": 2,
-    "nombre": "Parkio Reforma"
-  }
-]
+Devuelve el estacionamiento actualizado.
+
+### Response 404
+
+Se devuelve cuando el identificador no corresponde a un estacionamiento existente.
+
+## Eliminar Estacionamiento
+
+### Endpoint
+
+```http
+DELETE /api/estacionamientos/{estacionamientoId}
 ```
+
+### Response 204
+
+La eliminación actual es física y la respuesta no contiene cuerpo.
+
+### Response 404
+
+Se devuelve cuando el identificador no corresponde a un estacionamiento existente.
+
+### Response 409
+
+Se devuelve cuando una relación existente impide eliminar el estacionamiento.
 
 ---
 
