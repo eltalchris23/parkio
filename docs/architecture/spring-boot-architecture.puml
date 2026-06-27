@@ -5,7 +5,7 @@ package "Controller Layer" {
     class RolController <<implementado>>
     class UsuarioController
     class EstacionamientoController <<implementado>>
-    class CajonController
+    class CajonController <<implementado>>
 }
 
 package "Service Layer" {
@@ -13,12 +13,13 @@ package "Service Layer" {
     class RolService <<implementado>>
     class UsuarioService
     class EstacionamientoService <<implementado>>
-    class CajonService
+    class CajonService <<implementado>>
 }
 
 package "Mapper Layer" {
     class RolMapper <<implementado>>
     class EstacionamientoMapper <<implementado>>
+    class CajonMapper <<implementado>>
 }
 
 package "Repository Layer" {
@@ -61,6 +62,8 @@ UsuarioService --> UsuarioRepository
 EstacionamientoService --> EstacionamientoRepository
 EstacionamientoService --> EstacionamientoMapper
 CajonService --> CajonRepository
+CajonService --> EstacionamientoRepository
+CajonService --> CajonMapper
 
 UsuarioRepository --> Usuario
 RolRepository --> Rol

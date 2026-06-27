@@ -2,13 +2,7 @@ package com.kasaca.parkio.cajon.entity;
 
 import com.kasaca.parkio.estacionamiento.entity.Estacionamiento;
 import com.kasaca.parkio.shared.entity.BaseEntity;
-import jakarta.persistence.Column;
-import jakarta.persistence.Entity;
-import jakarta.persistence.FetchType;
-import jakarta.persistence.ForeignKey;
-import jakarta.persistence.JoinColumn;
-import jakarta.persistence.ManyToOne;
-import jakarta.persistence.Table;
+import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
@@ -27,11 +21,14 @@ public class Cajon extends BaseEntity {
     @Column(name = "numero", length = 20, nullable = false)
     private String numero;
 
+    @Enumerated(EnumType.STRING)
     @Column(name = "tipo", length = 30, nullable = false)
-    private String tipo;
+    private TipoCajon tipo;
 
+    @Builder.Default // Garantiza que el estado sea LIBRE cuando se use
+    @Enumerated(EnumType.STRING)
     @Column(name = "estado", length = 30, nullable = false)
-    private String estado;
+    private EstadoCajon estado = EstadoCajon.LIBRE;
 
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "estacionamiento_id", nullable = false, foreignKey = @ForeignKey(name = "fk_cajon_estacionamiento"))

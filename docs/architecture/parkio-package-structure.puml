@@ -26,6 +26,7 @@ usuario --> shared
 estacionamiento --> shared
 estacionamiento --> shared_exception
 cajon --> shared
+cajon --> shared_exception
 rol --> shared
 
 @enduml
@@ -64,7 +65,7 @@ src/main/java/com/parkio
 │   ├── dto
 │   └── mapper
 │
-├── cajon
+├── cajon (implementado)
 │   ├── controller
 │   ├── service
 │   ├── repository

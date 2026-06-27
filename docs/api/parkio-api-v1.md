@@ -20,7 +20,7 @@ La autenticación JWT está planificada, pero todavía no está implementada. Lo
 | Auth | Propuesto; no implementado |
 | Usuario | Propuesto; no implementado |
 | Estacionamiento | CRUD REST implementado |
-| Cajón | Propuesto; no implementado |
+| Cajón | CRUD REST implementado; validaciones declarativas pendientes |
 
 El siguiente encabezado representa el formato de autenticación previsto para el futuro:
 
@@ -348,41 +348,17 @@ Se devuelve cuando una relación existente impide eliminar el estacionamiento.
 
 # Módulo Cajón
 
-## Crear Cajón
-
-### Endpoint
+## Listar Cajones
 
 ```http
-POST /api/cajones
+GET /api/cajones
 ```
 
-### Request
+### Response 200
 
-```json
-{
-  "estacionamientoId": 1,
-  "numero": "A-001",
-  "tipo": "AUTO"
-}
-```
+Devuelve todos los cajones registrados.
 
-### Response 201
-
-```json
-{
-  "id": 1,
-  "estacionamientoId": 1,
-  "numero": "A-001",
-  "tipo": "AUTO",
-  "estado": "LIBRE"
-}
-```
-
----
-
-## Consultar Cajones
-
-### Endpoint
+## Listar Cajones por Estacionamiento
 
 ```http
 GET /api/cajones?estacionamientoId=1
@@ -396,10 +372,109 @@ GET /api/cajones?estacionamientoId=1
     "id": 1,
     "numero": "A-001",
     "tipo": "AUTO",
-    "estado": "LIBRE"
+    "estado": "LIBRE",
+    "estacionamientoId": 1,
+    "activo": true,
+    "fechaCreacion": "2026-06-27T12:00:00"
   }
 ]
 ```
+
+### Response 404
+
+Se devuelve cuando el estacionamiento no existe.
+
+## Consultar Cajón
+
+```http
+GET /api/cajones/{cajonId}
+```
+
+### Response 200
+
+Devuelve el cajón solicitado con el formato anterior.
+
+### Response 404
+
+Se devuelve cuando el cajón no existe.
+
+## Crear Cajón
+
+### Endpoint
+
+```http
+POST /api/cajones
+```
+
+### Request
+
+```json
+{
+  "numero": "A-001",
+  "tipo": "AUTO",
+  "estacionamientoId": 1
+}
+```
+
+Tipos permitidos: `AUTO`, `MOTO`, `DISCAPACITADO` y `ELECTRICO`.
+
+El estado inicial se asigna automáticamente como `LIBRE`. `CajonRequest` todavía no tiene restricciones Jakarta Validation para campos nulos o vacíos.
+
+### Response 201
+
+```json
+{
+  "id": 1,
+  "estacionamientoId": 1,
+  "numero": "A-001",
+  "tipo": "AUTO",
+  "estado": "LIBRE",
+  "activo": true,
+  "fechaCreacion": "2026-06-27T12:00:00"
+}
+```
+
+### Response 404
+
+Se devuelve cuando el estacionamiento no existe.
+
+### Response 409
+
+Se devuelve cuando el número ya existe dentro del estacionamiento.
+
+## Actualizar Cajón
+
+```http
+PUT /api/cajones/{cajonId}
+```
+
+Utiliza el mismo cuerpo de la creación. La actualización conserva el estado actual del cajón.
+
+### Response 200
+
+Devuelve el cajón actualizado.
+
+### Response 404
+
+Se devuelve cuando el cajón o estacionamiento no existe.
+
+### Response 409
+
+Se devuelve cuando el número ya está utilizado por otro cajón del estacionamiento.
+
+## Eliminar Cajón
+
+```http
+DELETE /api/cajones/{cajonId}
+```
+
+### Response 204
+
+La eliminación es física y la respuesta no contiene cuerpo.
+
+### Response 404
+
+Se devuelve cuando el cajón no existe.
 
 ---
 
@@ -419,7 +494,7 @@ GET /api/cajones?estacionamientoId=1
 
 ## Formato de Error Implementado
 
-Las operaciones del módulo Rol utilizan el siguiente formato:
+Las operaciones implementadas utilizan el siguiente formato:
 
 ```json
 {

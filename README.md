@@ -12,14 +12,14 @@ Actualmente, el proyecto contiene:
 - DTOs de entrada y salida.
 - Repositorios Spring Data JPA.
 - Contratos de servicio.
-- CRUD REST completo para los módulos Rol y Estacionamiento.
+- CRUD REST completo para los módulos Rol, Estacionamiento y Cajón.
 - Manejo global de excepciones y validación para las operaciones implementadas.
-- Pruebas unitarias de mapper, servicio y controlador para Rol y Estacionamiento.
-- Implementaciones incompletas para Usuario y Cajón.
+- Pruebas unitarias de mapper, servicio y controlador para Rol, Estacionamiento y Cajón.
+- Implementación incompleta para Usuario.
 - Migraciones iniciales de base de datos.
 - Documentación de arquitectura, dominio, API implementada y funcionalidades propuestas.
 
-El proyecto expone APIs REST funcionales para administrar roles en `/api/roles` y estacionamientos en `/api/estacionamientos`. Los módulos Usuario y Cajón todavía no cuentan con controladores funcionales y sus servicios permanecen incompletos.
+El proyecto expone APIs REST funcionales para administrar roles en `/api/roles`, estacionamientos en `/api/estacionamientos` y cajones en `/api/cajones`. El módulo Usuario todavía no cuenta con controlador funcional y su servicio permanece incompleto.
 
 La autenticación JWT y los endpoints descritos en `docs/` corresponden a una arquitectura objetivo y no están implementados actualmente.
 
@@ -43,7 +43,7 @@ La autenticación, autorización por roles y exposición de estas operaciones me
 |---|---|
 | Java | 21 |
 | Spring Boot | 3.5.15 |
-| Spring Web | API REST de Rol y Estacionamiento, y base para los módulos restantes |
+| Spring Web | API REST de Rol, Estacionamiento y Cajón, y base para Usuario |
 | Spring Data JPA | Persistencia y repositorios |
 | Hibernate | Implementación JPA |
 | PostgreSQL | Base de datos relacional |
@@ -74,9 +74,9 @@ Estado actual de las capas:
 | Entidades | Implementadas |
 | DTOs | Definidos |
 | Repositorios | Definidos con Spring Data JPA |
-| Servicios | Rol y Estacionamiento implementados; Usuario y Cajón incompletos |
-| Controladores | `RolController` y `EstacionamientoController` implementados |
-| Mappers | `RolMapper` y `EstacionamientoMapper` implementados |
+| Servicios | Rol, Estacionamiento y Cajón implementados; Usuario incompleto |
+| Controladores | `RolController`, `EstacionamientoController` y `CajonController` implementados |
+| Mappers | `RolMapper`, `EstacionamientoMapper` y `CajonMapper` implementados |
 | Seguridad | No implementada |
 | Manejo global de errores | Implementado mediante `GlobalExceptionHandler` y `ApiError` |
 | Auditoría JPA | Habilitada |
@@ -117,8 +117,10 @@ parkio/
 │   │   ├── java/com/kasaca/parkio/
 │   │   │   ├── audit/
 │   │   │   ├── cajon/
+│   │   │   │   ├── controller/
 │   │   │   │   ├── dto/
 │   │   │   │   ├── entity/
+│   │   │   │   ├── mapper/
 │   │   │   │   ├── repository/
 │   │   │   │   └── service/
 │   │   │   ├── estacionamiento/
@@ -150,6 +152,10 @@ parkio/
 │   │       └── banner.txt
 │   └── test/
 │       └── java/com/kasaca/parkio/
+│           ├── cajon/
+│           │   ├── controller/
+│           │   ├── mapper/
+│           │   └── service/
 │           ├── estacionamiento/
 │           │   ├── controller/
 │           │   ├── mapper/
@@ -226,7 +232,7 @@ Campos propios:
 - Estado.
 - Estacionamiento propietario.
 
-Actualmente, `tipo` y `estado` se almacenan y modelan como cadenas de texto. La documentación UML propone enumeraciones como `AUTO`, `MOTO`, `LIBRE` u `OCUPADO`, pero esas enumeraciones no existen en el código.
+`tipo` y `estado` se almacenan como `VARCHAR(30)` y se modelan mediante los enums `TipoCajon` y `EstadoCajon`. Los tipos disponibles son `AUTO`, `MOTO`, `DISCAPACITADO` y `ELECTRICO`; los estados disponibles son `LIBRE`, `OCUPADO` y `FUERA_SERVICIO`.
 
 ### Relaciones
 
@@ -300,8 +306,12 @@ Incluye:
 - `CajonRepository`.
 - `CajonService`.
 - `CajonServiceImpl`.
+- `CajonMapper`.
+- `CajonController`.
+- `TipoCajon` y `EstadoCajon`.
+- Pruebas unitarias de mapper, servicio y controlador.
 
-El repositorio utiliza `Long` como tipo de identificador, en concordancia con `BaseEntity`. El servicio todavía no implementa operaciones reales.
+El módulo implementa operaciones para listar, filtrar por estacionamiento, consultar, crear, actualizar y eliminar cajones. Valida la existencia del cajón y del estacionamiento, y evita números duplicados dentro del mismo estacionamiento. `CajonRequest` todavía no tiene anotaciones Jakarta Validation.
 
 ### Auditoría
 
@@ -402,7 +412,7 @@ La URL del repositorio remoto y un procedimiento oficial para aprovisionar Postg
    ./mvnw clean package
    ```
 
-El proyecto contiene una prueba de carga del contexto de Spring y pruebas unitarias para mapper, servicio y controlador de Rol y Estacionamiento. Todavía no existe una suite de integración con PostgreSQL.
+El proyecto contiene una prueba de carga del contexto de Spring y pruebas unitarias para mapper, servicio y controlador de Rol, Estacionamiento y Cajón. Todavía no existe una suite de integración con PostgreSQL.
 
 ## Ejecución Local
 
@@ -424,7 +434,7 @@ Si la conexión con PostgreSQL y las migraciones son correctas, la aplicación i
 http://localhost:8023
 ```
 
-Actualmente están disponibles los endpoints CRUD de roles bajo `/api/roles` y de estacionamientos bajo `/api/estacionamientos`. Los endpoints de autenticación, usuarios y cajones incluidos en `docs/api/parkio-api-v1.md` continúan siendo una propuesta.
+Actualmente están disponibles los endpoints CRUD de roles bajo `/api/roles`, estacionamientos bajo `/api/estacionamientos` y cajones bajo `/api/cajones`. Los endpoints de autenticación y usuarios continúan siendo una propuesta.
 
 También es posible ejecutar el artefacto compilado:
 
@@ -495,7 +505,7 @@ La carpeta `docs/` contiene:
 
 | Documento | Descripción |
 |---|---|
-| `api/parkio-api-v1.md` | Contrato implementado para Rol y Estacionamiento, y propuesta para los módulos restantes |
+| `api/parkio-api-v1.md` | Contrato implementado para Rol, Estacionamiento y Cajón, y propuesta para los módulos restantes |
 | `architecture/spring-boot-architecture.puml` | Arquitectura objetivo por capas |
 | `architecture/parkio-package-structure.puml` | Organización propuesta de paquetes |
 | `architecture/parkio-jwt-flow.puml` | Flujo propuesto de autenticación JWT |
@@ -507,26 +517,24 @@ La carpeta `docs/` contiene:
 | `sequence/parkio-create-cajon-sequence.puml` | Secuencia propuesta para registrar cajones |
 | `use-cases/mvp-use-cases.md` | Casos de uso iniciales del MVP |
 
-Parte de esta documentación describe componentes futuros. Los módulos Rol y Estacionamiento y el manejo global de errores están implementados; JWT, Spring Security y los controladores de Usuario y Cajón todavía no existen.
+Parte de esta documentación describe componentes futuros. Los módulos Rol, Estacionamiento y Cajón y el manejo global de errores están implementados; JWT, Spring Security y el controlador de Usuario todavía no existen.
 
 ## Roadmap Futuro
 
 A partir de las brechas entre el código y la documentación, el trabajo pendiente incluye:
 
-- Implementar la lógica de Usuario y Cajón.
-- Registrar sus implementaciones como componentes de Spring.
-- Incorporar sus mappers entre entidades y DTOs.
-- Agregar validación declarativa a sus DTOs de entrada.
-- Crear sus controladores REST.
+- Implementar la lógica de Usuario.
+- Registrar `UsuarioServiceImpl` como componente de Spring.
+- Incorporar el mapper entre entidades y DTOs de Usuario.
+- Agregar validación declarativa a `CajonRequest` y a los DTOs de Usuario.
+- Crear el controlador REST de Usuario.
 - Incorporar autenticación y autorización.
 - Agregar Spring Security y soporte JWT si se mantiene la arquitectura documentada.
 - Implementar asignación de roles a usuarios.
 - Implementar asignación de usuarios a estacionamientos.
-- Implementar consultas de cajones por estacionamiento.
-- Definir tipos y estados de cajón mediante enums o validaciones equivalentes.
 - Externalizar la configuración sensible.
 - Incorporar perfiles para desarrollo, pruebas y producción.
-- Añadir pruebas para los módulos restantes y pruebas de integración con PostgreSQL.
+- Añadir pruebas para Usuario y pruebas de integración con PostgreSQL.
 - Mantener sincronizados el contrato API y el código implementado.
 
 Este roadmap se deriva de la documentación existente y del estado incompleto del código. No representa funcionalidades ya disponibles.

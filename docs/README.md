@@ -25,4 +25,4 @@
 
 ## Estado actual
 
-Los módulos Rol y Estacionamiento cuentan con CRUD REST, validaciones, servicios transaccionales, mappers y pruebas unitarias. El manejo global de excepciones está implementado. Los flujos de autenticación, Usuario y Cajón documentados en esta carpeta continúan como arquitectura objetivo.
+Los módulos Rol, Estacionamiento y Cajón cuentan con API REST, servicios transaccionales, mappers y pruebas unitarias. Rol y Estacionamiento tienen validaciones declarativas; `CajonRequest` todavía no. El manejo global de excepciones está implementado. Los flujos de autenticación y Usuario continúan como arquitectura objetivo.

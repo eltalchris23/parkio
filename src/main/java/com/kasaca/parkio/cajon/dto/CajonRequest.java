@@ -1,9 +1,10 @@
 package com.kasaca.parkio.cajon.dto;
 
+import com.kasaca.parkio.cajon.entity.TipoCajon;
+
 public record CajonRequest(
         String numero,
-        String tipo,
-        String estado,
+        TipoCajon tipo,
         Long estacionamientoId
 ) {
 }

@@ -1,14 +1,21 @@
 package com.kasaca.parkio.cajon.service;
 
-import com.kasaca.parkio.cajon.entity.Cajon;
+import com.kasaca.parkio.cajon.dto.CajonRequest;
+import com.kasaca.parkio.cajon.dto.CajonResponse;
 
 import java.util.List;
 
 public interface CajonService {
 
-    List<Cajon> getCajones();
-    Cajon getCajon(Long id);
-    Cajon addCajon(Cajon cajon);
-    Cajon updateCajon(Long id, Cajon cajon);
+    List<CajonResponse> getCajones();
+
+    List<CajonResponse> getCajonesByEstacionamientoId(Long estacionamientoId);
+
+    CajonResponse getCajon(Long id);
+
+    CajonResponse addCajon(CajonRequest request);
+
+    CajonResponse updateCajon(Long id,CajonRequest request);
+
     void deleteCajon(Long id);
 }

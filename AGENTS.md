@@ -24,23 +24,23 @@ Parkio es un backend en desarrollo para administrar:
 - Cajones pertenecientes a un estacionamiento.
 - Estado y tipo de los cajones.
 
-El proyecto contiene actualmente el modelo persistente, DTOs, repositorios, contratos de servicio, migraciones y documentación de arquitectura. Los módulos Rol y Estacionamiento cuentan además con mapper, servicio transaccional, controlador REST, validaciones y pruebas unitarias.
+El proyecto contiene actualmente el modelo persistente, DTOs, repositorios, contratos de servicio, migraciones y documentación de arquitectura. Los módulos Rol, Estacionamiento y Cajón cuentan además con mapper, servicio transaccional, controlador REST y pruebas unitarias.
 
-La API REST está implementada para Rol y Estacionamiento. La autenticación JWT, la autorización y la lógica funcional de Usuario y Cajón todavía no están implementadas.
+La API REST está implementada para Rol, Estacionamiento y Cajón. La autenticación JWT, la autorización y la lógica funcional de Usuario todavía no están implementadas.
 
 ## Estado Actual
 
 Antes de realizar cambios, considerar lo siguiente:
 
-- `RolController` y `EstacionamientoController` exponen los CRUD `/api/roles` y `/api/estacionamientos`; no existen controladores para Usuario y Cajón.
+- `RolController`, `EstacionamientoController` y `CajonController` exponen los recursos `/api/roles`, `/api/estacionamientos` y `/api/cajones`; no existe controlador para Usuario.
 - No existe implementación de Spring Security.
 - No existen componentes JWT.
-- `RolMapper` y `EstacionamientoMapper` están implementados; no existen mappers para Usuario y Cajón.
+- `RolMapper`, `EstacionamientoMapper` y `CajonMapper` están implementados; no existe mapper para Usuario.
 - El manejo global de excepciones está implementado mediante `GlobalExceptionHandler` y `ApiError`.
-- `RolRequest` y `EstacionamientoRequest` tienen validaciones Jakarta Validation; los DTOs de Usuario y Cajón aún no.
-- `RolServiceImpl` y `EstacionamientoServiceImpl` están registrados como beans y usan transacciones; los demás servicios permanecen incompletos.
-- Los servicios de Usuario y Cajón devuelven listas vacías o lanzan `UnsupportedOperationException`.
-- Existen pruebas unitarias para mapper, servicio y controlador de Rol y Estacionamiento, además de la prueba de carga del contexto.
+- `RolRequest` y `EstacionamientoRequest` tienen validaciones Jakarta Validation; los DTOs de Usuario y `CajonRequest` aún no.
+- `RolServiceImpl`, `EstacionamientoServiceImpl` y `CajonServiceImpl` están registrados como beans y usan transacciones; Usuario permanece incompleto.
+- `UsuarioServiceImpl` devuelve listas vacías o lanza `UnsupportedOperationException`.
+- Existen pruebas unitarias para mapper, servicio y controlador de Rol, Estacionamiento y Cajón, además de la prueba de carga del contexto.
 - La documentación describe parcialmente una arquitectura futura.
 - Todos los repositorios utilizan `Long` como identificador, en concordancia con `BaseEntity`.
 
@@ -130,7 +130,7 @@ Los componentes compartidos deben colocarse en `shared` únicamente cuando sean 
 
 No se debe crear un paquete genérico para código que pertenece claramente a un dominio.
 
-Los paquetes `auth`, `security`, `common` y `config` aparecen en la arquitectura propuesta, pero no existen actualmente. Los paquetes `controller` y `mapper` ya existen dentro de Rol y Estacionamiento, y las excepciones compartidas se encuentran en `shared.exception`. Las capacidades pendientes solo deben crearse cuando una tarea autorizada requiera implementarlas.
+Los paquetes `auth`, `security`, `common` y `config` aparecen en la arquitectura propuesta, pero no existen actualmente. Los paquetes `controller` y `mapper` ya existen dentro de Rol, Estacionamiento y Cajón, y las excepciones compartidas se encuentran en `shared.exception`. Las capacidades pendientes solo deben crearse cuando una tarea autorizada requiera implementarlas.
 
 ## Convenciones de Nomenclatura
 
@@ -219,7 +219,7 @@ No se debe duplicar manualmente la administración de fechas salvo que exista un
 - `Estacionamiento` y `Cajon`: uno a muchos.
 - `Cajon` y `Estacionamiento`: muchos a uno.
 
-`tipo` y `estado` de `Cajon` son actualmente `String`. Los enums descritos en la documentación UML todavía no existen. No se debe asumir que están implementados.
+`tipo` y `estado` de `Cajon` utilizan `TipoCajon` y `EstadoCajon`, persistidos mediante `EnumType.STRING`. El estado inicial es `LIBRE`.
 
 ## Convenciones para DTOs
 
@@ -246,7 +246,7 @@ Reglas obligatorias:
 - Las relaciones deben representarse mediante identificadores o estructuras explícitas, evitando serializar grafos JPA completos.
 - Los cambios en un DTO documentado deben reflejarse en `docs/api/parkio-api-v1.md`.
 
-Los DTOs actuales no tienen anotaciones Jakarta Validation. La dependencia está disponible, pero su uso todavía debe implementarse.
+`RolRequest` y `EstacionamientoRequest` utilizan Jakarta Validation. `CajonRequest` y los DTOs de Usuario todavía no tienen restricciones declarativas.
 
 ## Convenciones para Repositories
 
@@ -291,13 +291,13 @@ Reglas obligatorias:
 - No se debe usar inyección mediante campos.
 - Una implementación que deba ser administrada por Spring debe registrarse explícitamente como bean, normalmente con `@Service`.
 
-`RolServiceImpl` y `EstacionamientoServiceImpl` son las implementaciones de referencia actuales: utilizan `@Service`, transacciones, dependencias `final` y Lombok `@RequiredArgsConstructor`. Las implementaciones de Usuario y Cajón siguen incompletas y no deben replicarse como referencia.
+`RolServiceImpl`, `EstacionamientoServiceImpl` y `CajonServiceImpl` son las implementaciones de referencia actuales: utilizan `@Service`, transacciones, dependencias `final` y Lombok `@RequiredArgsConstructor`. La implementación de Usuario sigue incompleta y no debe replicarse como referencia.
 
 No se deben modificar las firmas existentes sin evaluar el impacto en documentación, pruebas y futuros controladores.
 
 ## Convenciones para Controllers
 
-Actualmente existen `RolController` y `EstacionamientoController`, que exponen los CRUD `/api/roles` y `/api/estacionamientos`. Usuario y Cajón todavía no tienen controladores.
+Actualmente existen `RolController`, `EstacionamientoController` y `CajonController`. Usuario todavía no tiene controlador.
 
 La documentación propone una API con base:
 
@@ -470,7 +470,7 @@ La documentación técnica se encuentra en `docs/`.
 
 Incluye:
 
-- Contrato implementado de Rol y Estacionamiento, y contratos propuestos para los módulos restantes.
+- Contrato implementado de Rol, Estacionamiento y Cajón, y contratos propuestos para los módulos restantes.
 - Arquitectura por capas.
 - Estructura objetivo de paquetes.
 - Flujo JWT.
