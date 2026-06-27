@@ -20,7 +20,7 @@ La autenticación JWT está planificada, pero todavía no está implementada. Lo
 | Auth | Propuesto; no implementado |
 | Usuario | Propuesto; no implementado |
 | Estacionamiento | CRUD REST implementado |
-| Cajón | CRUD REST implementado; validaciones declarativas pendientes |
+| Cajón | CRUD REST y validaciones implementados |
 
 El siguiente encabezado representa el formato de autenticación previsto para el futuro:
 
@@ -418,7 +418,7 @@ POST /api/cajones
 
 Tipos permitidos: `AUTO`, `MOTO`, `DISCAPACITADO` y `ELECTRICO`.
 
-El estado inicial se asigna automáticamente como `LIBRE`. `CajonRequest` todavía no tiene restricciones Jakarta Validation para campos nulos o vacíos.
+El estado inicial se asigna automáticamente como `LIBRE`. El número y tipo son obligatorios, y el identificador del estacionamiento debe ser un número positivo.
 
 ### Response 201
 

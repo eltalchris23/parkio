@@ -149,6 +149,36 @@ class CajonControllerTest {
     }
 
     @Test
+    void debeRechazarSolicitudInvalida() throws Exception {
+        mockMvc.perform(post("/api/cajones")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "numero": "",
+                                  "tipo": null,
+                                  "estacionamientoId": 0
+                                }
+                                """))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.status").value(400))
+                .andExpect(jsonPath("$.message").value(
+                        "La solicitud contiene datos inválidos"
+                ))
+                .andExpect(jsonPath("$.validationErrors.numero").value(
+                        "El número del cajón es obligatorio"
+                ))
+                .andExpect(jsonPath("$.validationErrors.tipo").value(
+                        "El tipo de cajón es obligatorio"
+                ))
+                .andExpect(jsonPath("$.validationErrors.estacionamientoId")
+                        .value(
+                                "El identificador del estacionamiento debe ser mayor que cero"
+                        ));
+
+        verifyNoInteractions(cajonService);
+    }
+
+    @Test
     void debeRechazarTipoDeCajonInvalido() throws Exception {
         mockMvc.perform(post("/api/cajones")
                         .contentType(MediaType.APPLICATION_JSON)

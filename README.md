@@ -311,7 +311,7 @@ Incluye:
 - `TipoCajon` y `EstadoCajon`.
 - Pruebas unitarias de mapper, servicio y controlador.
 
-El módulo implementa operaciones para listar, filtrar por estacionamiento, consultar, crear, actualizar y eliminar cajones. Valida la existencia del cajón y del estacionamiento, y evita números duplicados dentro del mismo estacionamiento. `CajonRequest` todavía no tiene anotaciones Jakarta Validation.
+El módulo implementa operaciones para listar, filtrar por estacionamiento, consultar, crear, actualizar y eliminar cajones. Valida la existencia del cajón y del estacionamiento, evita números duplicados dentro del mismo estacionamiento y aplica Jakarta Validation en `CajonRequest`.
 
 ### Auditoría
 
@@ -526,7 +526,7 @@ A partir de las brechas entre el código y la documentación, el trabajo pendien
 - Implementar la lógica de Usuario.
 - Registrar `UsuarioServiceImpl` como componente de Spring.
 - Incorporar el mapper entre entidades y DTOs de Usuario.
-- Agregar validación declarativa a `CajonRequest` y a los DTOs de Usuario.
+- Agregar validación declarativa a los DTOs de Usuario.
 - Crear el controlador REST de Usuario.
 - Incorporar autenticación y autorización.
 - Agregar Spring Security y soporte JWT si se mantiene la arquitectura documentada.

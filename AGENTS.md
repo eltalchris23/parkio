@@ -37,7 +37,7 @@ Antes de realizar cambios, considerar lo siguiente:
 - No existen componentes JWT.
 - `RolMapper`, `EstacionamientoMapper` y `CajonMapper` están implementados; no existe mapper para Usuario.
 - El manejo global de excepciones está implementado mediante `GlobalExceptionHandler` y `ApiError`.
-- `RolRequest` y `EstacionamientoRequest` tienen validaciones Jakarta Validation; los DTOs de Usuario y `CajonRequest` aún no.
+- `RolRequest`, `EstacionamientoRequest` y `CajonRequest` tienen validaciones Jakarta Validation; los DTOs de Usuario aún no.
 - `RolServiceImpl`, `EstacionamientoServiceImpl` y `CajonServiceImpl` están registrados como beans y usan transacciones; Usuario permanece incompleto.
 - `UsuarioServiceImpl` devuelve listas vacías o lanza `UnsupportedOperationException`.
 - Existen pruebas unitarias para mapper, servicio y controlador de Rol, Estacionamiento y Cajón, además de la prueba de carga del contexto.
@@ -246,7 +246,7 @@ Reglas obligatorias:
 - Las relaciones deben representarse mediante identificadores o estructuras explícitas, evitando serializar grafos JPA completos.
 - Los cambios en un DTO documentado deben reflejarse en `docs/api/parkio-api-v1.md`.
 
-`RolRequest` y `EstacionamientoRequest` utilizan Jakarta Validation. `CajonRequest` y los DTOs de Usuario todavía no tienen restricciones declarativas.
+`RolRequest`, `EstacionamientoRequest` y `CajonRequest` utilizan Jakarta Validation. Los DTOs de Usuario todavía no tienen restricciones declarativas.
 
 ## Convenciones para Repositories
 
