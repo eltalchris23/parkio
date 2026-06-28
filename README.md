@@ -257,7 +257,7 @@ Cada número de cajón debe ser único dentro de un estacionamiento, de acuerdo 
 Incluye:
 
 - Entidad `Usuario`.
-- `UsuarioRequest` y `UsuarioResponse`.
+- `UsuarioRequest`, `UsuarioRolRequest` y `UsuarioResponse`.
 - `UsuarioRepository`.
 - `UsuarioService`.
 - `UsuarioServiceImpl`.
@@ -269,9 +269,9 @@ Incluye:
 
 El repositorio utiliza `Long` como tipo de identificador, en concordancia con `BaseEntity`.
 
-El módulo implementa operaciones para listar, consultar, crear, actualizar y eliminar usuarios. Valida correos duplicados, utiliza transacciones y nunca incluye `passwordHash` en las respuestas.
+El módulo implementa operaciones para listar, consultar, crear, actualizar y eliminar usuarios, además de asignar y retirar roles. Valida correos duplicados y asignaciones de rol, utiliza transacciones y nunca incluye `passwordHash` en las respuestas.
 
-Todavía no implementa asignación de roles, asignación de estacionamientos, autenticación ni JWT. La creación y la actualización comparten `UsuarioRequest`, por lo que actualmente una actualización exige enviar una contraseña y genera un hash nuevo.
+Todavía no implementa asignación de estacionamientos, autenticación ni JWT. La creación y la actualización comparten `UsuarioRequest`, por lo que actualmente una actualización exige enviar una contraseña y genera un hash nuevo.
 
 ### Rol
 
@@ -534,7 +534,6 @@ A partir de las brechas entre el código y la documentación, el trabajo pendien
 
 - Incorporar autenticación y autorización.
 - Agregar Spring Security y soporte JWT si se mantiene la arquitectura documentada.
-- Implementar asignación de roles a usuarios.
 - Implementar asignación de usuarios a estacionamientos.
 - Separar los DTOs de creación y actualización de Usuario para permitir actualizar datos sin exigir una contraseña nueva.
 - Externalizar la configuración sensible.

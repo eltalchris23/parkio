@@ -1,9 +1,12 @@
 package com.kasaca.parkio.usuario.service;
 
+import com.kasaca.parkio.rol.entity.Rol;
+import com.kasaca.parkio.rol.repository.RolRepository;
 import com.kasaca.parkio.shared.exception.ConflictException;
 import com.kasaca.parkio.shared.exception.ResourceNotFoundException;
 import com.kasaca.parkio.usuario.dto.UsuarioRequest;
 import com.kasaca.parkio.usuario.dto.UsuarioResponse;
+import com.kasaca.parkio.usuario.dto.UsuarioRolRequest;
 import com.kasaca.parkio.usuario.entity.Usuario;
 import com.kasaca.parkio.usuario.mapper.UsuarioMapper;
 import com.kasaca.parkio.usuario.repository.UsuarioRepository;
@@ -32,6 +35,9 @@ class UsuarioServiceImplTest {
 
     @Mock
     private UsuarioRepository usuarioRepository;
+
+    @Mock
+    private RolRepository rolRepository;
 
     @Mock
     private UsuarioMapper usuarioMapper;
@@ -198,6 +204,105 @@ class UsuarioServiceImplTest {
     }
 
     /**
+     * Verifica que un rol existente se agregue al usuario y se devuelva la
+     * respuesta actualizada.
+     */
+    @Test
+    void debeAsignarRolAUsuario() {
+        Usuario usuario = crearUsuario();
+        Rol rol = crearRol();
+        UsuarioRolRequest request = new UsuarioRolRequest(2L);
+        UsuarioResponse response = crearResponse();
+
+        when(usuarioRepository.findById(1L)).thenReturn(Optional.of(usuario));
+        when(rolRepository.findById(2L)).thenReturn(Optional.of(rol));
+        when(usuarioRepository.save(usuario)).thenReturn(usuario);
+        when(usuarioMapper.toResponse(usuario)).thenReturn(response);
+
+        UsuarioResponse resultado = usuarioService.assignRole(1L, request);
+
+        assertThat(resultado).isEqualTo(response);
+        assertThat(usuario.getRoles()).containsExactly(rol);
+        verify(usuarioRepository).save(usuario);
+    }
+
+    /**
+     * Comprueba que la asignación sea rechazada cuando otro objeto Rol con el
+     * mismo identificador ya está asociado al usuario.
+     */
+    @Test
+    void debeRechazarRolDuplicadoPorIdentificador() {
+        Usuario usuario = crearUsuario();
+        Rol rolAsignado = crearRol();
+        Rol rolEncontrado = crearRol();
+        usuario.getRoles().add(rolAsignado);
+
+        when(usuarioRepository.findById(1L)).thenReturn(Optional.of(usuario));
+        when(rolRepository.findById(2L)).thenReturn(Optional.of(rolEncontrado));
+
+        assertThatThrownBy(() -> usuarioService.assignRole(1L, new UsuarioRolRequest(2L)))
+                .isInstanceOf(ConflictException.class)
+                .hasMessage("El usuario con identificador '1' ya tiene asignado el rol 'ADMIN'");
+
+        verify(usuarioRepository, never()).save(any());
+    }
+
+    /**
+     * Confirma que no se modifique el usuario cuando el rol solicitado no existe.
+     */
+    @Test
+    void debeRechazarAsignacionCuandoRolNoExiste() {
+        Usuario usuario = crearUsuario();
+        when(usuarioRepository.findById(1L)).thenReturn(Optional.of(usuario));
+        when(rolRepository.findById(99L)).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> usuarioService.assignRole(1L, new UsuarioRolRequest(99L)))
+                .isInstanceOf(ResourceNotFoundException.class)
+                .hasMessage("Rol con identificador '99' no fue encontrado");
+
+        verify(usuarioRepository, never()).save(any());
+    }
+
+    /**
+     * Verifica que el retiro elimine la relación comparando identificadores,
+     * incluso cuando las instancias de Rol sean distintas.
+     */
+    @Test
+    void debeRetirarRolPorIdentificador() {
+        Usuario usuario = crearUsuario();
+        Rol rolAsignado = crearRol();
+        Rol rolEncontrado = crearRol();
+        usuario.getRoles().add(rolAsignado);
+
+        when(usuarioRepository.findById(1L)).thenReturn(Optional.of(usuario));
+        when(rolRepository.findById(2L)).thenReturn(Optional.of(rolEncontrado));
+
+        usuarioService.removeRole(1L, 2L);
+
+        assertThat(usuario.getRoles()).isEmpty();
+        verify(usuarioRepository).save(usuario);
+    }
+
+    /**
+     * Comprueba que retirar un rol no asignado produzca un conflicto y no guarde
+     * cambios en el usuario.
+     */
+    @Test
+    void debeRechazarRetiroDeRolNoAsignado() {
+        Usuario usuario = crearUsuario();
+        Rol rol = crearRol();
+
+        when(usuarioRepository.findById(1L)).thenReturn(Optional.of(usuario));
+        when(rolRepository.findById(2L)).thenReturn(Optional.of(rol));
+
+        assertThatThrownBy(() -> usuarioService.removeRole(1L, 2L))
+                .isInstanceOf(ConflictException.class)
+                .hasMessage("El usuario con identificador '1' no tiene asignado el rol 'ADMIN'");
+
+        verify(usuarioRepository, never()).save(any());
+    }
+
+    /**
      * Construye una solicitud válida reutilizable por las pruebas del servicio.
      */
     private UsuarioRequest crearRequest() {
@@ -217,6 +322,17 @@ class UsuarioServiceImplTest {
         usuario.setActivo(true);
         usuario.setFechaCreacion(LocalDateTime.of(2026, 6, 28, 12, 0));
         return usuario;
+    }
+
+    /**
+     * Construye un rol válido reutilizable por las pruebas de asignación.
+     */
+    private Rol crearRol() {
+        Rol rol = new Rol();
+        rol.setId(2L);
+        rol.setNombre("ADMIN");
+        rol.setActivo(true);
+        return rol;
     }
 
     /**

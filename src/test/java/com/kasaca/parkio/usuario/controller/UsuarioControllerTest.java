@@ -7,6 +7,7 @@ import com.kasaca.parkio.shared.exception.GlobalExceptionHandler;
 import com.kasaca.parkio.shared.exception.ResourceNotFoundException;
 import com.kasaca.parkio.usuario.dto.UsuarioRequest;
 import com.kasaca.parkio.usuario.dto.UsuarioResponse;
+import com.kasaca.parkio.usuario.dto.UsuarioRolRequest;
 import com.kasaca.parkio.usuario.service.UsuarioService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -219,6 +220,101 @@ class UsuarioControllerTest {
                 .andExpect(content().string(""));
 
         verify(usuarioService).deleteUser(1L);
+    }
+
+    /**
+     * Verifica que una solicitud válida asigne un rol y devuelva el usuario
+     * actualizado.
+     */
+    @Test
+    void debeAsignarRolAUsuario() throws Exception {
+        UsuarioRolRequest request = new UsuarioRolRequest(2L);
+        UsuarioResponse response = crearResponse();
+        when(usuarioService.assignRole(1L, request)).thenReturn(response);
+
+        mockMvc.perform(post("/api/usuarios/1/roles")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.id").value(1L))
+                .andExpect(jsonPath("$.roles[0]").value("ADMIN"));
+
+        verify(usuarioService).assignRole(1L, request);
+    }
+
+    /**
+     * Comprueba que un identificador de rol nulo sea rechazado antes de invocar
+     * al servicio.
+     */
+    @Test
+    void debeRechazarAsignacionSinRolId() throws Exception {
+        mockMvc.perform(post("/api/usuarios/1/roles")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "rolId": null
+                                }
+                                """))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.status").value(400))
+                .andExpect(jsonPath("$.validationErrors.rolId")
+                        .value("El identificador del rol es obligatorio"));
+
+        verifyNoInteractions(usuarioService);
+    }
+
+    /**
+     * Verifica que un identificador de rol no positivo sea rechazado por la
+     * validación declarativa.
+     */
+    @Test
+    void debeRechazarRolIdNoPositivo() throws Exception {
+        mockMvc.perform(post("/api/usuarios/1/roles")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "rolId": 0
+                                }
+                                """))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.status").value(400))
+                .andExpect(jsonPath("$.validationErrors.rolId")
+                        .value("El identificador del rol debe ser mayor que cero"));
+
+        verifyNoInteractions(usuarioService);
+    }
+
+    /**
+     * Comprueba que una asignación duplicada sea traducida a estado HTTP 409.
+     */
+    @Test
+    void debeResponderConflictCuandoRolYaEstaAsignado() throws Exception {
+        UsuarioRolRequest request = new UsuarioRolRequest(2L);
+        when(usuarioService.assignRole(1L, request)).thenThrow(
+                new ConflictException(
+                        "El usuario con identificador '1' ya tiene asignado el rol 'ADMIN'"
+                )
+        );
+
+        mockMvc.perform(post("/api/usuarios/1/roles")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.status").value(409))
+                .andExpect(jsonPath("$.message")
+                        .value("El usuario con identificador '1' ya tiene asignado el rol 'ADMIN'"));
+    }
+
+    /**
+     * Verifica que retirar un rol asignado responda sin contenido.
+     */
+    @Test
+    void debeRetirarRolDeUsuario() throws Exception {
+        mockMvc.perform(delete("/api/usuarios/1/roles/2"))
+                .andExpect(status().isNoContent())
+                .andExpect(content().string(""));
+
+        verify(usuarioService).removeRole(1L, 2L);
     }
 
     /**

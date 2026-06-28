@@ -2,6 +2,7 @@ package com.kasaca.parkio.usuario.controller;
 
 import com.kasaca.parkio.usuario.dto.UsuarioRequest;
 import com.kasaca.parkio.usuario.dto.UsuarioResponse;
+import com.kasaca.parkio.usuario.dto.UsuarioRolRequest;
 import com.kasaca.parkio.usuario.service.UsuarioService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -83,5 +84,29 @@ public class UsuarioController {
     @ResponseStatus(HttpStatus.NO_CONTENT)
     public void deleteUser(@PathVariable Long usuarioId) {
         usuarioService.deleteUser(usuarioId);
+    }
+
+    /**
+     * Asigna un rol existente a un usuario.
+     *
+     * @param usuarioId identificador del usuario que recibirá el rol
+     * @param request solicitud que contiene el identificador del rol
+     * @return usuario con su lista de roles actualizada
+     */
+    @PostMapping("/{usuarioId}/roles")
+    public UsuarioResponse assignRole(@PathVariable Long usuarioId, @Valid @RequestBody UsuarioRolRequest request) {
+        return usuarioService.assignRole(usuarioId, request);
+    }
+
+    /**
+     * Retira un rol previamente asignado a un usuario.
+     *
+     * @param usuarioId identificador del usuario
+     * @param rolId identificador del rol que se retirará
+     */
+    @DeleteMapping("/{usuarioId}/roles/{rolId}")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void removeRole(@PathVariable Long usuarioId, @PathVariable Long rolId) {
+        usuarioService.removeRole(usuarioId, rolId);
     }
 }

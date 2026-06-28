@@ -26,7 +26,7 @@ Parkio es un backend en desarrollo para administrar:
 
 El proyecto contiene actualmente el modelo persistente, DTOs, repositorios, contratos de servicio, migraciones y documentación de arquitectura. Los módulos Rol, Estacionamiento, Cajón y Usuario cuentan además con mapper, servicio transaccional, controlador REST y pruebas unitarias.
 
-La API REST está implementada para Rol, Estacionamiento, Cajón y Usuario. La autenticación JWT, la autorización y las operaciones de asignación de roles y estacionamientos a usuarios todavía no están implementadas.
+La API REST está implementada para Rol, Estacionamiento, Cajón y Usuario. Usuario permite asignar y retirar roles. La autenticación JWT, la autorización y las operaciones de asignación de estacionamientos a usuarios todavía no están implementadas.
 
 ## Estado Actual
 
@@ -37,11 +37,11 @@ Antes de realizar cambios, considerar lo siguiente:
 - No existen componentes JWT.
 - `RolMapper`, `EstacionamientoMapper`, `CajonMapper` y `UsuarioMapper` están implementados.
 - El manejo global de excepciones está implementado mediante `GlobalExceptionHandler` y `ApiError`.
-- `RolRequest`, `EstacionamientoRequest`, `CajonRequest`, `CajonEstadoRequest` y `UsuarioRequest` tienen validaciones Jakarta Validation.
+- `RolRequest`, `EstacionamientoRequest`, `CajonRequest`, `CajonEstadoRequest`, `UsuarioRequest` y `UsuarioRolRequest` tienen validaciones Jakarta Validation.
 - `RolServiceImpl`, `EstacionamientoServiceImpl`, `CajonServiceImpl` y `UsuarioServiceImpl` están registrados como beans y usan transacciones.
 - `UsuarioServiceImpl` valida correos duplicados y genera hashes BCrypt mediante `PasswordEncoder`.
 - Existen pruebas unitarias para mapper, servicio y controlador de Rol, Estacionamiento, Cajón y Usuario, además de la prueba de carga del contexto.
-- Usuario aún no permite asignar roles ni estacionamientos. Creación y actualización utilizan el mismo DTO, por lo que actualizar exige una contraseña nueva.
+- Usuario permite asignar y retirar roles mediante la relación existente `usuario_rol`, pero aún no permite asignar estacionamientos. Creación y actualización utilizan el mismo DTO, por lo que actualizar exige una contraseña nueva.
 - La documentación describe parcialmente una arquitectura futura.
 - Todos los repositorios utilizan `Long` como identificador, en concordancia con `BaseEntity`.
 
@@ -247,7 +247,7 @@ Reglas obligatorias:
 - Las relaciones deben representarse mediante identificadores o estructuras explícitas, evitando serializar grafos JPA completos.
 - Los cambios en un DTO documentado deben reflejarse en `docs/api/parkio-api-v1.md`.
 
-`RolRequest`, `EstacionamientoRequest`, `CajonRequest`, `CajonEstadoRequest` y `UsuarioRequest` utilizan Jakarta Validation.
+`RolRequest`, `EstacionamientoRequest`, `CajonRequest`, `CajonEstadoRequest`, `UsuarioRequest` y `UsuarioRolRequest` utilizan Jakarta Validation.
 
 ## Convenciones para Repositories
 
@@ -369,7 +369,7 @@ El formato estándar actual incluye fecha y hora, estado HTTP, descripción, men
 
 ## Validaciones
 
-El proyecto incluye `spring-boot-starter-validation`. `RolRequest`, `EstacionamientoRequest`, `CajonRequest`, `CajonEstadoRequest` y `UsuarioRequest` tienen restricciones declarativas acordes con sus contratos actuales.
+El proyecto incluye `spring-boot-starter-validation`. `RolRequest`, `EstacionamientoRequest`, `CajonRequest`, `CajonEstadoRequest`, `UsuarioRequest` y `UsuarioRolRequest` tienen restricciones declarativas acordes con sus contratos actuales.
 
 Cuando se implemente validación:
 
