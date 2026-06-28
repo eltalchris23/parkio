@@ -7,6 +7,7 @@ import com.kasaca.parkio.shared.exception.GlobalExceptionHandler;
 import com.kasaca.parkio.shared.exception.ResourceNotFoundException;
 import com.kasaca.parkio.usuario.dto.UsuarioRequest;
 import com.kasaca.parkio.usuario.dto.UsuarioResponse;
+import com.kasaca.parkio.usuario.dto.UsuarioEstacionamientoRequest;
 import com.kasaca.parkio.usuario.dto.UsuarioRolRequest;
 import com.kasaca.parkio.usuario.service.UsuarioService;
 import org.junit.jupiter.api.BeforeEach;
@@ -318,6 +319,78 @@ class UsuarioControllerTest {
     }
 
     /**
+     * Verifica que una solicitud válida asigne un estacionamiento y devuelva el
+     * usuario actualizado.
+     */
+    @Test
+    void debeAsignarEstacionamientoAUsuario() throws Exception {
+        UsuarioEstacionamientoRequest request = new UsuarioEstacionamientoRequest(3L);
+        UsuarioResponse response = crearResponse();
+        when(usuarioService.assignEstacionamiento(1L, request)).thenReturn(response);
+
+        mockMvc.perform(post("/api/usuarios/1/estacionamientos")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.id").value(1L))
+                .andExpect(jsonPath("$.estacionamientoIds[0]").value(3L));
+
+        verify(usuarioService).assignEstacionamiento(1L, request);
+    }
+
+    /**
+     * Comprueba que un identificador de estacionamiento nulo sea rechazado antes
+     * de invocar al servicio.
+     */
+    @Test
+    void debeRechazarAsignacionSinEstacionamientoId() throws Exception {
+        mockMvc.perform(post("/api/usuarios/1/estacionamientos")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "estacionamientoId": null
+                                }
+                                """))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.status").value(400))
+                .andExpect(jsonPath("$.validationErrors.estacionamientoId")
+                        .value("El identificador del estacionamiento es obligatorio"));
+
+        verifyNoInteractions(usuarioService);
+    }
+
+    /**
+     * Verifica que una asignación duplicada se traduzca a estado HTTP 409.
+     */
+    @Test
+    void debeResponderConflictCuandoEstacionamientoYaEstaAsignado() throws Exception {
+        UsuarioEstacionamientoRequest request = new UsuarioEstacionamientoRequest(3L);
+        when(usuarioService.assignEstacionamiento(1L, request)).thenThrow(
+                new ConflictException(
+                        "El usuario con identificador '1' ya tiene asignado el estacionamiento 'Parkio Centro'"
+                )
+        );
+
+        mockMvc.perform(post("/api/usuarios/1/estacionamientos")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.status").value(409));
+    }
+
+    /**
+     * Verifica que retirar un estacionamiento asignado responda sin contenido.
+     */
+    @Test
+    void debeRetirarEstacionamientoDeUsuario() throws Exception {
+        mockMvc.perform(delete("/api/usuarios/1/estacionamientos/3"))
+                .andExpect(status().isNoContent())
+                .andExpect(content().string(""));
+
+        verify(usuarioService).removeEstacionamiento(1L, 3L);
+    }
+
+    /**
      * Construye una solicitud válida reutilizable por las pruebas del controlador.
      */
     private UsuarioRequest crearRequest() {
@@ -329,6 +402,6 @@ class UsuarioControllerTest {
      */
     private UsuarioResponse crearResponse() {
         return new UsuarioResponse(1L, "Christian", "Salazar", "christian@parkio.com", true,
-                LocalDateTime.of(2026, 6, 28, 12, 0), Set.of("ADMIN"));
+                LocalDateTime.of(2026, 6, 28, 12, 0), Set.of("ADMIN"), Set.of(3L));
     }
 }

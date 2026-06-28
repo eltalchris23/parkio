@@ -1,5 +1,6 @@
 package com.kasaca.parkio.usuario.mapper;
 
+import com.kasaca.parkio.estacionamiento.entity.Estacionamiento;
 import com.kasaca.parkio.rol.entity.Rol;
 import com.kasaca.parkio.usuario.dto.UsuarioRequest;
 import com.kasaca.parkio.usuario.dto.UsuarioResponse;
@@ -42,6 +43,9 @@ class UsuarioMapperTest {
         Rol rol = new Rol();
         rol.setNombre("ADMIN");
         usuario.getRoles().add(rol);
+        Estacionamiento estacionamiento = new Estacionamiento();
+        estacionamiento.setId(3L);
+        usuario.getEstacionamientos().add(estacionamiento);
 
         UsuarioRequest request = new UsuarioRequest("Nuevo", "Nombre", "nuevo@parkio.com", "otra-clave");
 
@@ -52,6 +56,7 @@ class UsuarioMapperTest {
         assertThat(usuario.getEmail()).isEqualTo("nuevo@parkio.com");
         assertThat(usuario.getPasswordHash()).isEqualTo("hash-actualizado");
         assertThat(usuario.getRoles()).containsExactly(rol);
+        assertThat(usuario.getEstacionamientos()).containsExactly(estacionamiento);
     }
 
     /**
@@ -64,6 +69,9 @@ class UsuarioMapperTest {
         Rol rol = new Rol();
         rol.setNombre("ADMIN");
         usuario.getRoles().add(rol);
+        Estacionamiento estacionamiento = new Estacionamiento();
+        estacionamiento.setId(3L);
+        usuario.getEstacionamientos().add(estacionamiento);
 
         UsuarioResponse response = usuarioMapper.toResponse(usuario);
 
@@ -74,6 +82,7 @@ class UsuarioMapperTest {
         assertThat(response.activo()).isTrue();
         assertThat(response.fechaCreacion()).isEqualTo(usuario.getFechaCreacion());
         assertThat(response.roles()).containsExactly("ADMIN");
+        assertThat(response.estacionamientoIds()).containsExactly(3L);
     }
 
     /**

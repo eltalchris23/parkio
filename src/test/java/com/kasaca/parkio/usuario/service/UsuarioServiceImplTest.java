@@ -1,11 +1,14 @@
 package com.kasaca.parkio.usuario.service;
 
+import com.kasaca.parkio.estacionamiento.entity.Estacionamiento;
+import com.kasaca.parkio.estacionamiento.repository.EstacionamientoRepository;
 import com.kasaca.parkio.rol.entity.Rol;
 import com.kasaca.parkio.rol.repository.RolRepository;
 import com.kasaca.parkio.shared.exception.ConflictException;
 import com.kasaca.parkio.shared.exception.ResourceNotFoundException;
 import com.kasaca.parkio.usuario.dto.UsuarioRequest;
 import com.kasaca.parkio.usuario.dto.UsuarioResponse;
+import com.kasaca.parkio.usuario.dto.UsuarioEstacionamientoRequest;
 import com.kasaca.parkio.usuario.dto.UsuarioRolRequest;
 import com.kasaca.parkio.usuario.entity.Usuario;
 import com.kasaca.parkio.usuario.mapper.UsuarioMapper;
@@ -38,6 +41,9 @@ class UsuarioServiceImplTest {
 
     @Mock
     private RolRepository rolRepository;
+
+    @Mock
+    private EstacionamientoRepository estacionamientoRepository;
 
     @Mock
     private UsuarioMapper usuarioMapper;
@@ -303,6 +309,108 @@ class UsuarioServiceImplTest {
     }
 
     /**
+     * Verifica que un estacionamiento existente se asigne al usuario y se
+     * devuelva la respuesta actualizada.
+     */
+    @Test
+    void debeAsignarEstacionamientoAUsuario() {
+        Usuario usuario = crearUsuario();
+        Estacionamiento estacionamiento = crearEstacionamiento();
+        UsuarioEstacionamientoRequest request = new UsuarioEstacionamientoRequest(3L);
+        UsuarioResponse response = crearResponse();
+
+        when(usuarioRepository.findById(1L)).thenReturn(Optional.of(usuario));
+        when(estacionamientoRepository.findById(3L)).thenReturn(Optional.of(estacionamiento));
+        when(usuarioRepository.save(usuario)).thenReturn(usuario);
+        when(usuarioMapper.toResponse(usuario)).thenReturn(response);
+
+        UsuarioResponse resultado = usuarioService.assignEstacionamiento(1L, request);
+
+        assertThat(resultado).isEqualTo(response);
+        assertThat(usuario.getEstacionamientos()).containsExactly(estacionamiento);
+        verify(usuarioRepository).save(usuario);
+    }
+
+    /**
+     * Comprueba que se rechace un estacionamiento duplicado comparando su
+     * identificador y que no se guarden cambios.
+     */
+    @Test
+    void debeRechazarEstacionamientoDuplicadoPorIdentificador() {
+        Usuario usuario = crearUsuario();
+        usuario.getEstacionamientos().add(crearEstacionamiento());
+        Estacionamiento estacionamientoEncontrado = crearEstacionamiento();
+
+        when(usuarioRepository.findById(1L)).thenReturn(Optional.of(usuario));
+        when(estacionamientoRepository.findById(3L)).thenReturn(Optional.of(estacionamientoEncontrado));
+
+        assertThatThrownBy(() -> usuarioService.assignEstacionamiento(
+                1L,
+                new UsuarioEstacionamientoRequest(3L)
+        ))
+                .isInstanceOf(ConflictException.class)
+                .hasMessage("El usuario con identificador '1' ya tiene asignado el estacionamiento 'Parkio Centro'");
+
+        verify(usuarioRepository, never()).save(any());
+    }
+
+    /**
+     * Confirma que un estacionamiento inexistente produzca una excepción 404.
+     */
+    @Test
+    void debeRechazarAsignacionCuandoEstacionamientoNoExiste() {
+        Usuario usuario = crearUsuario();
+        when(usuarioRepository.findById(1L)).thenReturn(Optional.of(usuario));
+        when(estacionamientoRepository.findById(99L)).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> usuarioService.assignEstacionamiento(
+                1L,
+                new UsuarioEstacionamientoRequest(99L)
+        ))
+                .isInstanceOf(ResourceNotFoundException.class)
+                .hasMessage("Estacionamiento con identificador '99' no fue encontrado");
+
+        verify(usuarioRepository, never()).save(any());
+    }
+
+    /**
+     * Verifica que se retire un estacionamiento por identificador aunque la
+     * instancia recuperada sea diferente a la asociada.
+     */
+    @Test
+    void debeRetirarEstacionamientoPorIdentificador() {
+        Usuario usuario = crearUsuario();
+        usuario.getEstacionamientos().add(crearEstacionamiento());
+        Estacionamiento estacionamientoEncontrado = crearEstacionamiento();
+
+        when(usuarioRepository.findById(1L)).thenReturn(Optional.of(usuario));
+        when(estacionamientoRepository.findById(3L)).thenReturn(Optional.of(estacionamientoEncontrado));
+
+        usuarioService.removeEstacionamiento(1L, 3L);
+
+        assertThat(usuario.getEstacionamientos()).isEmpty();
+        verify(usuarioRepository).save(usuario);
+    }
+
+    /**
+     * Comprueba que retirar un estacionamiento no asignado produzca un conflicto.
+     */
+    @Test
+    void debeRechazarRetiroDeEstacionamientoNoAsignado() {
+        Usuario usuario = crearUsuario();
+        Estacionamiento estacionamiento = crearEstacionamiento();
+
+        when(usuarioRepository.findById(1L)).thenReturn(Optional.of(usuario));
+        when(estacionamientoRepository.findById(3L)).thenReturn(Optional.of(estacionamiento));
+
+        assertThatThrownBy(() -> usuarioService.removeEstacionamiento(1L, 3L))
+                .isInstanceOf(ConflictException.class)
+                .hasMessage("El usuario con identificador '1' no tiene asignado el estacionamiento 'Parkio Centro'");
+
+        verify(usuarioRepository, never()).save(any());
+    }
+
+    /**
      * Construye una solicitud válida reutilizable por las pruebas del servicio.
      */
     private UsuarioRequest crearRequest() {
@@ -336,10 +444,21 @@ class UsuarioServiceImplTest {
     }
 
     /**
+     * Construye un estacionamiento válido para las pruebas de asignación.
+     */
+    private Estacionamiento crearEstacionamiento() {
+        Estacionamiento estacionamiento = new Estacionamiento();
+        estacionamiento.setId(3L);
+        estacionamiento.setNombre("Parkio Centro");
+        estacionamiento.setActivo(true);
+        return estacionamiento;
+    }
+
+    /**
      * Construye una respuesta pública reutilizable por las pruebas del servicio.
      */
     private UsuarioResponse crearResponse() {
         return new UsuarioResponse(1L, "Christian", "Salazar", "christian@parkio.com", true,
-                LocalDateTime.of(2026, 6, 28, 12, 0), Set.of());
+                LocalDateTime.of(2026, 6, 28, 12, 0), Set.of(), Set.of());
     }
 }

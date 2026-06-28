@@ -18,7 +18,7 @@ La autenticación JWT está planificada, pero todavía no está implementada. Lo
 |---|---|
 | Rol | CRUD REST implementado |
 | Auth | Propuesto; no implementado |
-| Usuario | CRUD REST, roles, validaciones y hash BCrypt implementados |
+| Usuario | CRUD REST, roles, estacionamientos, validaciones y hash BCrypt implementados |
 | Estacionamiento | CRUD REST implementado |
 | Cajón | CRUD REST y validaciones implementados |
 
@@ -171,11 +171,10 @@ La eliminación actual es física y la respuesta no contiene cuerpo.
 
 # Módulo Usuario
 
-El CRUD de Usuario y la asignación de roles están implementados bajo `/api/usuarios`. Las contraseñas se transforman en hashes BCrypt y nunca se incluyen en las respuestas.
+El CRUD de Usuario y la asignación de roles y estacionamientos están implementados bajo `/api/usuarios`. Las contraseñas se transforman en hashes BCrypt y nunca se incluyen en las respuestas.
 
 Limitaciones actuales:
 
-- No existe asignación de estacionamientos a usuarios.
 - No existe autenticación ni JWT.
 - Creación y actualización utilizan `UsuarioRequest`; por ello, actualizar exige enviar una contraseña y genera un hash nuevo.
 
@@ -198,7 +197,8 @@ GET /api/usuarios
     "email": "juan@parkio.com",
     "activo": true,
     "fechaCreacion": "2026-06-28T12:00:00",
-    "roles": []
+    "roles": [],
+    "estacionamientoIds": []
   }
 ]
 ```
@@ -234,7 +234,8 @@ POST /api/usuarios
   "email": "juan@parkio.com",
   "activo": true,
   "fechaCreacion": "2026-06-28T12:00:00",
-  "roles": []
+  "roles": [],
+  "estacionamientoIds": []
 }
 ```
 
@@ -263,7 +264,8 @@ GET /api/usuarios/{id}
   "email": "juan@parkio.com",
   "activo": true,
   "fechaCreacion": "2026-06-28T12:00:00",
-  "roles": []
+  "roles": [],
+  "estacionamientoIds": []
 }
 ```
 
@@ -366,6 +368,53 @@ Sin cuerpo de respuesta.
 
 - `404 Not Found`: el usuario o el rol no existe.
 - `409 Conflict`: el usuario no tiene asignado el rol.
+
+---
+
+## Asignar Estacionamiento a Usuario
+
+### Endpoint
+
+```http
+POST /api/usuarios/{usuarioId}/estacionamientos
+```
+
+### Request
+
+```json
+{
+  "estacionamientoId": 1
+}
+```
+
+### Response 200
+
+Devuelve el `UsuarioResponse` actualizado, incluyendo el identificador dentro de `estacionamientoIds`.
+
+### Respuestas de error
+
+- `400 Bad Request`: `estacionamientoId` es nulo o no es positivo.
+- `404 Not Found`: el usuario o el estacionamiento no existe.
+- `409 Conflict`: el usuario ya tiene asignado el estacionamiento.
+
+---
+
+## Retirar Estacionamiento de Usuario
+
+### Endpoint
+
+```http
+DELETE /api/usuarios/{usuarioId}/estacionamientos/{estacionamientoId}
+```
+
+### Response 204
+
+Sin cuerpo de respuesta.
+
+### Respuestas de error
+
+- `404 Not Found`: el usuario o el estacionamiento no existe.
+- `409 Conflict`: el usuario no tiene asignado el estacionamiento.
 
 ---
 

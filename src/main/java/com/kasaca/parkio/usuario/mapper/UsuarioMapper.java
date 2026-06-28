@@ -1,5 +1,6 @@
 package com.kasaca.parkio.usuario.mapper;
 
+import com.kasaca.parkio.estacionamiento.entity.Estacionamiento;
 import com.kasaca.parkio.rol.entity.Rol;
 import com.kasaca.parkio.usuario.dto.UsuarioRequest;
 import com.kasaca.parkio.usuario.dto.UsuarioResponse;
@@ -54,6 +55,11 @@ public class UsuarioMapper {
                 .map(Rol::getNombre)
                 .collect(Collectors.toSet());
 
+        Set<Long> estacionamientoIds = usuario.getEstacionamientos()
+                .stream()
+                .map(Estacionamiento::getId)
+                .collect(Collectors.toSet());
+
         return new UsuarioResponse(
                 usuario.getId(),
                 usuario.getNombre(),
@@ -61,7 +67,8 @@ public class UsuarioMapper {
                 usuario.getEmail(),
                 usuario.getActivo(),
                 usuario.getFechaCreacion(),
-                roles
+                roles,
+                estacionamientoIds
         );
     }
 }

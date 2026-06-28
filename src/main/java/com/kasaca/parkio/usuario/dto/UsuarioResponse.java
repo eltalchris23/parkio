@@ -10,6 +10,7 @@ public record UsuarioResponse(
         String email,
         Boolean activo,
         LocalDateTime fechaCreacion,
-        Set<String> roles
+        Set<String> roles,
+        Set<Long> estacionamientoIds
 ) {
 }

@@ -2,6 +2,7 @@ package com.kasaca.parkio.usuario.controller;
 
 import com.kasaca.parkio.usuario.dto.UsuarioRequest;
 import com.kasaca.parkio.usuario.dto.UsuarioResponse;
+import com.kasaca.parkio.usuario.dto.UsuarioEstacionamientoRequest;
 import com.kasaca.parkio.usuario.dto.UsuarioRolRequest;
 import com.kasaca.parkio.usuario.service.UsuarioService;
 import jakarta.validation.Valid;
@@ -108,5 +109,29 @@ public class UsuarioController {
     @ResponseStatus(HttpStatus.NO_CONTENT)
     public void removeRole(@PathVariable Long usuarioId, @PathVariable Long rolId) {
         usuarioService.removeRole(usuarioId, rolId);
+    }
+
+    /**
+     * Asigna un estacionamiento existente a un usuario.
+     *
+     * @param usuarioId identificador del usuario
+     * @param request solicitud que contiene el identificador del estacionamiento
+     * @return usuario con sus estacionamientos actualizados
+     */
+    @PostMapping("/{usuarioId}/estacionamientos")
+    public UsuarioResponse assignEstacionamiento(@PathVariable Long usuarioId, @Valid @RequestBody UsuarioEstacionamientoRequest request) {
+        return usuarioService.assignEstacionamiento(usuarioId, request);
+    }
+
+    /**
+     * Retira un estacionamiento previamente asignado a un usuario.
+     *
+     * @param usuarioId identificador del usuario
+     * @param estacionamientoId identificador del estacionamiento
+     */
+    @DeleteMapping("/{usuarioId}/estacionamientos/{estacionamientoId}")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void removeEstacionamiento(@PathVariable Long usuarioId, @PathVariable Long estacionamientoId) {
+        usuarioService.removeEstacionamiento(usuarioId, estacionamientoId);
     }
 }
