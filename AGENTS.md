@@ -24,23 +24,24 @@ Parkio es un backend en desarrollo para administrar:
 - Cajones pertenecientes a un estacionamiento.
 - Estado y tipo de los cajones.
 
-El proyecto contiene actualmente el modelo persistente, DTOs, repositorios, contratos de servicio, migraciones y documentación de arquitectura. Los módulos Rol, Estacionamiento y Cajón cuentan además con mapper, servicio transaccional, controlador REST y pruebas unitarias.
+El proyecto contiene actualmente el modelo persistente, DTOs, repositorios, contratos de servicio, migraciones y documentación de arquitectura. Los módulos Rol, Estacionamiento, Cajón y Usuario cuentan además con mapper, servicio transaccional, controlador REST y pruebas unitarias.
 
-La API REST está implementada para Rol, Estacionamiento y Cajón. La autenticación JWT, la autorización y la lógica funcional de Usuario todavía no están implementadas.
+La API REST está implementada para Rol, Estacionamiento, Cajón y Usuario. La autenticación JWT, la autorización y las operaciones de asignación de roles y estacionamientos a usuarios todavía no están implementadas.
 
 ## Estado Actual
 
 Antes de realizar cambios, considerar lo siguiente:
 
-- `RolController`, `EstacionamientoController` y `CajonController` exponen los recursos `/api/roles`, `/api/estacionamientos` y `/api/cajones`; no existe controlador para Usuario.
-- No existe implementación de Spring Security.
+- `RolController`, `EstacionamientoController`, `CajonController` y `UsuarioController` exponen los recursos `/api/roles`, `/api/estacionamientos`, `/api/cajones` y `/api/usuarios`.
+- Solo existe `spring-security-crypto` para BCrypt; no existe seguridad HTTP ni autorización con Spring Security.
 - No existen componentes JWT.
-- `RolMapper`, `EstacionamientoMapper` y `CajonMapper` están implementados; no existe mapper para Usuario.
+- `RolMapper`, `EstacionamientoMapper`, `CajonMapper` y `UsuarioMapper` están implementados.
 - El manejo global de excepciones está implementado mediante `GlobalExceptionHandler` y `ApiError`.
-- `RolRequest`, `EstacionamientoRequest`, `CajonRequest` y `CajonEstadoRequest` tienen validaciones Jakarta Validation; los DTOs de Usuario aún no.
-- `RolServiceImpl`, `EstacionamientoServiceImpl` y `CajonServiceImpl` están registrados como beans y usan transacciones; Usuario permanece incompleto.
-- `UsuarioServiceImpl` devuelve listas vacías o lanza `UnsupportedOperationException`.
-- Existen pruebas unitarias para mapper, servicio y controlador de Rol, Estacionamiento y Cajón, además de la prueba de carga del contexto.
+- `RolRequest`, `EstacionamientoRequest`, `CajonRequest`, `CajonEstadoRequest` y `UsuarioRequest` tienen validaciones Jakarta Validation.
+- `RolServiceImpl`, `EstacionamientoServiceImpl`, `CajonServiceImpl` y `UsuarioServiceImpl` están registrados como beans y usan transacciones.
+- `UsuarioServiceImpl` valida correos duplicados y genera hashes BCrypt mediante `PasswordEncoder`.
+- Existen pruebas unitarias para mapper, servicio y controlador de Rol, Estacionamiento, Cajón y Usuario, además de la prueba de carga del contexto.
+- Usuario aún no permite asignar roles ni estacionamientos. Creación y actualización utilizan el mismo DTO, por lo que actualizar exige una contraseña nueva.
 - La documentación describe parcialmente una arquitectura futura.
 - Todos los repositorios utilizan `Long` como identificador, en concordancia con `BaseEntity`.
 
@@ -105,7 +106,7 @@ No se deben saltar capas sin una justificación explícita.
 - JUnit 5 y Spring Boot Test.
 - PlantUML para documentación técnica.
 
-No existen actualmente dependencias de Spring Security ni de una biblioteca JWT.
+Existe la dependencia `spring-security-crypto` únicamente para BCrypt. No existen Spring Security Web, filtros de seguridad ni una biblioteca JWT.
 
 ## Estructura de Paquetes
 
@@ -130,7 +131,7 @@ Los componentes compartidos deben colocarse en `shared` únicamente cuando sean 
 
 No se debe crear un paquete genérico para código que pertenece claramente a un dominio.
 
-Los paquetes `auth`, `security`, `common` y `config` aparecen en la arquitectura propuesta, pero no existen actualmente. Los paquetes `controller` y `mapper` ya existen dentro de Rol, Estacionamiento y Cajón, y las excepciones compartidas se encuentran en `shared.exception`. Las capacidades pendientes solo deben crearse cuando una tarea autorizada requiera implementarlas.
+Los paquetes `auth`, `security` y `common` aparecen en la arquitectura propuesta, pero no existen actualmente. El paquete `config` contiene `PasswordEncoderConfig`; los paquetes `controller` y `mapper` existen dentro de Rol, Estacionamiento, Cajón y Usuario, y las excepciones compartidas se encuentran en `shared.exception`. Las capacidades pendientes solo deben crearse cuando una tarea autorizada requiera implementarlas.
 
 ## Convenciones de Nomenclatura
 
@@ -246,7 +247,7 @@ Reglas obligatorias:
 - Las relaciones deben representarse mediante identificadores o estructuras explícitas, evitando serializar grafos JPA completos.
 - Los cambios en un DTO documentado deben reflejarse en `docs/api/parkio-api-v1.md`.
 
-`RolRequest`, `EstacionamientoRequest`, `CajonRequest` y `CajonEstadoRequest` utilizan Jakarta Validation. Los DTOs de Usuario todavía no tienen restricciones declarativas.
+`RolRequest`, `EstacionamientoRequest`, `CajonRequest`, `CajonEstadoRequest` y `UsuarioRequest` utilizan Jakarta Validation.
 
 ## Convenciones para Repositories
 
@@ -268,7 +269,7 @@ Todos los repositorios existentes utilizan `Long`, en concordancia con el identi
 
 El código nuevo también debe utilizar `Long` y mantener esta consistencia en todas sus referencias.
 
-Las consultas derivadas deben usar nombres que representen exactamente el criterio aplicado. La documentación propone consultas que todavía no existen, como búsqueda de usuario por correo o comprobación de número de cajón por estacionamiento. No deben considerarse implementadas hasta encontrarlas en el código.
+Las consultas derivadas deben usar nombres que representen exactamente el criterio aplicado. `UsuarioRepository` comprueba duplicados mediante `existsByEmail` y `existsByEmailAndIdNot`; no implementa todavía búsqueda de usuario por correo para autenticación.
 
 ## Convenciones para Services
 
@@ -291,13 +292,13 @@ Reglas obligatorias:
 - No se debe usar inyección mediante campos.
 - Una implementación que deba ser administrada por Spring debe registrarse explícitamente como bean, normalmente con `@Service`.
 
-`RolServiceImpl`, `EstacionamientoServiceImpl` y `CajonServiceImpl` son las implementaciones de referencia actuales: utilizan `@Service`, transacciones, dependencias `final` y Lombok `@RequiredArgsConstructor`. La implementación de Usuario sigue incompleta y no debe replicarse como referencia.
+`RolServiceImpl`, `EstacionamientoServiceImpl`, `CajonServiceImpl` y `UsuarioServiceImpl` son las implementaciones de referencia actuales: utilizan `@Service`, transacciones, dependencias `final` y Lombok `@RequiredArgsConstructor`.
 
 No se deben modificar las firmas existentes sin evaluar el impacto en documentación, pruebas y futuros controladores.
 
 ## Convenciones para Controllers
 
-Actualmente existen `RolController`, `EstacionamientoController` y `CajonController`. Usuario todavía no tiene controlador.
+Actualmente existen `RolController`, `EstacionamientoController`, `CajonController` y `UsuarioController`.
 
 La documentación propone una API con base:
 
@@ -368,7 +369,7 @@ El formato estándar actual incluye fecha y hora, estado HTTP, descripción, men
 
 ## Validaciones
 
-El proyecto incluye `spring-boot-starter-validation`. `RolRequest` utiliza `@NotBlank`, `@Size` y `@NotNull`; los DTOs restantes todavía no tienen restricciones declarativas.
+El proyecto incluye `spring-boot-starter-validation`. `RolRequest`, `EstacionamientoRequest`, `CajonRequest`, `CajonEstadoRequest` y `UsuarioRequest` tienen restricciones declarativas acordes con sus contratos actuales.
 
 Cuando se implemente validación:
 
@@ -441,13 +442,13 @@ La autenticación JWT aparece en:
 
 Sin embargo:
 
-- No existe Spring Security en el `pom.xml`.
+- Solo existe `spring-security-crypto`; no existe configuración de seguridad HTTP con Spring Security.
 - No existe `SecurityConfig`.
 - No existe `JwtFilter`.
 - No existe `JwtService`.
 - No existe `AuthController`.
 - No existe `AuthService`.
-- No existe `PasswordEncoder`.
+- Existe un bean `PasswordEncoder` basado en BCrypt para almacenar hashes de contraseñas.
 - No existe endpoint de login implementado.
 
 Estas piezas forman parte de la arquitectura objetivo, no del estado actual.
@@ -470,7 +471,7 @@ La documentación técnica se encuentra en `docs/`.
 
 Incluye:
 
-- Contrato implementado de Rol, Estacionamiento y Cajón, y contratos propuestos para los módulos restantes.
+- Contrato implementado de Rol, Estacionamiento, Cajón y Usuario, y contrato propuesto de autenticación.
 - Arquitectura por capas.
 - Estructura objetivo de paquetes.
 - Flujo JWT.

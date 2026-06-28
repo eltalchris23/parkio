@@ -10,7 +10,7 @@
 
 ### Autenticación
 
-La autenticación JWT está planificada, pero todavía no está implementada. Los endpoints actuales de Rol no requieren token y no deben considerarse seguros para un entorno productivo.
+La autenticación JWT está planificada, pero todavía no está implementada. Los endpoints actuales no requieren token y no deben considerarse seguros para un entorno productivo.
 
 ### Estado de implementación
 
@@ -18,7 +18,7 @@ La autenticación JWT está planificada, pero todavía no está implementada. Lo
 |---|---|
 | Rol | CRUD REST implementado |
 | Auth | Propuesto; no implementado |
-| Usuario | Propuesto; no implementado |
+| Usuario | CRUD REST, validaciones y hash BCrypt implementados |
 | Estacionamiento | CRUD REST implementado |
 | Cajón | CRUD REST y validaciones implementados |
 
@@ -171,6 +171,41 @@ La eliminación actual es física y la respuesta no contiene cuerpo.
 
 # Módulo Usuario
 
+El CRUD de Usuario está implementado bajo `/api/usuarios`. Las contraseñas se transforman en hashes BCrypt y nunca se incluyen en las respuestas.
+
+Limitaciones actuales:
+
+- No existe asignación de roles a usuarios.
+- No existe asignación de estacionamientos a usuarios.
+- No existe autenticación ni JWT.
+- Creación y actualización utilizan `UsuarioRequest`; por ello, actualizar exige enviar una contraseña y genera un hash nuevo.
+
+## Listar Usuarios
+
+### Endpoint
+
+```http
+GET /api/usuarios
+```
+
+### Response 200
+
+```json
+[
+  {
+    "id": 1,
+    "nombre": "Juan",
+    "apellido": "Pérez",
+    "email": "juan@parkio.com",
+    "activo": true,
+    "fechaCreacion": "2026-06-28T12:00:00",
+    "roles": []
+  }
+]
+```
+
+---
+
 ## Crear Usuario
 
 ### Endpoint
@@ -197,9 +232,17 @@ POST /api/usuarios
   "id": 1,
   "nombre": "Juan",
   "apellido": "Pérez",
-  "email": "juan@parkio.com"
+  "email": "juan@parkio.com",
+  "activo": true,
+  "fechaCreacion": "2026-06-28T12:00:00",
+  "roles": []
 }
 ```
+
+### Respuestas de error
+
+- `400 Bad Request`: datos inválidos.
+- `409 Conflict`: el correo ya está registrado.
 
 ---
 
@@ -218,9 +261,65 @@ GET /api/usuarios/{id}
   "id": 1,
   "nombre": "Juan",
   "apellido": "Pérez",
-  "email": "juan@parkio.com"
+  "email": "juan@parkio.com",
+  "activo": true,
+  "fechaCreacion": "2026-06-28T12:00:00",
+  "roles": []
 }
 ```
+
+### Respuestas de error
+
+- `404 Not Found`: el usuario no existe.
+
+---
+
+## Actualizar Usuario
+
+### Endpoint
+
+```http
+PUT /api/usuarios/{id}
+```
+
+### Request
+
+```json
+{
+  "nombre": "Juan",
+  "apellido": "Pérez",
+  "email": "juan@parkio.com",
+  "password": "nueva-clave"
+}
+```
+
+### Response 200
+
+Devuelve un `UsuarioResponse` con la misma estructura documentada en la consulta.
+
+### Respuestas de error
+
+- `400 Bad Request`: datos inválidos.
+- `404 Not Found`: el usuario no existe.
+- `409 Conflict`: el correo pertenece a otro usuario.
+
+---
+
+## Eliminar Usuario
+
+### Endpoint
+
+```http
+DELETE /api/usuarios/{id}
+```
+
+### Response 204
+
+Sin cuerpo de respuesta.
+
+### Respuestas de error
+
+- `404 Not Found`: el usuario no existe.
 
 ---
 
