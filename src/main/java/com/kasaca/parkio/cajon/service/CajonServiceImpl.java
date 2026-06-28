@@ -2,6 +2,7 @@ package com.kasaca.parkio.cajon.service;
 
 import com.kasaca.parkio.cajon.dto.CajonRequest;
 import com.kasaca.parkio.cajon.dto.CajonResponse;
+import com.kasaca.parkio.cajon.dto.CajonEstadoRequest;
 import com.kasaca.parkio.cajon.entity.Cajon;
 import com.kasaca.parkio.cajon.mapper.CajonMapper;
 import com.kasaca.parkio.cajon.repository.CajonRepository;
@@ -103,6 +104,17 @@ public class CajonServiceImpl implements CajonService {
                 cajon,
                 estacionamiento
         );
+
+        Cajon updatedCajon = cajonRepository.save(cajon);
+
+        return cajonMapper.toResponseCajon(updatedCajon);
+    }
+
+    @Override
+    @Transactional
+    public CajonResponse updateEstado(Long id,CajonEstadoRequest request) {
+        Cajon cajon = findCajonById(id);
+        cajon.setEstado(request.estado());
 
         Cajon updatedCajon = cajonRepository.save(cajon);
 

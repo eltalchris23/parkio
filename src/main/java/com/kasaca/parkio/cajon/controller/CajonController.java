@@ -2,6 +2,7 @@ package com.kasaca.parkio.cajon.controller;
 
 import com.kasaca.parkio.cajon.dto.CajonRequest;
 import com.kasaca.parkio.cajon.dto.CajonResponse;
+import com.kasaca.parkio.cajon.dto.CajonEstadoRequest;
 import com.kasaca.parkio.cajon.service.CajonService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -10,6 +11,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -58,6 +60,14 @@ public class CajonController {
                 cajonId,
                 request
         );
+    }
+
+    @PatchMapping("/{cajonId}/estado")
+    public CajonResponse updateEstado(
+            @PathVariable Long cajonId,
+            @Valid @RequestBody CajonEstadoRequest request
+    ) {
+        return cajonService.updateEstado(cajonId, request);
     }
 
     @DeleteMapping("/{cajonId}")

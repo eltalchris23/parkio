@@ -462,6 +462,34 @@ Se devuelve cuando el cajón o estacionamiento no existe.
 
 Se devuelve cuando el número ya está utilizado por otro cajón del estacionamiento.
 
+## Cambiar Estado del Cajón
+
+```http
+PATCH /api/cajones/{cajonId}/estado
+```
+
+### Request
+
+```json
+{
+  "estado": "OCUPADO"
+}
+```
+
+Estados permitidos: `LIBRE`, `OCUPADO` y `FUERA_SERVICIO`.
+
+### Response 200
+
+Devuelve el cajón con el estado actualizado.
+
+### Response 400
+
+Se devuelve cuando el estado es nulo o no corresponde a un valor permitido.
+
+### Response 404
+
+Se devuelve cuando el cajón no existe.
+
 ## Eliminar Cajón
 
 ```http

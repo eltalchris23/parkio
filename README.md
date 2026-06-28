@@ -48,7 +48,7 @@ La autenticación, autorización por roles y exposición de estas operaciones me
 | Hibernate | Implementación JPA |
 | PostgreSQL | Base de datos relacional |
 | Flyway | Versionado y migración del esquema |
-| Jakarta Validation | Validación declarativa implementada en `RolRequest` y `EstacionamientoRequest` |
+| Jakarta Validation | Validación declarativa implementada en `RolRequest`, `EstacionamientoRequest`, `CajonRequest` y `CajonEstadoRequest` |
 | Lombok | Generación de getters, setters, constructores y builders |
 | Maven | Gestión de dependencias y construcción |
 | Maven Wrapper | Maven 3.9.16 |
@@ -309,9 +309,10 @@ Incluye:
 - `CajonMapper`.
 - `CajonController`.
 - `TipoCajon` y `EstadoCajon`.
+- `CajonEstadoRequest` para cambios de estado.
 - Pruebas unitarias de mapper, servicio y controlador.
 
-El módulo implementa operaciones para listar, filtrar por estacionamiento, consultar, crear, actualizar y eliminar cajones. Valida la existencia del cajón y del estacionamiento, evita números duplicados dentro del mismo estacionamiento y aplica Jakarta Validation en `CajonRequest`.
+El módulo implementa operaciones para listar, filtrar por estacionamiento, consultar, crear, actualizar, cambiar el estado y eliminar cajones. Valida la existencia del cajón y del estacionamiento, evita números duplicados dentro del mismo estacionamiento y aplica Jakarta Validation en `CajonRequest` y `CajonEstadoRequest`.
 
 ### Auditoría
 

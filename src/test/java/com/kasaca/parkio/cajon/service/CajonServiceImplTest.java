@@ -2,6 +2,7 @@ package com.kasaca.parkio.cajon.service;
 
 import com.kasaca.parkio.cajon.dto.CajonRequest;
 import com.kasaca.parkio.cajon.dto.CajonResponse;
+import com.kasaca.parkio.cajon.dto.CajonEstadoRequest;
 import com.kasaca.parkio.cajon.entity.Cajon;
 import com.kasaca.parkio.cajon.entity.EstadoCajon;
 import com.kasaca.parkio.cajon.entity.TipoCajon;
@@ -228,6 +229,54 @@ class CajonServiceImplTest {
                 .isInstanceOf(ConflictException.class);
 
         verify(cajonMapper, never()).updateEntity(any(), any(), any());
+        verify(cajonRepository, never()).save(any());
+    }
+
+    @Test
+    void debeActualizarEstadoDelCajon() {
+        Cajon cajon = crearCajon();
+        CajonEstadoRequest request = new CajonEstadoRequest(
+                EstadoCajon.OCUPADO
+        );
+        CajonResponse response = new CajonResponse(
+                1L,
+                "A-001",
+                TipoCajon.AUTO,
+                EstadoCajon.OCUPADO,
+                10L,
+                true,
+                cajon.getFechaCreacion()
+        );
+
+        when(cajonRepository.findById(1L))
+                .thenReturn(Optional.of(cajon));
+        when(cajonRepository.save(cajon)).thenReturn(cajon);
+        when(cajonMapper.toResponseCajon(cajon)).thenReturn(response);
+
+        CajonResponse resultado = cajonService.updateEstado(1L, request);
+
+        assertThat(cajon.getEstado()).isEqualTo(EstadoCajon.OCUPADO);
+        assertThat(resultado).isEqualTo(response);
+        verify(cajonRepository).save(cajon);
+    }
+
+    @Test
+    void debeRechazarCambioDeEstadoCuandoCajonNoExiste() {
+        CajonEstadoRequest request = new CajonEstadoRequest(
+                EstadoCajon.FUERA_SERVICIO
+        );
+
+        when(cajonRepository.findById(99L))
+                .thenReturn(Optional.empty());
+
+        assertThatThrownBy(() ->
+                cajonService.updateEstado(99L, request)
+        )
+                .isInstanceOf(ResourceNotFoundException.class)
+                .hasMessage(
+                        "Cajón con identificador '99' no fue encontrado"
+                );
+
         verify(cajonRepository, never()).save(any());
     }
 

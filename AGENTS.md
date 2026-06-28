@@ -37,7 +37,7 @@ Antes de realizar cambios, considerar lo siguiente:
 - No existen componentes JWT.
 - `RolMapper`, `EstacionamientoMapper` y `CajonMapper` están implementados; no existe mapper para Usuario.
 - El manejo global de excepciones está implementado mediante `GlobalExceptionHandler` y `ApiError`.
-- `RolRequest`, `EstacionamientoRequest` y `CajonRequest` tienen validaciones Jakarta Validation; los DTOs de Usuario aún no.
+- `RolRequest`, `EstacionamientoRequest`, `CajonRequest` y `CajonEstadoRequest` tienen validaciones Jakarta Validation; los DTOs de Usuario aún no.
 - `RolServiceImpl`, `EstacionamientoServiceImpl` y `CajonServiceImpl` están registrados como beans y usan transacciones; Usuario permanece incompleto.
 - `UsuarioServiceImpl` devuelve listas vacías o lanza `UnsupportedOperationException`.
 - Existen pruebas unitarias para mapper, servicio y controlador de Rol, Estacionamiento y Cajón, además de la prueba de carga del contexto.
@@ -219,7 +219,7 @@ No se debe duplicar manualmente la administración de fechas salvo que exista un
 - `Estacionamiento` y `Cajon`: uno a muchos.
 - `Cajon` y `Estacionamiento`: muchos a uno.
 
-`tipo` y `estado` de `Cajon` utilizan `TipoCajon` y `EstadoCajon`, persistidos mediante `EnumType.STRING`. El estado inicial es `LIBRE`.
+`tipo` y `estado` de `Cajon` utilizan `TipoCajon` y `EstadoCajon`, persistidos mediante `EnumType.STRING`. El estado inicial es `LIBRE` y se actualiza mediante una operación específica con `CajonEstadoRequest`.
 
 ## Convenciones para DTOs
 
@@ -246,7 +246,7 @@ Reglas obligatorias:
 - Las relaciones deben representarse mediante identificadores o estructuras explícitas, evitando serializar grafos JPA completos.
 - Los cambios en un DTO documentado deben reflejarse en `docs/api/parkio-api-v1.md`.
 
-`RolRequest`, `EstacionamientoRequest` y `CajonRequest` utilizan Jakarta Validation. Los DTOs de Usuario todavía no tienen restricciones declarativas.
+`RolRequest`, `EstacionamientoRequest`, `CajonRequest` y `CajonEstadoRequest` utilizan Jakarta Validation. Los DTOs de Usuario todavía no tienen restricciones declarativas.
 
 ## Convenciones para Repositories
 

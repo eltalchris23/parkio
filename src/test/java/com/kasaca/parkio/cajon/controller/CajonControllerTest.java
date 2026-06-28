@@ -4,6 +4,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.json.JsonMapper;
 import com.kasaca.parkio.cajon.dto.CajonRequest;
 import com.kasaca.parkio.cajon.dto.CajonResponse;
+import com.kasaca.parkio.cajon.dto.CajonEstadoRequest;
 import com.kasaca.parkio.cajon.entity.EstadoCajon;
 import com.kasaca.parkio.cajon.entity.TipoCajon;
 import com.kasaca.parkio.cajon.service.CajonService;
@@ -28,6 +29,7 @@ import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
@@ -232,6 +234,57 @@ class CajonControllerTest {
                 any(Long.class),
                 any(CajonRequest.class)
         );
+    }
+
+    @Test
+    void debeActualizarEstadoDelCajon() throws Exception {
+        CajonEstadoRequest request = new CajonEstadoRequest(
+                EstadoCajon.OCUPADO
+        );
+        CajonResponse response = new CajonResponse(
+                1L,
+                "A-001",
+                TipoCajon.AUTO,
+                EstadoCajon.OCUPADO,
+                10L,
+                true,
+                LocalDateTime.of(2026, 6, 27, 12, 0)
+        );
+
+        when(cajonService.updateEstado(
+                any(Long.class),
+                any(CajonEstadoRequest.class)
+        )).thenReturn(response);
+
+        mockMvc.perform(patch("/api/cajones/1/estado")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.id").value(1L))
+                .andExpect(jsonPath("$.estado").value("OCUPADO"));
+
+        verify(cajonService).updateEstado(
+                any(Long.class),
+                any(CajonEstadoRequest.class)
+        );
+    }
+
+    @Test
+    void debeRechazarEstadoNulo() throws Exception {
+        mockMvc.perform(patch("/api/cajones/1/estado")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "estado": null
+                                }
+                                """))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.status").value(400))
+                .andExpect(jsonPath("$.validationErrors.estado").value(
+                        "El estado del cajón es obligatorio"
+                ));
+
+        verifyNoInteractions(cajonService);
     }
 
     @Test
