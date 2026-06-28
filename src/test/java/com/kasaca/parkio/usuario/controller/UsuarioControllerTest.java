@@ -5,10 +5,12 @@ import com.fasterxml.jackson.databind.json.JsonMapper;
 import com.kasaca.parkio.shared.exception.ConflictException;
 import com.kasaca.parkio.shared.exception.GlobalExceptionHandler;
 import com.kasaca.parkio.shared.exception.ResourceNotFoundException;
-import com.kasaca.parkio.usuario.dto.UsuarioRequest;
+import com.kasaca.parkio.usuario.dto.UsuarioCreateRequest;
+import com.kasaca.parkio.usuario.dto.UsuarioPasswordRequest;
 import com.kasaca.parkio.usuario.dto.UsuarioResponse;
 import com.kasaca.parkio.usuario.dto.UsuarioEstacionamientoRequest;
 import com.kasaca.parkio.usuario.dto.UsuarioRolRequest;
+import com.kasaca.parkio.usuario.dto.UsuarioUpdateRequest;
 import com.kasaca.parkio.usuario.service.UsuarioService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -28,6 +30,7 @@ import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
@@ -114,7 +117,7 @@ class UsuarioControllerTest {
      */
     @Test
     void debeCrearUsuario() throws Exception {
-        UsuarioRequest request = crearRequest();
+        UsuarioCreateRequest request = crearCreateRequest();
         UsuarioResponse response = crearResponse();
         when(usuarioService.addUser(request)).thenReturn(response);
 
@@ -159,7 +162,7 @@ class UsuarioControllerTest {
      */
     @Test
     void debeResponderConflictCuandoCorreoEstaDuplicado() throws Exception {
-        UsuarioRequest request = crearRequest();
+        UsuarioCreateRequest request = crearCreateRequest();
         when(usuarioService.addUser(request)).thenThrow(
                 new ConflictException("Ya existe un usuario con el correo 'christian@parkio.com'")
         );
@@ -197,7 +200,7 @@ class UsuarioControllerTest {
      */
     @Test
     void debeActualizarUsuario() throws Exception {
-        UsuarioRequest request = crearRequest();
+        UsuarioUpdateRequest request = crearUpdateRequest();
         UsuarioResponse response = crearResponse();
         when(usuarioService.updateUser(1L, request)).thenReturn(response);
 
@@ -391,10 +394,54 @@ class UsuarioControllerTest {
     }
 
     /**
+     * Verifica que una solicitud válida cambie la contraseña y responda sin
+     * contenido.
+     */
+    @Test
+    void debeActualizarPassword() throws Exception {
+        UsuarioPasswordRequest request = new UsuarioPasswordRequest("nueva-clave");
+
+        mockMvc.perform(patch("/api/usuarios/1/password")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isNoContent())
+                .andExpect(content().string(""));
+
+        verify(usuarioService).updatePassword(1L, request);
+    }
+
+    /**
+     * Comprueba que una contraseña vacía sea rechazada antes de invocar al servicio.
+     */
+    @Test
+    void debeRechazarPasswordVacio() throws Exception {
+        mockMvc.perform(patch("/api/usuarios/1/password")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "nuevaPassword": ""
+                                }
+                                """))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.status").value(400))
+                .andExpect(jsonPath("$.validationErrors.nuevaPassword")
+                        .value("La nueva contraseña es obligatoria"));
+
+        verifyNoInteractions(usuarioService);
+    }
+
+    /**
      * Construye una solicitud válida reutilizable por las pruebas del controlador.
      */
-    private UsuarioRequest crearRequest() {
-        return new UsuarioRequest("Christian", "Salazar", "christian@parkio.com", "clave-segura");
+    private UsuarioCreateRequest crearCreateRequest() {
+        return new UsuarioCreateRequest("Christian", "Salazar", "christian@parkio.com", "clave-segura");
+    }
+
+    /**
+     * Construye una solicitud válida para actualizar los datos generales.
+     */
+    private UsuarioUpdateRequest crearUpdateRequest() {
+        return new UsuarioUpdateRequest("Christian", "Salazar", "christian@parkio.com");
     }
 
     /**

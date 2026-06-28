@@ -1,9 +1,11 @@
 package com.kasaca.parkio.usuario.controller;
 
-import com.kasaca.parkio.usuario.dto.UsuarioRequest;
+import com.kasaca.parkio.usuario.dto.UsuarioCreateRequest;
+import com.kasaca.parkio.usuario.dto.UsuarioPasswordRequest;
 import com.kasaca.parkio.usuario.dto.UsuarioResponse;
 import com.kasaca.parkio.usuario.dto.UsuarioEstacionamientoRequest;
 import com.kasaca.parkio.usuario.dto.UsuarioRolRequest;
+import com.kasaca.parkio.usuario.dto.UsuarioUpdateRequest;
 import com.kasaca.parkio.usuario.service.UsuarioService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -12,6 +14,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -56,7 +59,7 @@ public class UsuarioController {
      * @return usuario creado con estado HTTP 201
      */
     @PostMapping
-    public ResponseEntity<UsuarioResponse> addUser(@Valid @RequestBody UsuarioRequest request) {
+    public ResponseEntity<UsuarioResponse> addUser(@Valid @RequestBody UsuarioCreateRequest request) {
         UsuarioResponse response = usuarioService.addUser(request);
 
         return ResponseEntity
@@ -72,8 +75,20 @@ public class UsuarioController {
      * @return usuario actualizado
      */
     @PutMapping("/{usuarioId}")
-    public UsuarioResponse updateUser(@PathVariable Long usuarioId, @Valid @RequestBody UsuarioRequest request) {
+    public UsuarioResponse updateUser(@PathVariable Long usuarioId, @Valid @RequestBody UsuarioUpdateRequest request) {
         return usuarioService.updateUser(usuarioId, request);
+    }
+
+    /**
+     * Reemplaza la contraseña de un usuario sin modificar sus datos generales.
+     *
+     * @param usuarioId identificador del usuario
+     * @param request solicitud que contiene la nueva contraseña
+     */
+    @PatchMapping("/{usuarioId}/password")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void updatePassword(@PathVariable Long usuarioId, @Valid @RequestBody UsuarioPasswordRequest request) {
+        usuarioService.updatePassword(usuarioId, request);
     }
 
     /**

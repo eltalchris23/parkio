@@ -6,10 +6,12 @@ import com.kasaca.parkio.rol.entity.Rol;
 import com.kasaca.parkio.rol.repository.RolRepository;
 import com.kasaca.parkio.shared.exception.ConflictException;
 import com.kasaca.parkio.shared.exception.ResourceNotFoundException;
-import com.kasaca.parkio.usuario.dto.UsuarioRequest;
+import com.kasaca.parkio.usuario.dto.UsuarioCreateRequest;
+import com.kasaca.parkio.usuario.dto.UsuarioPasswordRequest;
 import com.kasaca.parkio.usuario.dto.UsuarioResponse;
 import com.kasaca.parkio.usuario.dto.UsuarioEstacionamientoRequest;
 import com.kasaca.parkio.usuario.dto.UsuarioRolRequest;
+import com.kasaca.parkio.usuario.dto.UsuarioUpdateRequest;
 import com.kasaca.parkio.usuario.entity.Usuario;
 import com.kasaca.parkio.usuario.mapper.UsuarioMapper;
 import com.kasaca.parkio.usuario.repository.UsuarioRepository;
@@ -107,7 +109,7 @@ class UsuarioServiceImplTest {
      */
     @Test
     void debeCrearUsuarioConPasswordCifrado() {
-        UsuarioRequest request = crearRequest();
+        UsuarioCreateRequest request = crearCreateRequest();
         Usuario usuario = crearUsuario();
         UsuarioResponse response = crearResponse();
 
@@ -129,7 +131,7 @@ class UsuarioServiceImplTest {
      */
     @Test
     void debeRechazarCorreoDuplicadoAlCrear() {
-        UsuarioRequest request = crearRequest();
+        UsuarioCreateRequest request = crearCreateRequest();
         when(usuarioRepository.existsByEmail(request.email())).thenReturn(true);
 
         assertThatThrownBy(() -> usuarioService.addUser(request))
@@ -145,20 +147,20 @@ class UsuarioServiceImplTest {
      */
     @Test
     void debeActualizarUsuarioConPasswordCifrado() {
-        UsuarioRequest request = crearRequest();
+        UsuarioUpdateRequest request = crearUpdateRequest();
         Usuario usuario = crearUsuario();
         UsuarioResponse response = crearResponse();
 
         when(usuarioRepository.findById(1L)).thenReturn(Optional.of(usuario));
         when(usuarioRepository.existsByEmailAndIdNot(request.email(), 1L)).thenReturn(false);
-        when(passwordEncoder.encode(request.password())).thenReturn("hash-actualizado");
         when(usuarioRepository.save(usuario)).thenReturn(usuario);
         when(usuarioMapper.toResponse(usuario)).thenReturn(response);
 
         UsuarioResponse resultado = usuarioService.updateUser(1L, request);
 
         assertThat(resultado).isEqualTo(response);
-        verify(usuarioMapper).updateEntity(request, usuario, "hash-actualizado");
+        verify(usuarioMapper).updateEntity(request, usuario);
+        verify(passwordEncoder, never()).encode(anyString());
         verify(usuarioRepository).save(usuario);
     }
 
@@ -167,7 +169,7 @@ class UsuarioServiceImplTest {
      */
     @Test
     void debeRechazarCorreoDuplicadoAlActualizar() {
-        UsuarioRequest request = crearRequest();
+        UsuarioUpdateRequest request = crearUpdateRequest();
         Usuario usuario = crearUsuario();
 
         when(usuarioRepository.findById(1L)).thenReturn(Optional.of(usuario));
@@ -178,7 +180,7 @@ class UsuarioServiceImplTest {
                 .hasMessage("Ya existe un usuario con el correo 'christian@parkio.com'");
 
         verify(passwordEncoder, never()).encode(anyString());
-        verify(usuarioMapper, never()).updateEntity(any(), any(), anyString());
+        verify(usuarioMapper, never()).updateEntity(any(), any());
         verify(usuarioRepository, never()).save(any());
     }
 
@@ -411,10 +413,55 @@ class UsuarioServiceImplTest {
     }
 
     /**
+     * Verifica que el cambio de contraseña genere un hash nuevo y lo persista sin
+     * modificar los demás datos del usuario.
+     */
+    @Test
+    void debeActualizarPasswordConHashSeguro() {
+        Usuario usuario = crearUsuario();
+        UsuarioPasswordRequest request = new UsuarioPasswordRequest("nueva-clave");
+
+        when(usuarioRepository.findById(1L)).thenReturn(Optional.of(usuario));
+        when(passwordEncoder.encode("nueva-clave")).thenReturn("hash-nuevo");
+
+        usuarioService.updatePassword(1L, request);
+
+        assertThat(usuario.getPasswordHash()).isEqualTo("hash-nuevo");
+        verify(passwordEncoder).encode("nueva-clave");
+        verify(usuarioRepository).save(usuario);
+    }
+
+    /**
+     * Confirma que no se genere un hash cuando se intenta cambiar la contraseña
+     * de un usuario inexistente.
+     */
+    @Test
+    void debeRechazarCambioPasswordCuandoUsuarioNoExiste() {
+        when(usuarioRepository.findById(99L)).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> usuarioService.updatePassword(
+                99L,
+                new UsuarioPasswordRequest("nueva-clave")
+        ))
+                .isInstanceOf(ResourceNotFoundException.class)
+                .hasMessage("Usuario con identificador '99' no fue encontrado");
+
+        verify(passwordEncoder, never()).encode(anyString());
+        verify(usuarioRepository, never()).save(any());
+    }
+
+    /**
      * Construye una solicitud válida reutilizable por las pruebas del servicio.
      */
-    private UsuarioRequest crearRequest() {
-        return new UsuarioRequest("Christian", "Salazar", "christian@parkio.com", "clave-segura");
+    private UsuarioCreateRequest crearCreateRequest() {
+        return new UsuarioCreateRequest("Christian", "Salazar", "christian@parkio.com", "clave-segura");
+    }
+
+    /**
+     * Construye una solicitud válida para actualizar datos generales.
+     */
+    private UsuarioUpdateRequest crearUpdateRequest() {
+        return new UsuarioUpdateRequest("Christian", "Salazar", "christian@parkio.com");
     }
 
     /**

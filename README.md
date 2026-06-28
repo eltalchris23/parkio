@@ -48,7 +48,7 @@ La autenticación, autorización por roles y exposición de estas operaciones me
 | Hibernate | Implementación JPA |
 | PostgreSQL | Base de datos relacional |
 | Flyway | Versionado y migración del esquema |
-| Jakarta Validation | Validación declarativa implementada en `RolRequest`, `EstacionamientoRequest`, `CajonRequest`, `CajonEstadoRequest` y `UsuarioRequest` |
+| Jakarta Validation | Validación declarativa implementada en los DTOs de entrada de Rol, Estacionamiento, Cajón y Usuario |
 | Spring Security Crypto | Generación de hashes BCrypt para contraseñas; no configura seguridad HTTP |
 | Lombok | Generación de getters, setters, constructores y builders |
 | Maven | Gestión de dependencias y construcción |
@@ -257,7 +257,7 @@ Cada número de cajón debe ser único dentro de un estacionamiento, de acuerdo 
 Incluye:
 
 - Entidad `Usuario`.
-- `UsuarioRequest`, `UsuarioRolRequest`, `UsuarioEstacionamientoRequest` y `UsuarioResponse`.
+- `UsuarioCreateRequest`, `UsuarioUpdateRequest`, `UsuarioPasswordRequest`, `UsuarioRolRequest`, `UsuarioEstacionamientoRequest` y `UsuarioResponse`.
 - `UsuarioRepository`.
 - `UsuarioService`.
 - `UsuarioServiceImpl`.
@@ -271,7 +271,7 @@ El repositorio utiliza `Long` como tipo de identificador, en concordancia con `B
 
 El módulo implementa operaciones para listar, consultar, crear, actualizar y eliminar usuarios, además de asignar y retirar roles y estacionamientos. Valida correos duplicados y asociaciones, utiliza transacciones y nunca incluye `passwordHash` en las respuestas. `UsuarioResponse` expone los nombres de roles y los identificadores de estacionamientos asociados.
 
-Todavía no implementa autenticación ni JWT. La creación y la actualización comparten `UsuarioRequest`, por lo que actualmente una actualización exige enviar una contraseña y genera un hash nuevo.
+Todavía no implementa autenticación ni JWT. La creación, actualización general y modificación de contraseña utilizan DTOs y operaciones separadas.
 
 ### Rol
 
@@ -534,7 +534,6 @@ A partir de las brechas entre el código y la documentación, el trabajo pendien
 
 - Incorporar autenticación y autorización.
 - Agregar Spring Security y soporte JWT si se mantiene la arquitectura documentada.
-- Separar los DTOs de creación y actualización de Usuario para permitir actualizar datos sin exigir una contraseña nueva.
 - Externalizar la configuración sensible.
 - Incorporar perfiles para desarrollo, pruebas y producción.
 - Añadir pruebas de integración con PostgreSQL.

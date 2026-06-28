@@ -6,10 +6,12 @@ import com.kasaca.parkio.rol.entity.Rol;
 import com.kasaca.parkio.rol.repository.RolRepository;
 import com.kasaca.parkio.shared.exception.ConflictException;
 import com.kasaca.parkio.shared.exception.ResourceNotFoundException;
-import com.kasaca.parkio.usuario.dto.UsuarioRequest;
+import com.kasaca.parkio.usuario.dto.UsuarioCreateRequest;
+import com.kasaca.parkio.usuario.dto.UsuarioPasswordRequest;
 import com.kasaca.parkio.usuario.dto.UsuarioResponse;
 import com.kasaca.parkio.usuario.dto.UsuarioEstacionamientoRequest;
 import com.kasaca.parkio.usuario.dto.UsuarioRolRequest;
+import com.kasaca.parkio.usuario.dto.UsuarioUpdateRequest;
 import com.kasaca.parkio.usuario.entity.Usuario;
 import com.kasaca.parkio.usuario.mapper.UsuarioMapper;
 import com.kasaca.parkio.usuario.repository.UsuarioRepository;
@@ -56,7 +58,7 @@ public class UsuarioServiceImpl implements UsuarioService {
      */
     @Override
     @Transactional
-    public UsuarioResponse addUser(UsuarioRequest request) {
+    public UsuarioResponse addUser(UsuarioCreateRequest request) {
         validateUniqueEmail(request.email());
 
         String passwordHash = passwordEncoder.encode(request.password());
@@ -67,12 +69,12 @@ public class UsuarioServiceImpl implements UsuarioService {
     }
 
     /**
-     * Actualiza los datos de un usuario existente y genera un nuevo hash para la
-     * contraseña recibida.
+     * Actualiza los datos generales de un usuario sin modificar su contraseña ni
+     * sus asociaciones.
      */
     @Override
     @Transactional
-    public UsuarioResponse updateUser(Long id, UsuarioRequest request) {
+    public UsuarioResponse updateUser(Long id, UsuarioUpdateRequest request) {
         Usuario usuario = findUsuarioById(id);
 
         if (usuarioRepository.existsByEmailAndIdNot(request.email(), id)) {
@@ -81,11 +83,24 @@ public class UsuarioServiceImpl implements UsuarioService {
             );
         }
 
-        String passwordHash = passwordEncoder.encode(request.password());
-        usuarioMapper.updateEntity(request, usuario, passwordHash);
+        usuarioMapper.updateEntity(request, usuario);
         Usuario updatedUsuario = usuarioRepository.save(usuario);
 
         return usuarioMapper.toResponse(updatedUsuario);
+    }
+
+    /**
+     * Reemplaza la contraseña de un usuario por un hash BCrypt generado a partir
+     * de la nueva contraseña recibida.
+     */
+    @Override
+    @Transactional
+    public void updatePassword(Long id, UsuarioPasswordRequest request) {
+        Usuario usuario = findUsuarioById(id);
+        String passwordHash = passwordEncoder.encode(request.nuevaPassword());
+
+        usuario.setPasswordHash(passwordHash);
+        usuarioRepository.save(usuario);
     }
 
     /**

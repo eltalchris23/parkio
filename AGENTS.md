@@ -37,11 +37,11 @@ Antes de realizar cambios, considerar lo siguiente:
 - No existen componentes JWT.
 - `RolMapper`, `EstacionamientoMapper`, `CajonMapper` y `UsuarioMapper` están implementados.
 - El manejo global de excepciones está implementado mediante `GlobalExceptionHandler` y `ApiError`.
-- `RolRequest`, `EstacionamientoRequest`, `CajonRequest`, `CajonEstadoRequest`, `UsuarioRequest`, `UsuarioRolRequest` y `UsuarioEstacionamientoRequest` tienen validaciones Jakarta Validation.
+- `RolRequest`, `EstacionamientoRequest`, `CajonRequest`, `CajonEstadoRequest`, `UsuarioCreateRequest`, `UsuarioUpdateRequest`, `UsuarioPasswordRequest`, `UsuarioRolRequest` y `UsuarioEstacionamientoRequest` tienen validaciones Jakarta Validation.
 - `RolServiceImpl`, `EstacionamientoServiceImpl`, `CajonServiceImpl` y `UsuarioServiceImpl` están registrados como beans y usan transacciones.
 - `UsuarioServiceImpl` valida correos duplicados y genera hashes BCrypt mediante `PasswordEncoder`.
 - Existen pruebas unitarias para mapper, servicio y controlador de Rol, Estacionamiento, Cajón y Usuario, además de la prueba de carga del contexto.
-- Usuario permite asignar y retirar roles y estacionamientos mediante `usuario_rol` y `usuario_estacionamiento`. `UsuarioResponse` representa estas relaciones mediante nombres de roles e identificadores de estacionamientos. Creación y actualización utilizan el mismo DTO, por lo que actualizar exige una contraseña nueva.
+- Usuario permite asignar y retirar roles y estacionamientos mediante `usuario_rol` y `usuario_estacionamiento`. `UsuarioResponse` representa estas relaciones mediante nombres de roles e identificadores de estacionamientos. Creación, actualización general y cambio de contraseña utilizan DTOs y operaciones separadas.
 - La documentación describe parcialmente una arquitectura futura.
 - Todos los repositorios utilizan `Long` como identificador, en concordancia con `BaseEntity`.
 
@@ -247,7 +247,7 @@ Reglas obligatorias:
 - Las relaciones deben representarse mediante identificadores o estructuras explícitas, evitando serializar grafos JPA completos.
 - Los cambios en un DTO documentado deben reflejarse en `docs/api/parkio-api-v1.md`.
 
-`RolRequest`, `EstacionamientoRequest`, `CajonRequest`, `CajonEstadoRequest`, `UsuarioRequest`, `UsuarioRolRequest` y `UsuarioEstacionamientoRequest` utilizan Jakarta Validation.
+`RolRequest`, `EstacionamientoRequest`, `CajonRequest`, `CajonEstadoRequest`, `UsuarioCreateRequest`, `UsuarioUpdateRequest`, `UsuarioPasswordRequest`, `UsuarioRolRequest` y `UsuarioEstacionamientoRequest` utilizan Jakarta Validation.
 
 ## Convenciones para Repositories
 
@@ -369,7 +369,7 @@ El formato estándar actual incluye fecha y hora, estado HTTP, descripción, men
 
 ## Validaciones
 
-El proyecto incluye `spring-boot-starter-validation`. `RolRequest`, `EstacionamientoRequest`, `CajonRequest`, `CajonEstadoRequest`, `UsuarioRequest`, `UsuarioRolRequest` y `UsuarioEstacionamientoRequest` tienen restricciones declarativas acordes con sus contratos actuales.
+El proyecto incluye `spring-boot-starter-validation`. Los DTOs de entrada de Rol, Estacionamiento, Cajón y Usuario tienen restricciones declarativas acordes con sus contratos actuales.
 
 Cuando se implemente validación:
 

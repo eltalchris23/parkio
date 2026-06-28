@@ -176,7 +176,8 @@ El CRUD de Usuario y la asignación de roles y estacionamientos están implement
 Limitaciones actuales:
 
 - No existe autenticación ni JWT.
-- Creación y actualización utilizan `UsuarioRequest`; por ello, actualizar exige enviar una contraseña y genera un hash nuevo.
+
+La creación utiliza `UsuarioCreateRequest`, la actualización general utiliza `UsuarioUpdateRequest` y el cambio de contraseña utiliza `UsuarioPasswordRequest`.
 
 ## Listar Usuarios
 
@@ -289,8 +290,7 @@ PUT /api/usuarios/{id}
 {
   "nombre": "Juan",
   "apellido": "Pérez",
-  "email": "juan@parkio.com",
-  "password": "nueva-clave"
+  "email": "juan@parkio.com"
 }
 ```
 
@@ -303,6 +303,33 @@ Devuelve un `UsuarioResponse` con la misma estructura documentada en la consulta
 - `400 Bad Request`: datos inválidos.
 - `404 Not Found`: el usuario no existe.
 - `409 Conflict`: el correo pertenece a otro usuario.
+
+---
+
+## Cambiar Contraseña de Usuario
+
+### Endpoint
+
+```http
+PATCH /api/usuarios/{id}/password
+```
+
+### Request
+
+```json
+{
+  "nuevaPassword": "nueva-clave"
+}
+```
+
+### Response 204
+
+Sin cuerpo de respuesta. La contraseña se almacena como hash BCrypt.
+
+### Respuestas de error
+
+- `400 Bad Request`: la nueva contraseña está vacía.
+- `404 Not Found`: el usuario no existe.
 
 ---
 

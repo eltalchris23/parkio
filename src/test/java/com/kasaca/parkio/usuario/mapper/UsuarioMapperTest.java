@@ -2,8 +2,9 @@ package com.kasaca.parkio.usuario.mapper;
 
 import com.kasaca.parkio.estacionamiento.entity.Estacionamiento;
 import com.kasaca.parkio.rol.entity.Rol;
-import com.kasaca.parkio.usuario.dto.UsuarioRequest;
+import com.kasaca.parkio.usuario.dto.UsuarioCreateRequest;
 import com.kasaca.parkio.usuario.dto.UsuarioResponse;
+import com.kasaca.parkio.usuario.dto.UsuarioUpdateRequest;
 import com.kasaca.parkio.usuario.entity.Usuario;
 import org.junit.jupiter.api.Test;
 
@@ -21,7 +22,7 @@ class UsuarioMapperTest {
      */
     @Test
     void debeConvertirRequestAEntidad() {
-        UsuarioRequest request = crearRequest();
+        UsuarioCreateRequest request = crearCreateRequest();
 
         Usuario usuario = usuarioMapper.toEntity(request, "hash-seguro");
 
@@ -47,14 +48,14 @@ class UsuarioMapperTest {
         estacionamiento.setId(3L);
         usuario.getEstacionamientos().add(estacionamiento);
 
-        UsuarioRequest request = new UsuarioRequest("Nuevo", "Nombre", "nuevo@parkio.com", "otra-clave");
+        UsuarioUpdateRequest request = new UsuarioUpdateRequest("Nuevo", "Nombre", "nuevo@parkio.com");
 
-        usuarioMapper.updateEntity(request, usuario, "hash-actualizado");
+        usuarioMapper.updateEntity(request, usuario);
 
         assertThat(usuario.getNombre()).isEqualTo("Nuevo");
         assertThat(usuario.getApellido()).isEqualTo("Nombre");
         assertThat(usuario.getEmail()).isEqualTo("nuevo@parkio.com");
-        assertThat(usuario.getPasswordHash()).isEqualTo("hash-actualizado");
+        assertThat(usuario.getPasswordHash()).isEqualTo("hash-seguro");
         assertThat(usuario.getRoles()).containsExactly(rol);
         assertThat(usuario.getEstacionamientos()).containsExactly(estacionamiento);
     }
@@ -88,8 +89,8 @@ class UsuarioMapperTest {
     /**
      * Construye una solicitud válida reutilizable por las pruebas del mapper.
      */
-    private UsuarioRequest crearRequest() {
-        return new UsuarioRequest("Christian", "Salazar", "christian@parkio.com", "clave-segura");
+    private UsuarioCreateRequest crearCreateRequest() {
+        return new UsuarioCreateRequest("Christian", "Salazar", "christian@parkio.com", "clave-segura");
     }
 
     /**

@@ -1,9 +1,11 @@
 package com.kasaca.parkio.usuario.service;
 
-import com.kasaca.parkio.usuario.dto.UsuarioRequest;
+import com.kasaca.parkio.usuario.dto.UsuarioCreateRequest;
+import com.kasaca.parkio.usuario.dto.UsuarioPasswordRequest;
 import com.kasaca.parkio.usuario.dto.UsuarioResponse;
 import com.kasaca.parkio.usuario.dto.UsuarioEstacionamientoRequest;
 import com.kasaca.parkio.usuario.dto.UsuarioRolRequest;
+import com.kasaca.parkio.usuario.dto.UsuarioUpdateRequest;
 
 import java.util.List;
 
@@ -13,9 +15,17 @@ public interface UsuarioService {
 
     UsuarioResponse getUserById(Long id);
 
-    UsuarioResponse addUser(UsuarioRequest request);
+    UsuarioResponse addUser(UsuarioCreateRequest request);
 
-    UsuarioResponse updateUser(Long id, UsuarioRequest request);
+    UsuarioResponse updateUser(Long id, UsuarioUpdateRequest request);
+
+    /**
+     * Reemplaza la contraseña de un usuario utilizando un hash seguro.
+     *
+     * @param id identificador del usuario
+     * @param request solicitud que contiene la nueva contraseña
+     */
+    void updatePassword(Long id, UsuarioPasswordRequest request);
 
     void deleteUser(Long id);
 

@@ -2,8 +2,9 @@ package com.kasaca.parkio.usuario.mapper;
 
 import com.kasaca.parkio.estacionamiento.entity.Estacionamiento;
 import com.kasaca.parkio.rol.entity.Rol;
-import com.kasaca.parkio.usuario.dto.UsuarioRequest;
+import com.kasaca.parkio.usuario.dto.UsuarioCreateRequest;
 import com.kasaca.parkio.usuario.dto.UsuarioResponse;
+import com.kasaca.parkio.usuario.dto.UsuarioUpdateRequest;
 import com.kasaca.parkio.usuario.entity.Usuario;
 import org.springframework.stereotype.Component;
 
@@ -21,9 +22,12 @@ public class UsuarioMapper {
      * @param passwordHash hash seguro de la contraseña; nunca debe ser texto plano
      * @return una entidad Usuario lista para persistirse
      */
-    public Usuario toEntity(UsuarioRequest request, String passwordHash) {
+    public Usuario toEntity(UsuarioCreateRequest request, String passwordHash) {
         Usuario usuario = new Usuario();
-        updateEntity(request, usuario, passwordHash);
+        usuario.setNombre(request.nombre());
+        usuario.setApellido(request.apellido());
+        usuario.setEmail(request.email());
+        usuario.setPasswordHash(passwordHash);
         return usuario;
     }
 
@@ -33,13 +37,11 @@ public class UsuarioMapper {
      *
      * @param request datos con los que se actualizará la entidad
      * @param usuario entidad que recibirá los cambios
-     * @param passwordHash hash seguro de la contraseña generado por el servicio
      */
-    public void updateEntity(UsuarioRequest request, Usuario usuario, String passwordHash) {
+    public void updateEntity(UsuarioUpdateRequest request, Usuario usuario) {
         usuario.setNombre(request.nombre());
         usuario.setApellido(request.apellido());
         usuario.setEmail(request.email());
-        usuario.setPasswordHash(passwordHash);
     }
 
     /**
