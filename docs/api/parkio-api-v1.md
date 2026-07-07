@@ -21,15 +21,17 @@ POST /api/usuarios
 
 Los demás endpoints requieren un token JWT válido en el encabezado `Authorization`.
 
-La autorización granular por roles todavía no está implementada; por ahora se valida autenticación, no permisos específicos por rol.
+La autorización granular por roles ya inició. Actualmente el módulo Rol requiere rol `ADMIN`, y el módulo Usuario distingue entre operaciones administrativas de `ADMIN` y operaciones propias de `USER`. Estacionamiento y Cajón todavía no tienen reglas específicas por rol.
+
+Los roles incluidos en el claim `roles` del JWT se convierten en authorities de Spring Security con prefijo `ROLE_`. Por ejemplo, `ADMIN` se interpreta como `ROLE_ADMIN`.
 
 ### Estado de implementación
 
 | Módulo | Estado |
 |---|---|
-| Rol | CRUD REST implementado |
+| Rol | CRUD REST implementado y protegido con rol `ADMIN` |
 | Auth | Login JWT implementado |
-| Usuario | CRUD REST, roles, estacionamientos, validaciones y hash BCrypt implementados |
+| Usuario | CRUD REST, roles, estacionamientos, validaciones, hash BCrypt y autorización `ADMIN`/`USER` implementados |
 | Estacionamiento | CRUD REST implementado |
 | Cajón | CRUD REST y validaciones implementados |
 
@@ -88,6 +90,13 @@ POST /api/auth/login
 ---
 
 # Módulo Rol
+
+Seguridad:
+
+- Requiere JWT válido.
+- Requiere rol `ADMIN`.
+- Si no se envía token, responde `401 Unauthorized`.
+- Si el token es válido pero no contiene `ADMIN` en el claim `roles`, responde `403 Forbidden`.
 
 ## Listar Roles
 
@@ -193,7 +202,8 @@ Seguridad actual:
 
 - Requiere JWT válido en todos sus endpoints.
 - `POST /api/usuarios` es público para permitir el registro inicial.
-- La autorización específica por rol todavía no está implementada.
+- `GET /api/usuarios`, `DELETE /api/usuarios/{id}` y asignaciones/retiros de roles o estacionamientos requieren `ADMIN`.
+- `GET /api/usuarios/{id}`, `PUT /api/usuarios/{id}` y `PATCH /api/usuarios/{id}/password` permiten `ADMIN` o `USER` cuando el `id` de la ruta coincide con el claim `usuarioId` del JWT.
 
 La creación utiliza `UsuarioCreateRequest`, la actualización general utiliza `UsuarioUpdateRequest` y el cambio de contraseña utiliza `UsuarioPasswordRequest`.
 

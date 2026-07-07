@@ -11,6 +11,7 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -36,6 +37,7 @@ public class UsuarioController {
      *
      * @return lista con los datos públicos de los usuarios
      */
+    @PreAuthorize("hasRole('ADMIN')")
     @GetMapping
     public List<UsuarioResponse> getAllUsers() {
         return usuarioService.getAllUsers();
@@ -47,6 +49,7 @@ public class UsuarioController {
      * @param usuarioId identificador del usuario
      * @return datos públicos del usuario encontrado
      */
+    @PreAuthorize("hasRole('ADMIN') or (hasRole('USER') and @usuarioSecurity.isSelf(authentication, #usuarioId))")
     @GetMapping("/{usuarioId}")
     public UsuarioResponse getUserById(@PathVariable Long usuarioId) {
         return usuarioService.getUserById(usuarioId);
@@ -74,6 +77,7 @@ public class UsuarioController {
      * @param request datos actualizados
      * @return usuario actualizado
      */
+    @PreAuthorize("hasRole('ADMIN') or (hasRole('USER') and @usuarioSecurity.isSelf(authentication, #usuarioId))")
     @PutMapping("/{usuarioId}")
     public UsuarioResponse updateUser(@PathVariable Long usuarioId, @Valid @RequestBody UsuarioUpdateRequest request) {
         return usuarioService.updateUser(usuarioId, request);
@@ -85,6 +89,7 @@ public class UsuarioController {
      * @param usuarioId identificador del usuario
      * @param request solicitud que contiene la nueva contraseña
      */
+    @PreAuthorize("hasRole('ADMIN') or (hasRole('USER') and @usuarioSecurity.isSelf(authentication, #usuarioId))")
     @PatchMapping("/{usuarioId}/password")
     @ResponseStatus(HttpStatus.NO_CONTENT)
     public void updatePassword(@PathVariable Long usuarioId, @Valid @RequestBody UsuarioPasswordRequest request) {
@@ -96,6 +101,7 @@ public class UsuarioController {
      *
      * @param usuarioId identificador del usuario
      */
+    @PreAuthorize("hasRole('ADMIN')")
     @DeleteMapping("/{usuarioId}")
     @ResponseStatus(HttpStatus.NO_CONTENT)
     public void deleteUser(@PathVariable Long usuarioId) {
@@ -109,6 +115,7 @@ public class UsuarioController {
      * @param request solicitud que contiene el identificador del rol
      * @return usuario con su lista de roles actualizada
      */
+    @PreAuthorize("hasRole('ADMIN')")
     @PostMapping("/{usuarioId}/roles")
     public UsuarioResponse assignRole(@PathVariable Long usuarioId, @Valid @RequestBody UsuarioRolRequest request) {
         return usuarioService.assignRole(usuarioId, request);
@@ -120,6 +127,7 @@ public class UsuarioController {
      * @param usuarioId identificador del usuario
      * @param rolId identificador del rol que se retirará
      */
+    @PreAuthorize("hasRole('ADMIN')")
     @DeleteMapping("/{usuarioId}/roles/{rolId}")
     @ResponseStatus(HttpStatus.NO_CONTENT)
     public void removeRole(@PathVariable Long usuarioId, @PathVariable Long rolId) {
@@ -133,6 +141,7 @@ public class UsuarioController {
      * @param request solicitud que contiene el identificador del estacionamiento
      * @return usuario con sus estacionamientos actualizados
      */
+    @PreAuthorize("hasRole('ADMIN')")
     @PostMapping("/{usuarioId}/estacionamientos")
     public UsuarioResponse assignEstacionamiento(@PathVariable Long usuarioId, @Valid @RequestBody UsuarioEstacionamientoRequest request) {
         return usuarioService.assignEstacionamiento(usuarioId, request);
@@ -144,6 +153,7 @@ public class UsuarioController {
      * @param usuarioId identificador del usuario
      * @param estacionamientoId identificador del estacionamiento
      */
+    @PreAuthorize("hasRole('ADMIN')")
     @DeleteMapping("/{usuarioId}/estacionamientos/{estacionamientoId}")
     @ResponseStatus(HttpStatus.NO_CONTENT)
     public void removeEstacionamiento(@PathVariable Long usuarioId, @PathVariable Long estacionamientoId) {

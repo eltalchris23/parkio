@@ -5,6 +5,10 @@ import com.kasaca.parkio.auth.controller.AuthController;
 import com.kasaca.parkio.auth.dto.AuthLoginRequest;
 import com.kasaca.parkio.auth.dto.AuthResponse;
 import com.kasaca.parkio.auth.service.AuthService;
+import com.kasaca.parkio.rol.controller.RolController;
+import com.kasaca.parkio.rol.dto.RolResponse;
+import com.kasaca.parkio.rol.service.RolService;
+import com.kasaca.parkio.security.authorization.UsuarioSecurity;
 import com.kasaca.parkio.shared.exception.GlobalExceptionHandler;
 import com.kasaca.parkio.usuario.controller.UsuarioController;
 import com.kasaca.parkio.usuario.dto.UsuarioCreateRequest;
@@ -21,16 +25,20 @@ import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
 import java.time.LocalDateTime;
+import java.util.List;
 import java.util.Set;
 
 import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.jwt;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-@WebMvcTest({AuthController.class, UsuarioController.class})
-@Import({SecurityConfig.class, RestAuthenticationEntryPoint.class, GlobalExceptionHandler.class})
+@WebMvcTest({AuthController.class, UsuarioController.class, RolController.class})
+@Import({SecurityConfig.class, RestAuthenticationEntryPoint.class, GlobalExceptionHandler.class, UsuarioSecurity.class})
 @TestPropertySource(properties = {
         "parkio.security.jwt.issuer=parkio-test",
         "parkio.security.jwt.secret=clave-de-prueba-con-longitud-suficiente",
@@ -49,6 +57,9 @@ class SecurityConfigTest {
 
     @MockitoBean
     private UsuarioService usuarioService;
+
+    @MockitoBean
+    private RolService rolService;
 
     @MockitoBean
     private JpaMetamodelMappingContext jpaMetamodelMappingContext;
@@ -113,5 +124,124 @@ class SecurityConfigTest {
                 .andExpect(jsonPath("$.status").value(401))
                 .andExpect(jsonPath("$.message").value("Autenticacion requerida"))
                 .andExpect(jsonPath("$.path").value("/api/usuarios"));
+    }
+
+    /**
+     * Verifica que un usuario autenticado sin rol ADMIN no pueda acceder al modulo de roles.
+     */
+    @Test
+    void debeRechazarRolesCuandoUsuarioNoTieneRolAdmin() throws Exception {
+        mockMvc.perform(get("/api/roles")
+                        .with(jwt().authorities(() -> "ROLE_USUARIO")))
+                .andExpect(status().isForbidden());
+
+        verifyNoInteractions(rolService);
+    }
+
+    /**
+     * Verifica que un usuario autenticado con rol ADMIN pueda acceder al modulo de roles.
+     */
+    @Test
+    void debePermitirRolesCuandoUsuarioTieneRolAdmin() throws Exception {
+        RolResponse response = new RolResponse(
+                1L,
+                "ADMIN",
+                true,
+                LocalDateTime.of(2026, 7, 7, 9, 0)
+        );
+
+        when(rolService.getRoles()).thenReturn(List.of(response));
+
+        mockMvc.perform(get("/api/roles")
+                        .with(jwt().authorities(() -> "ROLE_ADMIN")))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[0].id").value(1L))
+                .andExpect(jsonPath("$[0].nombre").value("ADMIN"));
+
+        verify(rolService).getRoles();
+    }
+
+    /**
+     * Verifica que listar usuarios sea una operacion exclusiva de ADMIN.
+     */
+    @Test
+    void debePermitirListarUsuariosCuandoTieneRolAdmin() throws Exception {
+        UsuarioResponse response = new UsuarioResponse(
+                1L,
+                "Christian",
+                "Salazar",
+                "christian@parkio.com",
+                true,
+                LocalDateTime.of(2026, 7, 7, 9, 0),
+                Set.of("ADMIN"),
+                Set.of()
+        );
+
+        when(usuarioService.getAllUsers()).thenReturn(List.of(response));
+
+        mockMvc.perform(get("/api/usuarios")
+                        .with(jwt().authorities(() -> "ROLE_ADMIN")))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[0].id").value(1L))
+                .andExpect(jsonPath("$[0].email").value("christian@parkio.com"));
+
+        verify(usuarioService).getAllUsers();
+    }
+
+    /**
+     * Verifica que USER no pueda listar todos los usuarios.
+     */
+    @Test
+    void debeRechazarListarUsuariosCuandoTieneRolUser() throws Exception {
+        mockMvc.perform(get("/api/usuarios")
+                        .with(jwt()
+                                .jwt(jwt -> jwt.claim("usuarioId", 1L))
+                                .authorities(() -> "ROLE_USER")))
+                .andExpect(status().isForbidden());
+
+        verifyNoInteractions(usuarioService);
+    }
+
+    /**
+     * Verifica que USER pueda consultar su propio usuario.
+     */
+    @Test
+    void debePermitirConsultarUsuarioPropioCuandoTieneRolUser() throws Exception {
+        UsuarioResponse response = new UsuarioResponse(
+                1L,
+                "Christian",
+                "Salazar",
+                "christian@parkio.com",
+                true,
+                LocalDateTime.of(2026, 7, 7, 9, 0),
+                Set.of("USER"),
+                Set.of()
+        );
+
+        when(usuarioService.getUserById(1L)).thenReturn(response);
+
+        mockMvc.perform(get("/api/usuarios/1")
+                        .with(jwt()
+                                .jwt(jwt -> jwt.claim("usuarioId", 1L))
+                                .authorities(() -> "ROLE_USER")))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.id").value(1L))
+                .andExpect(jsonPath("$.email").value("christian@parkio.com"));
+
+        verify(usuarioService).getUserById(1L);
+    }
+
+    /**
+     * Verifica que USER no pueda consultar el usuario de otra persona.
+     */
+    @Test
+    void debeRechazarConsultarUsuarioAjenoCuandoTieneRolUser() throws Exception {
+        mockMvc.perform(get("/api/usuarios/2")
+                        .with(jwt()
+                                .jwt(jwt -> jwt.claim("usuarioId", 1L))
+                                .authorities(() -> "ROLE_USER")))
+                .andExpect(status().isForbidden());
+
+        verifyNoInteractions(usuarioService);
     }
 }

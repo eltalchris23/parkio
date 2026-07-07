@@ -26,7 +26,7 @@ Parkio es un backend en desarrollo para administrar:
 
 El proyecto contiene actualmente el modelo persistente, DTOs, repositorios, contratos de servicio, migraciones y documentación de arquitectura. Los módulos Rol, Estacionamiento, Cajón y Usuario cuentan además con mapper, servicio transaccional, controlador REST y pruebas unitarias. El módulo Auth implementa login y emisión de JWT.
 
-La API REST está implementada para Auth, Rol, Estacionamiento, Cajón y Usuario. Usuario permite asignar y retirar roles y estacionamientos. La autenticación JWT está implementada; la autorización granular por roles todavía no está implementada.
+La API REST está implementada para Auth, Rol, Estacionamiento, Cajón y Usuario. Usuario permite asignar y retirar roles y estacionamientos. La autenticación JWT está implementada. La autorización granular por roles ya inició en Rol y Usuario: `/api/roles` requiere rol `ADMIN`, y `/api/usuarios` distingue entre operaciones administrativas de `ADMIN` y operaciones propias de `USER`. Estacionamiento y Cajón todavía no tienen reglas específicas por rol.
 
 ## Estado Actual
 
@@ -36,7 +36,10 @@ Antes de realizar cambios, considerar lo siguiente:
 - Existe Spring Security HTTP con OAuth2 Resource Server para proteger endpoints mediante JWT.
 - Existen `AuthController`, `AuthService`, `AuthServiceImpl`, `JwtService`, `JwtProperties` y `SecurityConfig`.
 - No existe `JwtFilter` propio; la validación del token se delega a Spring Security OAuth2 Resource Server.
-- La autorización granular por roles todavía no está implementada.
+- La autorización granular por roles está implementada inicialmente en `RolController` mediante `@PreAuthorize("hasRole('ADMIN')")`.
+- `UsuarioController` utiliza `@PreAuthorize` para permitir operaciones administrativas a `ADMIN` y operaciones propias a `USER`.
+- `UsuarioSecurity` compara el `usuarioId` de la ruta con el claim `usuarioId` del JWT.
+- Los roles del claim `roles` del JWT se convierten a authorities de Spring Security con prefijo `ROLE_`.
 - `RolMapper`, `EstacionamientoMapper`, `CajonMapper` y `UsuarioMapper` están implementados.
 - El manejo global de excepciones está implementado mediante `GlobalExceptionHandler` y `ApiError`.
 - `RolRequest`, `EstacionamientoRequest`, `CajonRequest`, `CajonEstadoRequest`, `UsuarioCreateRequest`, `UsuarioUpdateRequest`, `UsuarioPasswordRequest`, `UsuarioRolRequest` y `UsuarioEstacionamientoRequest` tienen validaciones Jakarta Validation.
@@ -343,7 +346,7 @@ Los códigos HTTP documentados son:
 - `409` para conflictos.
 - `500` para errores internos.
 
-Estos códigos forman parte del contrato común. El módulo Rol ya implementa respuestas `200`, `201`, `204`, `400`, `404`, `409` y `500` según corresponda; los demás endpoints continúan como objetivo.
+Estos códigos forman parte del contrato común. El módulo Rol ya implementa respuestas `200`, `201`, `204`, `400`, `403`, `404`, `409` y `500` según corresponda; los demás endpoints continúan como objetivo.
 
 ## Manejo de Excepciones
 
@@ -353,6 +356,7 @@ Mapeo HTTP implementado:
 
 - `ResourceNotFoundException`: `404 Not Found`.
 - `ConflictException`: `409 Conflict`.
+- `AccessDeniedException` y `AuthorizationDeniedException`: `403 Forbidden`.
 - `MethodArgumentNotValidException`: `400 Bad Request`.
 - `HttpMessageNotReadableException`: `400 Bad Request`.
 - `DataIntegrityViolationException`: `409 Conflict`.
@@ -455,11 +459,13 @@ Estado actual:
 - Existe endpoint de login en `POST /api/auth/login`.
 - No existe `JwtFilter` propio; Spring Security valida el token mediante OAuth2 Resource Server.
 - Los endpoints distintos al login y `POST /api/usuarios` requieren JWT válido. `POST /api/usuarios` queda público para permitir registro inicial.
-- No existe autorización granular por roles.
+- Existe autorización granular inicial por roles: `RolController` requiere `ADMIN` y `UsuarioController` protege operaciones con `ADMIN`/`USER`.
+- `SecurityConfig` habilita `@EnableMethodSecurity`.
+- `SecurityConfig` convierte el claim `roles` del JWT en authorities `ROLE_*`.
 
 Reglas obligatorias:
 
-- No declarar autorización por roles como implementada mientras no existan reglas explícitas por rol.
+- No declarar autorización por roles como completa mientras solo existan reglas explícitas para una parte de los módulos.
 - No implementar criptografía propia.
 - No guardar ni registrar contraseñas en texto plano.
 - No exponer `passwordHash`.
