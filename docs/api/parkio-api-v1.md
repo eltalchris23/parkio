@@ -21,7 +21,7 @@ POST /api/usuarios
 
 Los demás endpoints requieren un token JWT válido en el encabezado `Authorization`.
 
-La autorización granular por roles ya inició. Actualmente el módulo Rol requiere rol `ADMIN`, y el módulo Usuario distingue entre operaciones administrativas de `ADMIN` y operaciones propias de `USER` u `OPERADOR`. Estacionamiento y Cajón todavía no tienen reglas específicas por rol.
+La autorización granular por roles ya inició. Actualmente el módulo Rol requiere rol `ADMIN`, el módulo Usuario distingue entre operaciones administrativas de `ADMIN` y operaciones propias de `USER` u `OPERADOR`, y el módulo Estacionamiento permite consulta a `ADMIN`, `OPERADOR` y `USER`, dejando la escritura únicamente a `ADMIN`. Cajón todavía no tiene reglas específicas por rol.
 
 Los roles incluidos en el claim `roles` del JWT se convierten en authorities de Spring Security con prefijo `ROLE_`. Por ejemplo, `ADMIN` se interpreta como `ROLE_ADMIN`.
 
@@ -32,7 +32,7 @@ Los roles incluidos en el claim `roles` del JWT se convierten en authorities de 
 | Rol | CRUD REST implementado y protegido con rol `ADMIN` |
 | Auth | Login JWT implementado |
 | Usuario | CRUD REST, roles, estacionamientos, validaciones, hash BCrypt y autorización `ADMIN`/`USER`/`OPERADOR` implementados |
-| Estacionamiento | CRUD REST implementado |
+| Estacionamiento | CRUD REST implementado con autorización `ADMIN`/`OPERADOR`/`USER` para consulta y `ADMIN` para escritura |
 | Cajón | CRUD REST y validaciones implementados |
 
 Los endpoints protegidos deben enviar el token con este formato:
@@ -474,6 +474,12 @@ Sin cuerpo de respuesta.
 ---
 
 # Módulo Estacionamiento
+
+Seguridad actual:
+
+- Requiere JWT válido en todos sus endpoints.
+- `GET /api/estacionamientos` y `GET /api/estacionamientos/{estacionamientoId}` permiten `ADMIN`, `OPERADOR` y `USER`.
+- `POST /api/estacionamientos`, `PUT /api/estacionamientos/{estacionamientoId}` y `DELETE /api/estacionamientos/{estacionamientoId}` requieren `ADMIN`.
 
 ## Listar Estacionamientos
 

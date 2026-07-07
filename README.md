@@ -23,7 +23,7 @@ Actualmente, el proyecto contiene:
 
 El proyecto expone APIs REST funcionales para autenticar usuarios en `/api/auth/login` y administrar roles en `/api/roles`, estacionamientos en `/api/estacionamientos`, cajones en `/api/cajones` y usuarios en `/api/usuarios`.
 
-La autenticación JWT ya está implementada. La autorización granular por rol ya inició: actualmente `/api/roles` requiere rol `ADMIN` y varias operaciones de `/api/usuarios` distinguen entre `ADMIN`, `USER` y `OPERADOR`. Los demás endpoints distintos al login y la creación de usuarios requieren un token JWT válido, pero todavía no tienen reglas específicas por rol.
+La autenticación JWT ya está implementada. La autorización granular por rol ya inició: actualmente `/api/roles` requiere rol `ADMIN`, varias operaciones de `/api/usuarios` distinguen entre `ADMIN`, `USER` y `OPERADOR`, y `/api/estacionamientos` permite consultas a `ADMIN`, `OPERADOR` y `USER`, dejando la escritura únicamente a `ADMIN`. Cajón todavía no tiene reglas específicas por rol.
 
 ## Objetivos del Sistema
 
@@ -60,7 +60,7 @@ La autorización por roles ya forma parte del código ejecutable de forma inicia
 | JUnit 5 | Pruebas mediante Spring Boot Test |
 | PlantUML | Diagramas en la documentación |
 
-El proyecto incluye Spring Security para proteger endpoints, Spring Security OAuth2 Resource Server para validar JWT y `spring-security-crypto` para BCrypt. La autorización granular por rol ya está implementada inicialmente en el módulo Rol mediante `ADMIN`; el resto de módulos todavía no tiene reglas específicas por rol.
+El proyecto incluye Spring Security para proteger endpoints, Spring Security OAuth2 Resource Server para validar JWT y `spring-security-crypto` para BCrypt. La autorización granular por rol ya está implementada en Rol, Usuario y Estacionamiento. Cajón todavía no tiene reglas específicas por rol.
 
 ## Arquitectura del Proyecto
 
@@ -82,7 +82,7 @@ Estado actual de las capas:
 | Servicios | Rol, Estacionamiento, Cajón y Usuario implementados |
 | Controladores | `RolController`, `EstacionamientoController`, `CajonController` y `UsuarioController` implementados |
 | Mappers | `RolMapper`, `EstacionamientoMapper`, `CajonMapper` y `UsuarioMapper` implementados |
-| Seguridad | Autenticación JWT implementada; autorización por rol iniciada en `/api/roles` y `/api/usuarios`; reglas por rol pendientes en Estacionamiento y Cajón |
+| Seguridad | Autenticación JWT implementada; autorización por rol implementada en `/api/roles`, `/api/usuarios` y `/api/estacionamientos`; reglas por rol pendientes en Cajón |
 | Manejo global de errores | Implementado mediante `GlobalExceptionHandler` y `ApiError` |
 | Auditoría JPA | Habilitada |
 | Migraciones | Implementadas de V1 a V6 |
@@ -272,7 +272,7 @@ Incluye:
 
 El módulo implementa inicio de sesión mediante correo y contraseña. Las credenciales se validan contra `Usuario.passwordHash` usando `PasswordEncoder` y BCrypt. Cuando son válidas, se emite un JWT con el correo del usuario, su identificador y sus roles como claims. El login está disponible en `/api/auth/login`.
 
-Los endpoints distintos al login y la creación de usuarios requieren encabezado `Authorization: Bearer <token>`. La creación de usuarios permanece pública para permitir el registro inicial. El módulo Rol requiere rol `ADMIN`. En Usuario, `ADMIN` puede administrar usuarios, mientras que `USER` y `OPERADOR` pueden consultar, actualizar y cambiar la contraseña únicamente de su propio usuario. Estacionamiento y Cajón todavía no tienen autorización específica por rol.
+Los endpoints distintos al login y la creación de usuarios requieren encabezado `Authorization: Bearer <token>`. La creación de usuarios permanece pública para permitir el registro inicial. El módulo Rol requiere rol `ADMIN`. En Usuario, `ADMIN` puede administrar usuarios, mientras que `USER` y `OPERADOR` pueden consultar, actualizar y cambiar la contraseña únicamente de su propio usuario. En Estacionamiento, `ADMIN`, `OPERADOR` y `USER` pueden consultar, pero solo `ADMIN` puede crear, actualizar o eliminar. Cajón todavía no tiene autorización específica por rol.
 
 ### Usuario
 
@@ -327,7 +327,7 @@ Incluye:
 - Validaciones de entrada.
 - Pruebas unitarias de mapper, servicio y controlador.
 
-El módulo implementa operaciones para listar, consultar, crear, actualizar y eliminar estacionamientos. Utiliza DTOs, mapper, transacciones y `ResourceNotFoundException` para recursos inexistentes. La eliminación actual es física; una restricción de integridad se traduce a `409 Conflict` mediante el manejador global.
+El módulo implementa operaciones para listar, consultar, crear, actualizar y eliminar estacionamientos. Utiliza DTOs, mapper, transacciones y `ResourceNotFoundException` para recursos inexistentes. La eliminación actual es física; una restricción de integridad se traduce a `409 Conflict` mediante el manejador global. La autorización permite listar y consultar a `ADMIN`, `OPERADOR` y `USER`; crear, actualizar y eliminar son operaciones exclusivas de `ADMIN`.
 
 ### Cajón
 
@@ -475,7 +475,7 @@ Si la conexión con PostgreSQL y las migraciones son correctas, la aplicación i
 http://localhost:8023
 ```
 
-Actualmente está disponible el login bajo `/api/auth/login` y la creación de usuarios mediante `POST /api/usuarios` sin token. Los endpoints CRUD de roles bajo `/api/roles` requieren un token JWT válido con rol `ADMIN`. En `/api/usuarios`, las operaciones administrativas requieren `ADMIN` y las operaciones sobre el propio usuario permiten `USER` u `OPERADOR` cuando el `usuarioId` de la ruta coincide con el claim del JWT. Los endpoints de estacionamientos bajo `/api/estacionamientos` y cajones bajo `/api/cajones` requieren un token JWT válido, pero todavía no tienen reglas específicas por rol.
+Actualmente está disponible el login bajo `/api/auth/login` y la creación de usuarios mediante `POST /api/usuarios` sin token. Los endpoints CRUD de roles bajo `/api/roles` requieren un token JWT válido con rol `ADMIN`. En `/api/usuarios`, las operaciones administrativas requieren `ADMIN` y las operaciones sobre el propio usuario permiten `USER` u `OPERADOR` cuando el `usuarioId` de la ruta coincide con el claim del JWT. En `/api/estacionamientos`, las consultas permiten `ADMIN`, `OPERADOR` y `USER`, mientras que las modificaciones requieren `ADMIN`. Los endpoints de cajones bajo `/api/cajones` requieren un token JWT válido, pero todavía no tienen reglas específicas por rol.
 
 También es posible ejecutar el artefacto compilado:
 
@@ -558,13 +558,13 @@ La carpeta `docs/` contiene:
 | `sequence/parkio-create-cajon-sequence.puml` | Secuencia propuesta para registrar cajones |
 | `use-cases/mvp-use-cases.md` | Casos de uso iniciales del MVP |
 
-Parte de esta documentación describe componentes futuros. Los módulos Auth, Rol, Estacionamiento, Cajón y Usuario, el manejo global de errores y la autenticación JWT están implementados. La autorización granular por roles ya inició en Rol y Usuario; todavía falta aplicarla a Estacionamiento y Cajón.
+Parte de esta documentación describe componentes futuros. Los módulos Auth, Rol, Estacionamiento, Cajón y Usuario, el manejo global de errores y la autenticación JWT están implementados. La autorización granular por roles ya está aplicada en Rol, Usuario y Estacionamiento; todavía falta aplicarla a Cajón.
 
 ## Roadmap Futuro
 
 A partir de las brechas entre el código y la documentación, el trabajo pendiente incluye:
 
-- Completar autorización granular por roles en Estacionamiento y Cajón.
+- Completar autorización granular por roles en Cajón.
 - Externalizar la configuración sensible.
 - Incorporar perfiles para desarrollo, pruebas y producción.
 - Añadir pruebas de integración con PostgreSQL.

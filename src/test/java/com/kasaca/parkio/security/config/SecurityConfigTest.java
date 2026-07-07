@@ -5,6 +5,10 @@ import com.kasaca.parkio.auth.controller.AuthController;
 import com.kasaca.parkio.auth.dto.AuthLoginRequest;
 import com.kasaca.parkio.auth.dto.AuthResponse;
 import com.kasaca.parkio.auth.service.AuthService;
+import com.kasaca.parkio.estacionamiento.controller.EstacionamientoController;
+import com.kasaca.parkio.estacionamiento.dto.EstacionamientoRequest;
+import com.kasaca.parkio.estacionamiento.dto.EstacionamientoResponse;
+import com.kasaca.parkio.estacionamiento.service.EstacionamientoService;
 import com.kasaca.parkio.rol.controller.RolController;
 import com.kasaca.parkio.rol.dto.RolResponse;
 import com.kasaca.parkio.rol.service.RolService;
@@ -24,6 +28,7 @@ import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Set;
@@ -32,12 +37,14 @@ import static org.mockito.Mockito.when;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.jwt;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-@WebMvcTest({AuthController.class, UsuarioController.class, RolController.class})
+@WebMvcTest({AuthController.class, UsuarioController.class, RolController.class, EstacionamientoController.class})
 @Import({SecurityConfig.class, RestAuthenticationEntryPoint.class, GlobalExceptionHandler.class, UsuarioSecurity.class})
 @TestPropertySource(properties = {
         "parkio.security.jwt.issuer=parkio-test",
@@ -60,6 +67,9 @@ class SecurityConfigTest {
 
     @MockitoBean
     private RolService rolService;
+
+    @MockitoBean
+    private EstacionamientoService estacionamientoService;
 
     @MockitoBean
     private JpaMetamodelMappingContext jpaMetamodelMappingContext;
@@ -286,5 +296,173 @@ class SecurityConfigTest {
                 .andExpect(status().isForbidden());
 
         verifyNoInteractions(usuarioService);
+    }
+
+    /**
+     * Verifica que ADMIN pueda listar estacionamientos.
+     */
+    @Test
+    void debePermitirListarEstacionamientosCuandoTieneRolAdmin() throws Exception {
+        EstacionamientoResponse response = new EstacionamientoResponse(
+                1L,
+                "Estacionamiento Centro",
+                "Sucursal centro",
+                new BigDecimal("19.43260000"),
+                new BigDecimal("-99.13320000"),
+                true,
+                LocalDateTime.of(2026, 7, 7, 9, 0)
+        );
+
+        when(estacionamientoService.getEstacionamientos()).thenReturn(List.of(response));
+
+        mockMvc.perform(get("/api/estacionamientos")
+                        .with(jwt().authorities(() -> "ROLE_ADMIN")))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[0].id").value(1L))
+                .andExpect(jsonPath("$[0].nombre").value("Estacionamiento Centro"));
+
+        verify(estacionamientoService).getEstacionamientos();
+    }
+
+    /**
+     * Verifica que OPERADOR pueda listar estacionamientos.
+     */
+    @Test
+    void debePermitirListarEstacionamientosCuandoTieneRolOperador() throws Exception {
+        when(estacionamientoService.getEstacionamientos()).thenReturn(List.of());
+
+        mockMvc.perform(get("/api/estacionamientos")
+                        .with(jwt().authorities(() -> "ROLE_OPERADOR")))
+                .andExpect(status().isOk());
+
+        verify(estacionamientoService).getEstacionamientos();
+    }
+
+    /**
+     * Verifica que USER pueda listar estacionamientos.
+     */
+    @Test
+    void debePermitirListarEstacionamientosCuandoTieneRolUser() throws Exception {
+        when(estacionamientoService.getEstacionamientos()).thenReturn(List.of());
+
+        mockMvc.perform(get("/api/estacionamientos")
+                        .with(jwt().authorities(() -> "ROLE_USER")))
+                .andExpect(status().isOk());
+
+        verify(estacionamientoService).getEstacionamientos();
+    }
+
+    /**
+     * Verifica que ADMIN pueda consultar un estacionamiento por identificador.
+     */
+    @Test
+    void debePermitirConsultarEstacionamientoCuandoTieneRolAdmin() throws Exception {
+        EstacionamientoResponse response = new EstacionamientoResponse(
+                1L,
+                "Estacionamiento Centro",
+                "Sucursal centro",
+                new BigDecimal("19.43260000"),
+                new BigDecimal("-99.13320000"),
+                true,
+                LocalDateTime.of(2026, 7, 7, 9, 0)
+        );
+
+        when(estacionamientoService.getEstacionamientoById(1L)).thenReturn(response);
+
+        mockMvc.perform(get("/api/estacionamientos/1")
+                        .with(jwt().authorities(() -> "ROLE_ADMIN")))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.id").value(1L))
+                .andExpect(jsonPath("$.nombre").value("Estacionamiento Centro"));
+
+        verify(estacionamientoService).getEstacionamientoById(1L);
+    }
+
+    /**
+     * Verifica que solo ADMIN pueda crear estacionamientos.
+     */
+    @Test
+    void debeRechazarCrearEstacionamientoCuandoTieneRolOperador() throws Exception {
+        EstacionamientoRequest request = new EstacionamientoRequest(
+                "Estacionamiento Centro",
+                "Sucursal centro",
+                new BigDecimal("19.43260000"),
+                new BigDecimal("-99.13320000")
+        );
+
+        mockMvc.perform(post("/api/estacionamientos")
+                        .with(jwt().authorities(() -> "ROLE_OPERADOR"))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isForbidden());
+
+        verifyNoInteractions(estacionamientoService);
+    }
+
+    /**
+     * Verifica que ADMIN pueda crear estacionamientos.
+     */
+    @Test
+    void debePermitirCrearEstacionamientoCuandoTieneRolAdmin() throws Exception {
+        EstacionamientoRequest request = new EstacionamientoRequest(
+                "Estacionamiento Centro",
+                "Sucursal centro",
+                new BigDecimal("19.43260000"),
+                new BigDecimal("-99.13320000")
+        );
+        EstacionamientoResponse response = new EstacionamientoResponse(
+                1L,
+                "Estacionamiento Centro",
+                "Sucursal centro",
+                new BigDecimal("19.43260000"),
+                new BigDecimal("-99.13320000"),
+                true,
+                LocalDateTime.of(2026, 7, 7, 9, 0)
+        );
+
+        when(estacionamientoService.addEstacionamiento(request)).thenReturn(response);
+
+        mockMvc.perform(post("/api/estacionamientos")
+                        .with(jwt().authorities(() -> "ROLE_ADMIN"))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.id").value(1L))
+                .andExpect(jsonPath("$.nombre").value("Estacionamiento Centro"));
+
+        verify(estacionamientoService).addEstacionamiento(request);
+    }
+
+    /**
+     * Verifica que solo ADMIN pueda actualizar estacionamientos.
+     */
+    @Test
+    void debeRechazarActualizarEstacionamientoCuandoTieneRolUser() throws Exception {
+        EstacionamientoRequest request = new EstacionamientoRequest(
+                "Estacionamiento Centro",
+                "Sucursal centro",
+                new BigDecimal("19.43260000"),
+                new BigDecimal("-99.13320000")
+        );
+
+        mockMvc.perform(put("/api/estacionamientos/1")
+                        .with(jwt().authorities(() -> "ROLE_USER"))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isForbidden());
+
+        verifyNoInteractions(estacionamientoService);
+    }
+
+    /**
+     * Verifica que solo ADMIN pueda eliminar estacionamientos.
+     */
+    @Test
+    void debeRechazarEliminarEstacionamientoCuandoTieneRolOperador() throws Exception {
+        mockMvc.perform(delete("/api/estacionamientos/1")
+                        .with(jwt().authorities(() -> "ROLE_OPERADOR")))
+                .andExpect(status().isForbidden());
+
+        verifyNoInteractions(estacionamientoService);
     }
 }

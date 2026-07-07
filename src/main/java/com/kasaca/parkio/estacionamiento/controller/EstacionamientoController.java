@@ -7,6 +7,7 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -26,41 +27,38 @@ public class EstacionamientoController {
 
     private final EstacionamientoService estacionamientoService;
 
+    @PreAuthorize("hasAnyRole('ADMIN', 'OPERADOR', 'USER')")
     @GetMapping
     public List<EstacionamientoResponse> getEstacionamientos() {
         return estacionamientoService.getEstacionamientos();
     }
 
+    @PreAuthorize("hasAnyRole('ADMIN', 'OPERADOR', 'USER')")
     @GetMapping("/{estacionamientoId}")
     public EstacionamientoResponse getEstacionamientoById(@PathVariable Long estacionamientoId) {
-        return estacionamientoService.getEstacionamientoById(
-                estacionamientoId
-        );
+        return estacionamientoService.getEstacionamientoById(estacionamientoId);
     }
 
+    @PreAuthorize("hasRole('ADMIN')")
     @PostMapping
     public ResponseEntity<EstacionamientoResponse> addEstacionamiento(@Valid @RequestBody EstacionamientoRequest request) {
-        EstacionamientoResponse response =
-                estacionamientoService.addEstacionamiento(request);
+        EstacionamientoResponse response = estacionamientoService.addEstacionamiento(request);
 
         return ResponseEntity
                 .status(HttpStatus.CREATED)
                 .body(response);
     }
 
+    @PreAuthorize("hasRole('ADMIN')")
     @PutMapping("/{estacionamientoId}")
     public EstacionamientoResponse updateEstacionamiento(@PathVariable Long estacionamientoId,@Valid @RequestBody EstacionamientoRequest request) {
-        return estacionamientoService.updateEstacionamiento(
-                estacionamientoId,
-                request
-        );
+        return estacionamientoService.updateEstacionamiento(estacionamientoId, request);
     }
 
+    @PreAuthorize("hasRole('ADMIN')")
     @DeleteMapping("/{estacionamientoId}")
     @ResponseStatus(HttpStatus.NO_CONTENT)
     public void deleteEstacionamiento(@PathVariable Long estacionamientoId) {
-        estacionamientoService.deleteEstacionamiento(
-                estacionamientoId
-        );
+        estacionamientoService.deleteEstacionamiento(estacionamientoId);
     }
 }
