@@ -244,4 +244,47 @@ class SecurityConfigTest {
 
         verifyNoInteractions(usuarioService);
     }
+
+    /**
+     * Verifica que OPERADOR pueda consultar su propio usuario.
+     */
+    @Test
+    void debePermitirConsultarUsuarioPropioCuandoTieneRolOperador() throws Exception {
+        UsuarioResponse response = new UsuarioResponse(
+                1L,
+                "Christian",
+                "Salazar",
+                "christian@parkio.com",
+                true,
+                LocalDateTime.of(2026, 7, 7, 9, 0),
+                Set.of("OPERADOR"),
+                Set.of()
+        );
+
+        when(usuarioService.getUserById(1L)).thenReturn(response);
+
+        mockMvc.perform(get("/api/usuarios/1")
+                        .with(jwt()
+                                .jwt(jwt -> jwt.claim("usuarioId", 1L))
+                                .authorities(() -> "ROLE_OPERADOR")))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.id").value(1L))
+                .andExpect(jsonPath("$.roles[0]").value("OPERADOR"));
+
+        verify(usuarioService).getUserById(1L);
+    }
+
+    /**
+     * Verifica que OPERADOR no pueda consultar el usuario de otra persona.
+     */
+    @Test
+    void debeRechazarConsultarUsuarioAjenoCuandoTieneRolOperador() throws Exception {
+        mockMvc.perform(get("/api/usuarios/2")
+                        .with(jwt()
+                                .jwt(jwt -> jwt.claim("usuarioId", 1L))
+                                .authorities(() -> "ROLE_OPERADOR")))
+                .andExpect(status().isForbidden());
+
+        verifyNoInteractions(usuarioService);
+    }
 }

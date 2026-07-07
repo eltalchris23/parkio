@@ -23,7 +23,7 @@ Actualmente, el proyecto contiene:
 
 El proyecto expone APIs REST funcionales para autenticar usuarios en `/api/auth/login` y administrar roles en `/api/roles`, estacionamientos en `/api/estacionamientos`, cajones en `/api/cajones` y usuarios en `/api/usuarios`.
 
-La autenticación JWT ya está implementada. La autorización granular por rol ya inició: actualmente `/api/roles` requiere rol `ADMIN` y varias operaciones de `/api/usuarios` distinguen entre `ADMIN` y `USER`. Los demás endpoints distintos al login y la creación de usuarios requieren un token JWT válido, pero todavía no tienen reglas específicas por rol.
+La autenticación JWT ya está implementada. La autorización granular por rol ya inició: actualmente `/api/roles` requiere rol `ADMIN` y varias operaciones de `/api/usuarios` distinguen entre `ADMIN`, `USER` y `OPERADOR`. Los demás endpoints distintos al login y la creación de usuarios requieren un token JWT válido, pero todavía no tienen reglas específicas por rol.
 
 ## Objetivos del Sistema
 
@@ -272,7 +272,7 @@ Incluye:
 
 El módulo implementa inicio de sesión mediante correo y contraseña. Las credenciales se validan contra `Usuario.passwordHash` usando `PasswordEncoder` y BCrypt. Cuando son válidas, se emite un JWT con el correo del usuario, su identificador y sus roles como claims. El login está disponible en `/api/auth/login`.
 
-Los endpoints distintos al login y la creación de usuarios requieren encabezado `Authorization: Bearer <token>`. La creación de usuarios permanece pública para permitir el registro inicial. El módulo Rol requiere rol `ADMIN`. En Usuario, `ADMIN` puede administrar usuarios y `USER` puede consultar, actualizar y cambiar la contraseña únicamente de su propio usuario. Estacionamiento y Cajón todavía no tienen autorización específica por rol.
+Los endpoints distintos al login y la creación de usuarios requieren encabezado `Authorization: Bearer <token>`. La creación de usuarios permanece pública para permitir el registro inicial. El módulo Rol requiere rol `ADMIN`. En Usuario, `ADMIN` puede administrar usuarios, mientras que `USER` y `OPERADOR` pueden consultar, actualizar y cambiar la contraseña únicamente de su propio usuario. Estacionamiento y Cajón todavía no tienen autorización específica por rol.
 
 ### Usuario
 
@@ -293,7 +293,7 @@ El repositorio utiliza `Long` como tipo de identificador, en concordancia con `B
 
 El módulo implementa operaciones para listar, consultar, crear, actualizar y eliminar usuarios, además de asignar y retirar roles y estacionamientos. Valida correos duplicados y asociaciones, utiliza transacciones y nunca incluye `passwordHash` en las respuestas. `UsuarioResponse` expone los nombres de roles y los identificadores de estacionamientos asociados.
 
-La autorización de Usuario usa `@PreAuthorize` y el helper `UsuarioSecurity` para comparar el `usuarioId` de la ruta contra el claim `usuarioId` del JWT. `ADMIN` puede administrar usuarios; `USER` solo puede consultar, actualizar y cambiar la contraseña de su propio usuario. Las operaciones de asignación y retiro de roles o estacionamientos son exclusivas de `ADMIN`.
+La autorización de Usuario usa `@PreAuthorize` y el helper `UsuarioSecurity` para comparar el `usuarioId` de la ruta contra el claim `usuarioId` del JWT. `ADMIN` puede administrar usuarios; `USER` y `OPERADOR` solo pueden consultar, actualizar y cambiar la contraseña de su propio usuario. Las operaciones de asignación y retiro de roles o estacionamientos son exclusivas de `ADMIN`.
 
 La creación, actualización general y modificación de contraseña utilizan DTOs y operaciones separadas. La autenticación se realiza desde el módulo Auth.
 
@@ -475,7 +475,7 @@ Si la conexión con PostgreSQL y las migraciones son correctas, la aplicación i
 http://localhost:8023
 ```
 
-Actualmente está disponible el login bajo `/api/auth/login` y la creación de usuarios mediante `POST /api/usuarios` sin token. Los endpoints CRUD de roles bajo `/api/roles` requieren un token JWT válido con rol `ADMIN`. En `/api/usuarios`, las operaciones administrativas requieren `ADMIN` y las operaciones sobre el propio usuario permiten `USER` cuando el `usuarioId` de la ruta coincide con el claim del JWT. Los endpoints de estacionamientos bajo `/api/estacionamientos` y cajones bajo `/api/cajones` requieren un token JWT válido, pero todavía no tienen reglas específicas por rol.
+Actualmente está disponible el login bajo `/api/auth/login` y la creación de usuarios mediante `POST /api/usuarios` sin token. Los endpoints CRUD de roles bajo `/api/roles` requieren un token JWT válido con rol `ADMIN`. En `/api/usuarios`, las operaciones administrativas requieren `ADMIN` y las operaciones sobre el propio usuario permiten `USER` u `OPERADOR` cuando el `usuarioId` de la ruta coincide con el claim del JWT. Los endpoints de estacionamientos bajo `/api/estacionamientos` y cajones bajo `/api/cajones` requieren un token JWT válido, pero todavía no tienen reglas específicas por rol.
 
 También es posible ejecutar el artefacto compilado:
 

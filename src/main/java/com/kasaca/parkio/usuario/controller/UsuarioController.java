@@ -49,7 +49,7 @@ public class UsuarioController {
      * @param usuarioId identificador del usuario
      * @return datos públicos del usuario encontrado
      */
-    @PreAuthorize("hasRole('ADMIN') or (hasRole('USER') and @usuarioSecurity.isSelf(authentication, #usuarioId))")
+    @PreAuthorize("hasRole('ADMIN') or (hasAnyRole('USER', 'OPERADOR') and @usuarioSecurity.isSelf(authentication, #usuarioId))")
     @GetMapping("/{usuarioId}")
     public UsuarioResponse getUserById(@PathVariable Long usuarioId) {
         return usuarioService.getUserById(usuarioId);
@@ -77,7 +77,7 @@ public class UsuarioController {
      * @param request datos actualizados
      * @return usuario actualizado
      */
-    @PreAuthorize("hasRole('ADMIN') or (hasRole('USER') and @usuarioSecurity.isSelf(authentication, #usuarioId))")
+    @PreAuthorize("hasRole('ADMIN') or (hasAnyRole('USER', 'OPERADOR') and @usuarioSecurity.isSelf(authentication, #usuarioId))")
     @PutMapping("/{usuarioId}")
     public UsuarioResponse updateUser(@PathVariable Long usuarioId, @Valid @RequestBody UsuarioUpdateRequest request) {
         return usuarioService.updateUser(usuarioId, request);
@@ -89,7 +89,7 @@ public class UsuarioController {
      * @param usuarioId identificador del usuario
      * @param request solicitud que contiene la nueva contraseña
      */
-    @PreAuthorize("hasRole('ADMIN') or (hasRole('USER') and @usuarioSecurity.isSelf(authentication, #usuarioId))")
+    @PreAuthorize("hasRole('ADMIN') or (hasAnyRole('USER', 'OPERADOR') and @usuarioSecurity.isSelf(authentication, #usuarioId))")
     @PatchMapping("/{usuarioId}/password")
     @ResponseStatus(HttpStatus.NO_CONTENT)
     public void updatePassword(@PathVariable Long usuarioId, @Valid @RequestBody UsuarioPasswordRequest request) {
