@@ -10,19 +10,30 @@
 
 ### Autenticación
 
-La autenticación JWT está planificada, pero todavía no está implementada. Los endpoints actuales no requieren token y no deben considerarse seguros para un entorno productivo.
+La autenticación JWT está implementada mediante Spring Security y OAuth2 Resource Server.
+
+Los endpoints públicos actuales son:
+
+```http
+POST /api/auth/login
+POST /api/usuarios
+```
+
+Los demás endpoints requieren un token JWT válido en el encabezado `Authorization`.
+
+La autorización granular por roles todavía no está implementada; por ahora se valida autenticación, no permisos específicos por rol.
 
 ### Estado de implementación
 
 | Módulo | Estado |
 |---|---|
 | Rol | CRUD REST implementado |
-| Auth | Propuesto; no implementado |
+| Auth | Login JWT implementado |
 | Usuario | CRUD REST, roles, estacionamientos, validaciones y hash BCrypt implementados |
 | Estacionamiento | CRUD REST implementado |
 | Cajón | CRUD REST y validaciones implementados |
 
-El siguiente encabezado representa el formato de autenticación previsto para el futuro:
+Los endpoints protegidos deben enviar el token con este formato:
 
 Ejemplo:
 
@@ -65,7 +76,12 @@ POST /api/auth/login
 
 ```json
 {
-  "message": "Credenciales inválidas"
+  "timestamp": "2026-07-07T09:00:00",
+  "status": 401,
+  "error": "Unauthorized",
+  "message": "Credenciales invalidas",
+  "path": "/api/auth/login",
+  "validationErrors": {}
 }
 ```
 
@@ -173,9 +189,11 @@ La eliminación actual es física y la respuesta no contiene cuerpo.
 
 El CRUD de Usuario y la asignación de roles y estacionamientos están implementados bajo `/api/usuarios`. Las contraseñas se transforman en hashes BCrypt y nunca se incluyen en las respuestas.
 
-Limitaciones actuales:
+Seguridad actual:
 
-- No existe autenticación ni JWT.
+- Requiere JWT válido en todos sus endpoints.
+- `POST /api/usuarios` es público para permitir el registro inicial.
+- La autorización específica por rol todavía no está implementada.
 
 La creación utiliza `UsuarioCreateRequest`, la actualización general utiliza `UsuarioUpdateRequest` y el cambio de contraseña utiliza `UsuarioPasswordRequest`.
 

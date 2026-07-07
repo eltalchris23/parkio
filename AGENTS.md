@@ -24,23 +24,25 @@ Parkio es un backend en desarrollo para administrar:
 - Cajones pertenecientes a un estacionamiento.
 - Estado y tipo de los cajones.
 
-El proyecto contiene actualmente el modelo persistente, DTOs, repositorios, contratos de servicio, migraciones y documentación de arquitectura. Los módulos Rol, Estacionamiento, Cajón y Usuario cuentan además con mapper, servicio transaccional, controlador REST y pruebas unitarias.
+El proyecto contiene actualmente el modelo persistente, DTOs, repositorios, contratos de servicio, migraciones y documentación de arquitectura. Los módulos Rol, Estacionamiento, Cajón y Usuario cuentan además con mapper, servicio transaccional, controlador REST y pruebas unitarias. El módulo Auth implementa login y emisión de JWT.
 
-La API REST está implementada para Rol, Estacionamiento, Cajón y Usuario. Usuario permite asignar y retirar roles y estacionamientos. La autenticación JWT y la autorización todavía no están implementadas.
+La API REST está implementada para Auth, Rol, Estacionamiento, Cajón y Usuario. Usuario permite asignar y retirar roles y estacionamientos. La autenticación JWT está implementada; la autorización granular por roles todavía no está implementada.
 
 ## Estado Actual
 
 Antes de realizar cambios, considerar lo siguiente:
 
 - `RolController`, `EstacionamientoController`, `CajonController` y `UsuarioController` exponen los recursos `/api/roles`, `/api/estacionamientos`, `/api/cajones` y `/api/usuarios`.
-- Solo existe `spring-security-crypto` para BCrypt; no existe seguridad HTTP ni autorización con Spring Security.
-- No existen componentes JWT.
+- Existe Spring Security HTTP con OAuth2 Resource Server para proteger endpoints mediante JWT.
+- Existen `AuthController`, `AuthService`, `AuthServiceImpl`, `JwtService`, `JwtProperties` y `SecurityConfig`.
+- No existe `JwtFilter` propio; la validación del token se delega a Spring Security OAuth2 Resource Server.
+- La autorización granular por roles todavía no está implementada.
 - `RolMapper`, `EstacionamientoMapper`, `CajonMapper` y `UsuarioMapper` están implementados.
 - El manejo global de excepciones está implementado mediante `GlobalExceptionHandler` y `ApiError`.
 - `RolRequest`, `EstacionamientoRequest`, `CajonRequest`, `CajonEstadoRequest`, `UsuarioCreateRequest`, `UsuarioUpdateRequest`, `UsuarioPasswordRequest`, `UsuarioRolRequest` y `UsuarioEstacionamientoRequest` tienen validaciones Jakarta Validation.
 - `RolServiceImpl`, `EstacionamientoServiceImpl`, `CajonServiceImpl` y `UsuarioServiceImpl` están registrados como beans y usan transacciones.
 - `UsuarioServiceImpl` valida correos duplicados y genera hashes BCrypt mediante `PasswordEncoder`.
-- Existen pruebas unitarias para mapper, servicio y controlador de Rol, Estacionamiento, Cajón y Usuario, además de la prueba de carga del contexto.
+- Existen pruebas unitarias para mapper, servicio y controlador de Rol, Estacionamiento, Cajón y Usuario, pruebas de Auth/JWT/seguridad, además de la prueba de carga del contexto.
 - Usuario permite asignar y retirar roles y estacionamientos mediante `usuario_rol` y `usuario_estacionamiento`. `UsuarioResponse` representa estas relaciones mediante nombres de roles e identificadores de estacionamientos. Creación, actualización general y cambio de contraseña utilizan DTOs y operaciones separadas.
 - La documentación describe parcialmente una arquitectura futura.
 - Todos los repositorios utilizan `Long` como identificador, en concordancia con `BaseEntity`.
@@ -106,7 +108,7 @@ No se deben saltar capas sin una justificación explícita.
 - JUnit 5 y Spring Boot Test.
 - PlantUML para documentación técnica.
 
-Existe la dependencia `spring-security-crypto` únicamente para BCrypt. No existen Spring Security Web, filtros de seguridad ni una biblioteca JWT.
+Existen dependencias de Spring Security, Spring Security OAuth2 Resource Server, Spring Security Test y `spring-security-crypto`. BCrypt se usa para contraseñas y OAuth2 Resource Server valida tokens JWT.
 
 ## Estructura de Paquetes
 
@@ -131,7 +133,7 @@ Los componentes compartidos deben colocarse en `shared` únicamente cuando sean 
 
 No se debe crear un paquete genérico para código que pertenece claramente a un dominio.
 
-Los paquetes `auth`, `security` y `common` aparecen en la arquitectura propuesta, pero no existen actualmente. El paquete `config` contiene `PasswordEncoderConfig`; los paquetes `controller` y `mapper` existen dentro de Rol, Estacionamiento, Cajón y Usuario, y las excepciones compartidas se encuentran en `shared.exception`. Las capacidades pendientes solo deben crearse cuando una tarea autorizada requiera implementarlas.
+Los paquetes `auth` y `security` existen actualmente. El paquete `config` contiene `PasswordEncoderConfig`; los paquetes `controller` y `mapper` existen dentro de Rol, Estacionamiento, Cajón y Usuario, y las excepciones compartidas se encuentran en `shared.exception`. El paquete `common` aparece como propuesta, pero no existe actualmente. Las capacidades pendientes solo deben crearse cuando una tarea autorizada requiera implementarlas.
 
 ## Convenciones de Nomenclatura
 
@@ -269,7 +271,7 @@ Todos los repositorios existentes utilizan `Long`, en concordancia con el identi
 
 El código nuevo también debe utilizar `Long` y mantener esta consistencia en todas sus referencias.
 
-Las consultas derivadas deben usar nombres que representen exactamente el criterio aplicado. `UsuarioRepository` comprueba duplicados mediante `existsByEmail` y `existsByEmailAndIdNot`; no implementa todavía búsqueda de usuario por correo para autenticación.
+Las consultas derivadas deben usar nombres que representen exactamente el criterio aplicado. `UsuarioRepository` comprueba duplicados mediante `existsByEmail` y `existsByEmailAndIdNot`, y busca usuarios para autenticación mediante `findByEmail`.
 
 ## Convenciones para Services
 
@@ -440,28 +442,30 @@ La autenticación JWT aparece en:
 - `docs/sequence/parkio-login-sequence.puml`.
 - `docs/uml/parkio-use-cases.puml`.
 
-Sin embargo:
+Estado actual:
 
-- Solo existe `spring-security-crypto`; no existe configuración de seguridad HTTP con Spring Security.
-- No existe `SecurityConfig`.
-- No existe `JwtFilter`.
-- No existe `JwtService`.
-- No existe `AuthController`.
-- No existe `AuthService`.
+- Existe `spring-security-crypto` para BCrypt.
+- Existe `spring-boot-starter-security` para seguridad HTTP.
+- Existe `spring-boot-starter-oauth2-resource-server` para validar JWT.
+- Existe `SecurityConfig`.
+- Existe `JwtService`.
+- Existe `AuthController`.
+- Existe `AuthService` y `AuthServiceImpl`.
 - Existe un bean `PasswordEncoder` basado en BCrypt para almacenar hashes de contraseñas.
-- No existe endpoint de login implementado.
-
-Estas piezas forman parte de la arquitectura objetivo, no del estado actual.
+- Existe endpoint de login en `POST /api/auth/login`.
+- No existe `JwtFilter` propio; Spring Security valida el token mediante OAuth2 Resource Server.
+- Los endpoints distintos al login y `POST /api/usuarios` requieren JWT válido. `POST /api/usuarios` queda público para permitir registro inicial.
+- No existe autorización granular por roles.
 
 Reglas obligatorias:
 
-- No declarar la aplicación como segura mientras estos componentes no existan.
+- No declarar autorización por roles como implementada mientras no existan reglas explícitas por rol.
 - No implementar criptografía propia.
 - No guardar ni registrar contraseñas en texto plano.
 - No exponer `passwordHash`.
 - No incluir secretos JWT en el repositorio.
-- Externalizar claves y credenciales cuando se implemente seguridad.
-- No agregar seguridad de manera parcial fingiendo protección completa.
+- Externalizar claves y credenciales para entornos reales.
+- No presentar la autenticación JWT como autorización completa por roles.
 - Verificar autorización por rol en operaciones que la documentación restrinja.
 - Tratar la implementación de JWT y Spring Security como un cambio explícito de alcance.
 
@@ -471,7 +475,7 @@ La documentación técnica se encuentra en `docs/`.
 
 Incluye:
 
-- Contrato implementado de Rol, Estacionamiento, Cajón y Usuario, y contrato propuesto de autenticación.
+- Contrato implementado de Auth, Rol, Estacionamiento, Cajón y Usuario.
 - Arquitectura por capas.
 - Estructura objetivo de paquetes.
 - Flujo JWT.

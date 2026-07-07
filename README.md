@@ -13,15 +13,17 @@ Actualmente, el proyecto contiene:
 - Repositorios Spring Data JPA.
 - Contratos de servicio.
 - CRUD REST completo para los módulos Rol, Estacionamiento, Cajón y Usuario.
+- Login mediante `/api/auth/login`.
+- Seguridad HTTP con Spring Security y JWT.
 - Manejo global de excepciones y validación para las operaciones implementadas.
 - Pruebas unitarias de mapper, servicio y controlador para Rol, Estacionamiento, Cajón y Usuario.
 - Hash seguro de contraseñas de Usuario mediante BCrypt.
 - Migraciones iniciales de base de datos.
 - Documentación de arquitectura, dominio, API implementada y funcionalidades propuestas.
 
-El proyecto expone APIs REST funcionales para administrar roles en `/api/roles`, estacionamientos en `/api/estacionamientos`, cajones en `/api/cajones` y usuarios en `/api/usuarios`.
+El proyecto expone APIs REST funcionales para autenticar usuarios en `/api/auth/login` y administrar roles en `/api/roles`, estacionamientos en `/api/estacionamientos`, cajones en `/api/cajones` y usuarios en `/api/usuarios`.
 
-La autenticación y autorización JWT descritas en `docs/` corresponden a una arquitectura objetivo y no están implementadas actualmente.
+La autenticación JWT ya está implementada. La autorización granular por rol todavía no está implementada; actualmente los endpoints distintos al login y la creación de usuarios requieren un token JWT válido.
 
 ## Objetivos del Sistema
 
@@ -34,8 +36,9 @@ Según el modelo actual y la documentación existente, Parkio busca proporcionar
 - Registrar y administrar cajones dentro de cada estacionamiento.
 - Consultar el estado de los cajones.
 - Mantener información de auditoría básica sobre las entidades.
+- Autenticar usuarios mediante correo, contraseña BCrypt y JWT.
 
-La autenticación, autorización por roles y exposición de estas operaciones mediante una API REST están documentadas como objetivos, pero todavía no forman parte del código ejecutable.
+La autorización por roles está documentada como objetivo futuro, pero todavía no forma parte del código ejecutable.
 
 ## Tecnologías Utilizadas
 
@@ -49,14 +52,15 @@ La autenticación, autorización por roles y exposición de estas operaciones me
 | PostgreSQL | Base de datos relacional |
 | Flyway | Versionado y migración del esquema |
 | Jakarta Validation | Validación declarativa implementada en los DTOs de entrada de Rol, Estacionamiento, Cajón y Usuario |
-| Spring Security Crypto | Generación de hashes BCrypt para contraseñas; no configura seguridad HTTP |
+| Spring Security | Seguridad HTTP, protección de endpoints y soporte OAuth2 Resource Server para JWT |
+| Spring Security Crypto | Generación de hashes BCrypt para contraseñas |
 | Lombok | Generación de getters, setters, constructores y builders |
 | Maven | Gestión de dependencias y construcción |
 | Maven Wrapper | Maven 3.9.16 |
 | JUnit 5 | Pruebas mediante Spring Boot Test |
 | PlantUML | Diagramas en la documentación |
 
-El proyecto incluye `spring-security-crypto` exclusivamente para BCrypt. No incluye Spring Security Web, configuración de autorización ni una biblioteca JWT.
+El proyecto incluye Spring Security para proteger endpoints, Spring Security OAuth2 Resource Server para validar JWT y `spring-security-crypto` para BCrypt. La autorización granular por rol todavía no está implementada.
 
 ## Arquitectura del Proyecto
 
@@ -78,14 +82,14 @@ Estado actual de las capas:
 | Servicios | Rol, Estacionamiento, Cajón y Usuario implementados |
 | Controladores | `RolController`, `EstacionamientoController`, `CajonController` y `UsuarioController` implementados |
 | Mappers | `RolMapper`, `EstacionamientoMapper`, `CajonMapper` y `UsuarioMapper` implementados |
-| Seguridad | No implementada |
+| Seguridad | Autenticación JWT implementada; autorización granular por rol pendiente |
 | Manejo global de errores | Implementado mediante `GlobalExceptionHandler` y `ApiError` |
 | Auditoría JPA | Habilitada |
 | Migraciones | Implementadas de V1 a V6 |
 
 La clase principal habilita la auditoría mediante `@EnableJpaAuditing`. Las entidades heredan los campos comunes desde `BaseEntity`.
 
-> La documentación de arquitectura contiene componentes como `AuthController`, `JwtFilter`, `JwtService` y `SecurityConfig`, pero dichos componentes aún no existen en el código fuente.
+> La autenticación implementada utiliza `AuthController`, `AuthService`, `JwtService` y `SecurityConfig`. No existe un `JwtFilter` propio porque la validación del token se delega al soporte OAuth2 Resource Server de Spring Security.
 
 ## Estructura de Carpetas
 
@@ -252,6 +256,24 @@ Cada número de cajón debe ser único dentro de un estacionamiento, de acuerdo 
 
 ## Módulos Existentes
 
+### Auth
+
+Incluye:
+
+- `AuthLoginRequest` y `AuthResponse`.
+- `AuthController`.
+- `AuthService`.
+- `AuthServiceImpl`.
+- `JwtService`.
+- `JwtProperties`.
+- `SecurityConfig`.
+- `UnauthorizedException`.
+- Pruebas unitarias y de configuración de seguridad.
+
+El módulo implementa inicio de sesión mediante correo y contraseña. Las credenciales se validan contra `Usuario.passwordHash` usando `PasswordEncoder` y BCrypt. Cuando son válidas, se emite un JWT con el correo del usuario, su identificador y sus roles como claims. El login está disponible en `/api/auth/login`.
+
+Los endpoints distintos al login y la creación de usuarios requieren encabezado `Authorization: Bearer <token>`. La creación de usuarios permanece pública para permitir el registro inicial. La autorización específica por rol todavía no está implementada.
+
 ### Usuario
 
 Incluye:
@@ -271,7 +293,7 @@ El repositorio utiliza `Long` como tipo de identificador, en concordancia con `B
 
 El módulo implementa operaciones para listar, consultar, crear, actualizar y eliminar usuarios, además de asignar y retirar roles y estacionamientos. Valida correos duplicados y asociaciones, utiliza transacciones y nunca incluye `passwordHash` en las respuestas. `UsuarioResponse` expone los nombres de roles y los identificadores de estacionamientos asociados.
 
-Todavía no implementa autenticación ni JWT. La creación, actualización general y modificación de contraseña utilizan DTOs y operaciones separadas.
+La creación, actualización general y modificación de contraseña utilizan DTOs y operaciones separadas. La autenticación se realiza desde el módulo Auth.
 
 ### Rol
 
@@ -365,6 +387,13 @@ spring:
 
   flyway:
     enabled: true
+
+parkio:
+  security:
+    jwt:
+      issuer: parkio
+      secret: ${PARKIO_JWT_SECRET:clave-local-de-desarrollo-cambiar-en-produccion}
+      expiration-minutes: 60
 ```
 
 La aplicación espera:
@@ -373,9 +402,10 @@ La aplicación espera:
 - Una base de datos llamada `parkio`.
 - El usuario `postgres`.
 - La contraseña configurada actualmente en el archivo.
+- La variable `PARKIO_JWT_SECRET` configurada para entornos reales o productivos.
 - El puerto HTTP `8023` disponible.
 
-La configuración no utiliza variables de entorno ni perfiles de Spring. Para entornos compartidos o productivos se recomienda externalizar las credenciales; esa capacidad no está configurada todavía.
+La configuración de JWT permite externalizar el secreto mediante `PARKIO_JWT_SECRET`. Las credenciales de base de datos todavía permanecen en `application.yaml`; para entornos compartidos o productivos se recomienda externalizarlas y crear perfiles de Spring.
 
 Hibernate utiliza `ddl-auto: validate`, por lo que valida el esquema, pero no crea ni actualiza las tablas. Flyway es responsable de ejecutar las migraciones.
 
@@ -443,7 +473,7 @@ Si la conexión con PostgreSQL y las migraciones son correctas, la aplicación i
 http://localhost:8023
 ```
 
-Actualmente están disponibles los endpoints CRUD de roles bajo `/api/roles`, estacionamientos bajo `/api/estacionamientos`, cajones bajo `/api/cajones` y usuarios bajo `/api/usuarios`. Los endpoints de autenticación continúan siendo una propuesta.
+Actualmente está disponible el login bajo `/api/auth/login` y la creación de usuarios mediante `POST /api/usuarios` sin token. Los endpoints CRUD de roles bajo `/api/roles`, estacionamientos bajo `/api/estacionamientos`, cajones bajo `/api/cajones` y el resto de operaciones de usuarios bajo `/api/usuarios` requieren un token JWT válido.
 
 También es posible ejecutar el artefacto compilado:
 
@@ -514,10 +544,10 @@ La carpeta `docs/` contiene:
 
 | Documento | Descripción |
 |---|---|
-| `api/parkio-api-v1.md` | Contrato implementado para Rol, Estacionamiento, Cajón y Usuario, y propuesta para autenticación |
+| `api/parkio-api-v1.md` | Contrato implementado para Auth, Rol, Estacionamiento, Cajón y Usuario |
 | `architecture/spring-boot-architecture.puml` | Arquitectura objetivo por capas |
 | `architecture/parkio-package-structure.puml` | Organización propuesta de paquetes |
-| `architecture/parkio-jwt-flow.puml` | Flujo propuesto de autenticación JWT |
+| `architecture/parkio-jwt-flow.puml` | Flujo de autenticación JWT |
 | `erd/parkio-erd.puml` | Diagrama entidad-relación |
 | `uml/parkio-domain.puml` | Modelo de dominio |
 | `uml/parkio-use-cases.puml` | Casos de uso y actores |
@@ -526,14 +556,13 @@ La carpeta `docs/` contiene:
 | `sequence/parkio-create-cajon-sequence.puml` | Secuencia propuesta para registrar cajones |
 | `use-cases/mvp-use-cases.md` | Casos de uso iniciales del MVP |
 
-Parte de esta documentación describe componentes futuros. Los módulos Rol, Estacionamiento, Cajón y Usuario y el manejo global de errores están implementados; la autenticación, autorización, seguridad HTTP y JWT todavía no existen.
+Parte de esta documentación describe componentes futuros. Los módulos Auth, Rol, Estacionamiento, Cajón y Usuario, el manejo global de errores y la autenticación JWT están implementados. La autorización granular por roles todavía no existe.
 
 ## Roadmap Futuro
 
 A partir de las brechas entre el código y la documentación, el trabajo pendiente incluye:
 
-- Incorporar autenticación y autorización.
-- Agregar Spring Security y soporte JWT si se mantiene la arquitectura documentada.
+- Incorporar autorización granular por roles.
 - Externalizar la configuración sensible.
 - Incorporar perfiles para desarrollo, pruebas y producción.
 - Añadir pruebas de integración con PostgreSQL.

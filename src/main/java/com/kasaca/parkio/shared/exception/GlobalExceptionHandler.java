@@ -25,6 +25,7 @@ import java.util.stream.Collectors;
  *
  * <ul>
  *     <li>400 Bad Request: datos inválidos o JSON mal formado.</li>
+ *     <li>401 Unauthorized: credenciales invalidas o autenticacion requerida.</li>
  *     <li>404 Not Found: recurso solicitado inexistente.</li>
  *     <li>409 Conflict: conflicto de negocio o integridad de datos.</li>
  *     <li>500 Internal Server Error: error inesperado.</li>
@@ -66,6 +67,27 @@ public class GlobalExceptionHandler {
     ) {
         return buildResponse(
                 HttpStatus.CONFLICT,
+                exception.getMessage(),
+                request.getRequestURI(),
+                Map.of()
+        );
+    }
+
+    /**
+     * Maneja errores de autenticacion controlados por la aplicacion.
+     *
+     * <p>Se utiliza principalmente cuando el login recibe credenciales
+     * invalidas.</p>
+     *
+     * @return respuesta HTTP 401 Unauthorized
+     */
+    @ExceptionHandler(UnauthorizedException.class)
+    public ResponseEntity<ApiError> handleUnauthorized(
+            UnauthorizedException exception,
+            HttpServletRequest request
+    ) {
+        return buildResponse(
+                HttpStatus.UNAUTHORIZED,
                 exception.getMessage(),
                 request.getRequestURI(),
                 Map.of()

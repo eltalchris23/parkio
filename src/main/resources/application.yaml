@@ -18,3 +18,10 @@ spring:
 
   flyway:
     enabled: true
+
+parkio:
+  security:
+    jwt:
+      issuer: parkio
+      secret: ${PARKIO_JWT_SECRET:clave-local-de-desarrollo-cambiar-en-produccion}
+      expiration-minutes: 60
