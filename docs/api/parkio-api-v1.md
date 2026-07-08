@@ -25,6 +25,31 @@ La autorización granular por roles ya inició. Actualmente el módulo Rol requi
 
 Los roles incluidos en el claim `roles` del JWT se convierten en authorities de Spring Security con prefijo `ROLE_`. Por ejemplo, `ADMIN` se interpreta como `ROLE_ADMIN`.
 
+### Bootstrap del primer ADMIN
+
+El endpoint público `POST /api/usuarios` crea usuarios con el rol base `USER`. Por seguridad, no existe un endpoint público para crear administradores.
+
+Para habilitar el primer administrador en un entorno local o controlado:
+
+```sql
+SELECT id, email
+FROM usuario
+WHERE email = 'tu-correo@dominio.com';
+
+SELECT id, nombre
+FROM rol
+WHERE nombre = 'ADMIN';
+
+INSERT INTO usuario_rol (usuario_id, rol_id)
+SELECT u.id, r.id
+FROM usuario u
+JOIN rol r ON r.nombre = 'ADMIN'
+WHERE u.email = 'tu-correo@dominio.com'
+ON CONFLICT DO NOTHING;
+```
+
+Después de asignar el rol, el usuario debe iniciar sesión nuevamente para obtener un JWT actualizado con `ADMIN` dentro del claim `roles`.
+
 ### Estado de implementación
 
 | Módulo | Estado |

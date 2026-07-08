@@ -570,6 +570,51 @@ Para ejecutar pruebas usando explícitamente el perfil `test` en PowerShell:
 .\mvnw.cmd "-Dspring.profiles.active=test" test
 ```
 
+## Bootstrap del Primer Administrador
+
+El registro público mediante `POST /api/usuarios` crea usuarios con el rol base `USER`. Por seguridad, el sistema no convierte automáticamente usuarios en `ADMIN`.
+
+Para habilitar el primer administrador en un entorno local o controlado:
+
+1. Crear el usuario mediante el endpoint público:
+
+   ```http
+   POST /api/usuarios
+   ```
+
+2. Identificar el usuario creado y el rol `ADMIN` en PostgreSQL:
+
+   ```sql
+   SELECT id, email
+   FROM usuario
+   WHERE email = 'tu-correo@dominio.com';
+
+   SELECT id, nombre
+   FROM rol
+   WHERE nombre = 'ADMIN';
+   ```
+
+3. Asociar manualmente el usuario con el rol `ADMIN`:
+
+   ```sql
+   INSERT INTO usuario_rol (usuario_id, rol_id)
+   SELECT u.id, r.id
+   FROM usuario u
+   JOIN rol r ON r.nombre = 'ADMIN'
+   WHERE u.email = 'tu-correo@dominio.com'
+   ON CONFLICT DO NOTHING;
+   ```
+
+4. Iniciar sesión nuevamente en:
+
+   ```http
+   POST /api/auth/login
+   ```
+
+El JWT generado después de este proceso debe incluir `ADMIN` dentro del claim `roles`.
+
+Este procedimiento no guarda contraseñas ni secretos en el repositorio. Para producción debe ejecutarse como una operación controlada de administración o despliegue.
+
 ## Migraciones Flyway
 
 Flyway está habilitado y utiliza la ubicación convencional:

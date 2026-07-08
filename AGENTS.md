@@ -467,6 +467,7 @@ Estado actual:
 - Existe autorización granular inicial por roles: `RolController` requiere `ADMIN`, `UsuarioController` protege operaciones con `ADMIN`, `USER` y `OPERADOR`, `EstacionamientoController` permite lectura a `ADMIN`/`OPERADOR`/`USER` y escritura a `ADMIN`, y `CajonController` permite lectura a `ADMIN`/`OPERADOR`/`USER`, cambio de estado a `ADMIN`/`OPERADOR` y escritura administrativa a `ADMIN`.
 - `SecurityConfig` habilita `@EnableMethodSecurity`.
 - `SecurityConfig` convierte el claim `roles` del JWT en authorities `ROLE_*`.
+- El primer usuario `ADMIN` no se crea automáticamente. El bootstrap inicial debe realizarse de forma controlada asignando manualmente el rol `ADMIN` en la tabla `usuario_rol` a un usuario ya creado, sin guardar contraseñas ni secretos en migraciones o documentación.
 
 Reglas obligatorias:
 
