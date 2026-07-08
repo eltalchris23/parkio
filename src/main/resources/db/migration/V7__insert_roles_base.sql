@@ -1,0 +1,6 @@
+INSERT INTO rol (nombre, activo, fecha_creacion)
+VALUES
+    ('ADMIN', TRUE, CURRENT_TIMESTAMP),
+    ('OPERADOR', TRUE, CURRENT_TIMESTAMP),
+    ('USER', TRUE, CURRENT_TIMESTAMP)
+ON CONFLICT (nombre) DO NOTHING;

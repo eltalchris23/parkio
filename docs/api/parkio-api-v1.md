@@ -201,7 +201,7 @@ El CRUD de Usuario y la asignación de roles y estacionamientos están implement
 Seguridad actual:
 
 - Requiere JWT válido en todos sus endpoints.
-- `POST /api/usuarios` es público para permitir el registro inicial.
+- `POST /api/usuarios` es público para permitir el registro inicial y asigna automáticamente el rol base `USER`.
 - `GET /api/usuarios`, `DELETE /api/usuarios/{id}` y asignaciones/retiros de roles o estacionamientos requieren `ADMIN`.
 - `GET /api/usuarios/{id}`, `PUT /api/usuarios/{id}` y `PATCH /api/usuarios/{id}/password` permiten `ADMIN`, o `USER`/`OPERADOR` cuando el `id` de la ruta coincide con el claim `usuarioId` del JWT.
 
@@ -263,14 +263,19 @@ POST /api/usuarios
   "email": "juan@parkio.com",
   "activo": true,
   "fechaCreacion": "2026-06-28T12:00:00",
-  "roles": [],
+  "roles": [
+    "USER"
+  ],
   "estacionamientoIds": []
 }
 ```
 
+La creación pública agrega automáticamente el rol base `USER`, siempre que exista en la tabla `rol`.
+
 ### Respuestas de error
 
 - `400 Bad Request`: datos inválidos.
+- `404 Not Found`: el rol base `USER` no existe.
 - `409 Conflict`: el correo ya está registrado.
 
 ---

@@ -1,0 +1,8 @@
+spring:
+  datasource:
+    url: ${PARKIO_DB_URL}
+    username: ${PARKIO_DB_USERNAME}
+    password: ${PARKIO_DB_PASSWORD}
+
+  jpa:
+    show-sql: false

@@ -28,6 +28,8 @@ import java.util.Objects;
 @Transactional(readOnly = true)
 public class UsuarioServiceImpl implements UsuarioService {
 
+    private static final String ROL_USER = "USER";
+
     private final UsuarioRepository usuarioRepository;
     private final RolRepository rolRepository;
     private final EstacionamientoRepository estacionamientoRepository;
@@ -54,7 +56,9 @@ public class UsuarioServiceImpl implements UsuarioService {
     }
 
     /**
-     * Crea un usuario después de validar el correo y cifrar su contraseña.
+     * Crea un usuario después de validar el correo, cifrar su contraseña y
+     * asignarle automáticamente el rol base USER para que pueda autenticarse con
+     * permisos de usuario final.
      */
     @Override
     @Transactional
@@ -63,6 +67,9 @@ public class UsuarioServiceImpl implements UsuarioService {
 
         String passwordHash = passwordEncoder.encode(request.password());
         Usuario usuario = usuarioMapper.toEntity(request, passwordHash);
+        Rol userRole = findRolByNombre(ROL_USER);
+
+        usuario.getRoles().add(userRole);
         Usuario savedUsuario = usuarioRepository.save(usuario);
 
         return usuarioMapper.toResponse(savedUsuario);
@@ -219,6 +226,15 @@ public class UsuarioServiceImpl implements UsuarioService {
     private Rol findRolById(Long rolId) {
         return rolRepository.findById(rolId)
                 .orElseThrow(() -> new ResourceNotFoundException("Rol", rolId));
+    }
+
+    /**
+     * Busca internamente un rol por nombre. Se utiliza para localizar roles base
+     * creados por Flyway, como USER, sin depender de identificadores fijos.
+     */
+    private Rol findRolByNombre(String nombre) {
+        return rolRepository.findByNombre(nombre)
+                .orElseThrow(() -> new ResourceNotFoundException("Rol", nombre));
     }
 
     /**

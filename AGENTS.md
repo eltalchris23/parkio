@@ -48,7 +48,7 @@ Antes de realizar cambios, considerar lo siguiente:
 - `RolServiceImpl`, `EstacionamientoServiceImpl`, `CajonServiceImpl` y `UsuarioServiceImpl` están registrados como beans y usan transacciones.
 - `UsuarioServiceImpl` valida correos duplicados y genera hashes BCrypt mediante `PasswordEncoder`.
 - Existen pruebas unitarias para mapper, servicio y controlador de Rol, Estacionamiento, Cajón y Usuario, pruebas de Auth/JWT/seguridad, además de la prueba de carga del contexto.
-- Usuario permite asignar y retirar roles y estacionamientos mediante `usuario_rol` y `usuario_estacionamiento`. `UsuarioResponse` representa estas relaciones mediante nombres de roles e identificadores de estacionamientos. Creación, actualización general y cambio de contraseña utilizan DTOs y operaciones separadas.
+- Usuario permite asignar y retirar roles y estacionamientos mediante `usuario_rol` y `usuario_estacionamiento`. `UsuarioResponse` representa estas relaciones mediante nombres de roles e identificadores de estacionamientos. La creación pública de usuarios asigna automáticamente el rol base `USER`. Creación, actualización general y cambio de contraseña utilizan DTOs y operaciones separadas.
 - La documentación describe parcialmente una arquitectura futura.
 - Todos los repositorios utilizan `Long` como identificador, en concordancia con `BaseEntity`.
 
@@ -412,6 +412,7 @@ V3__create_usuario_rol.sql
 V4__create_estacionamiento.sql
 V5__create_usuario_estacionamiento.sql
 V6__create_cajon.sql
+V7__insert_roles_base.sql
 ```
 
 Reglas obligatorias:
@@ -437,7 +438,9 @@ spring:
 
 Por tanto, Flyway controla el esquema y Hibernate solamente lo valida.
 
-No existen migraciones de datos iniciales. No se debe asumir la existencia de usuarios, roles o registros predeterminados.
+Existe una migración de datos iniciales para los roles base `ADMIN`, `OPERADOR` y `USER`. La migración utiliza `ON CONFLICT (nombre) DO NOTHING`, por lo que no falla si alguno de esos roles ya existe.
+
+No se debe asumir la existencia de usuarios, estacionamientos u otros registros predeterminados.
 
 ## Seguridad y Autenticación
 
@@ -460,7 +463,7 @@ Estado actual:
 - Existe un bean `PasswordEncoder` basado en BCrypt para almacenar hashes de contraseñas.
 - Existe endpoint de login en `POST /api/auth/login`.
 - No existe `JwtFilter` propio; Spring Security valida el token mediante OAuth2 Resource Server.
-- Los endpoints distintos al login y `POST /api/usuarios` requieren JWT válido. `POST /api/usuarios` queda público para permitir registro inicial.
+- Los endpoints distintos al login y `POST /api/usuarios` requieren JWT válido. `POST /api/usuarios` queda público para permitir registro inicial y asigna automáticamente el rol base `USER`.
 - Existe autorización granular inicial por roles: `RolController` requiere `ADMIN`, `UsuarioController` protege operaciones con `ADMIN`, `USER` y `OPERADOR`, `EstacionamientoController` permite lectura a `ADMIN`/`OPERADOR`/`USER` y escritura a `ADMIN`, y `CajonController` permite lectura a `ADMIN`/`OPERADOR`/`USER`, cambio de estado a `ADMIN`/`OPERADOR` y escritura administrativa a `ADMIN`.
 - `SecurityConfig` habilita `@EnableMethodSecurity`.
 - `SecurityConfig` convierte el claim `roles` del JWT en authorities `ROLE_*`.
@@ -473,6 +476,8 @@ Reglas obligatorias:
 - No exponer `passwordHash`.
 - No incluir secretos JWT en el repositorio.
 - Externalizar claves y credenciales para entornos reales.
+- Mantener credenciales de base de datos, secretos JWT y valores sensibles mediante variables de entorno, no como valores fijos obligatorios en `application.yaml`.
+- Mantener perfiles Spring separados para configuración por ambiente: `dev`, `test` y `prod`.
 - No presentar la autenticación JWT como autorización completa por roles.
 - Verificar autorización por rol en operaciones que la documentación restrinja.
 - Tratar la implementación de JWT y Spring Security como un cambio explícito de alcance.

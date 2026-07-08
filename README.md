@@ -85,7 +85,7 @@ Estado actual de las capas:
 | Seguridad | Autenticación JWT implementada; autorización por rol implementada en `/api/roles`, `/api/usuarios`, `/api/estacionamientos` y `/api/cajones` |
 | Manejo global de errores | Implementado mediante `GlobalExceptionHandler` y `ApiError` |
 | Auditoría JPA | Habilitada |
-| Migraciones | Implementadas de V1 a V6 |
+| Migraciones | Implementadas de V1 a V7 |
 
 La clase principal habilita la auditoría mediante `@EnableJpaAuditing`. Las entidades heredan los campos comunes desde `BaseEntity`.
 
@@ -154,6 +154,9 @@ parkio/
 │   │   └── resources/
 │   │       ├── db/migration/
 │   │       ├── application.yaml
+│   │       ├── application-dev.yaml
+│   │       ├── application-test.yaml
+│   │       ├── application-prod.yaml
 │   │       └── banner.txt
 │   └── test/
 │       └── java/com/kasaca/parkio/
@@ -272,7 +275,7 @@ Incluye:
 
 El módulo implementa inicio de sesión mediante correo y contraseña. Las credenciales se validan contra `Usuario.passwordHash` usando `PasswordEncoder` y BCrypt. Cuando son válidas, se emite un JWT con el correo del usuario, su identificador y sus roles como claims. El login está disponible en `/api/auth/login`.
 
-Los endpoints distintos al login y la creación de usuarios requieren encabezado `Authorization: Bearer <token>`. La creación de usuarios permanece pública para permitir el registro inicial. El módulo Rol requiere rol `ADMIN`. En Usuario, `ADMIN` puede administrar usuarios, mientras que `USER` y `OPERADOR` pueden consultar, actualizar y cambiar la contraseña únicamente de su propio usuario. En Estacionamiento, `ADMIN`, `OPERADOR` y `USER` pueden consultar, pero solo `ADMIN` puede crear, actualizar o eliminar. En Cajón, `ADMIN`, `OPERADOR` y `USER` pueden consultar; `ADMIN` y `OPERADOR` pueden cambiar estado; y solo `ADMIN` puede crear, actualizar o eliminar.
+Los endpoints distintos al login y la creación de usuarios requieren encabezado `Authorization: Bearer <token>`. La creación de usuarios permanece pública para permitir el registro inicial y asigna automáticamente el rol base `USER`. El módulo Rol requiere rol `ADMIN`. En Usuario, `ADMIN` puede administrar usuarios, mientras que `USER` y `OPERADOR` pueden consultar, actualizar y cambiar la contraseña únicamente de su propio usuario. En Estacionamiento, `ADMIN`, `OPERADOR` y `USER` pueden consultar, pero solo `ADMIN` puede crear, actualizar o eliminar. En Cajón, `ADMIN`, `OPERADOR` y `USER` pueden consultar; `ADMIN` y `OPERADOR` pueden cambiar estado; y solo `ADMIN` puede crear, actualizar o eliminar.
 
 ### Usuario
 
@@ -291,7 +294,7 @@ Incluye:
 
 El repositorio utiliza `Long` como tipo de identificador, en concordancia con `BaseEntity`.
 
-El módulo implementa operaciones para listar, consultar, crear, actualizar y eliminar usuarios, además de asignar y retirar roles y estacionamientos. Valida correos duplicados y asociaciones, utiliza transacciones y nunca incluye `passwordHash` en las respuestas. `UsuarioResponse` expone los nombres de roles y los identificadores de estacionamientos asociados.
+El módulo implementa operaciones para listar, consultar, crear, actualizar y eliminar usuarios, además de asignar y retirar roles y estacionamientos. Al crear un usuario mediante el registro público se asigna automáticamente el rol base `USER`. Valida correos duplicados y asociaciones, utiliza transacciones y nunca incluye `passwordHash` en las respuestas. `UsuarioResponse` expone los nombres de roles y los identificadores de estacionamientos asociados.
 
 La autorización de Usuario usa `@PreAuthorize` y el helper `UsuarioSecurity` para comparar el `usuarioId` de la ruta contra el claim `usuarioId` del JWT. `ADMIN` puede administrar usuarios; `USER` y `OPERADOR` solo pueden consultar, actualizar y cambiar la contraseña de su propio usuario. Las operaciones de asignación y retiro de roles o estacionamientos son exclusivas de `ADMIN`.
 
@@ -370,32 +373,75 @@ Configuración actual:
 
 ```yaml
 server:
-  port: 8023
+  port: ${PARKIO_SERVER_PORT:8023}
 
 spring:
   application:
     name: parkio
 
-  datasource:
-    url: jdbc:postgresql://localhost:5432/parkio
-    username: postgres
-    password: 123123
+  profiles:
+    default: dev
 
   jpa:
     hibernate:
       ddl-auto: validate
 
-    show-sql: true
-
   flyway:
-    enabled: true
+    enabled: ${PARKIO_FLYWAY_ENABLED:true}
 
 parkio:
   security:
     jwt:
-      issuer: parkio
+      issuer: ${PARKIO_JWT_ISSUER:parkio}
       secret: ${PARKIO_JWT_SECRET:clave-local-de-desarrollo-cambiar-en-produccion}
-      expiration-minutes: 60
+      expiration-minutes: ${PARKIO_JWT_EXPIRATION_MINUTES:60}
+```
+
+La configuración por ambiente se divide en perfiles:
+
+| Perfil | Archivo | Uso |
+|---|---|---|
+| `dev` | `application-dev.yaml` | Desarrollo local. Es el perfil por defecto. |
+| `test` | `application-test.yaml` | Ejecución de pruebas. Permite variables `PARKIO_TEST_*`. |
+| `prod` | `application-prod.yaml` | Producción. Exige variables de entorno para la base de datos. |
+
+Configuración de desarrollo:
+
+```yaml
+spring:
+  datasource:
+    url: ${PARKIO_DB_URL:jdbc:postgresql://localhost:5432/parkio}
+    username: ${PARKIO_DB_USERNAME:postgres}
+    password: ${PARKIO_DB_PASSWORD:123123}
+
+  jpa:
+    show-sql: ${PARKIO_JPA_SHOW_SQL:true}
+```
+
+Configuración de pruebas:
+
+```yaml
+spring:
+  datasource:
+    url: ${PARKIO_TEST_DB_URL:${PARKIO_DB_URL:jdbc:postgresql://localhost:5432/parkio}}
+    username: ${PARKIO_TEST_DB_USERNAME:${PARKIO_DB_USERNAME:postgres}}
+    password: ${PARKIO_TEST_DB_PASSWORD:${PARKIO_DB_PASSWORD:123123}}
+
+  jpa:
+    show-sql: ${PARKIO_TEST_JPA_SHOW_SQL:false}
+```
+
+Configuración de producción:
+
+```yaml
+spring:
+  datasource:
+    url: ${PARKIO_DB_URL}
+    username: ${PARKIO_DB_USERNAME}
+    password: ${PARKIO_DB_PASSWORD}
+
+  jpa:
+    show-sql: false
 ```
 
 La aplicación espera:
@@ -407,7 +453,36 @@ La aplicación espera:
 - La variable `PARKIO_JWT_SECRET` configurada para entornos reales o productivos.
 - El puerto HTTP `8023` disponible.
 
-La configuración de JWT permite externalizar el secreto mediante `PARKIO_JWT_SECRET`. Las credenciales de base de datos todavía permanecen en `application.yaml`; para entornos compartidos o productivos se recomienda externalizarlas y crear perfiles de Spring.
+La configuración sensible se externaliza mediante variables de entorno. El archivo `application.yaml` conserva valores por defecto para desarrollo local, pero en entornos compartidos o productivos se deben definir variables reales y seguras.
+
+Variables soportadas:
+
+| Variable | Uso |
+|---|---|
+| `PARKIO_SERVER_PORT` | Puerto HTTP de la aplicación |
+| `PARKIO_DB_URL` | URL JDBC de PostgreSQL |
+| `PARKIO_DB_USERNAME` | Usuario de PostgreSQL |
+| `PARKIO_DB_PASSWORD` | Contraseña de PostgreSQL |
+| `PARKIO_JPA_SHOW_SQL` | Activa o desactiva logs SQL |
+| `PARKIO_FLYWAY_ENABLED` | Activa o desactiva Flyway |
+| `PARKIO_JWT_ISSUER` | Emisor del JWT |
+| `PARKIO_JWT_SECRET` | Secreto usado para firmar JWT |
+| `PARKIO_JWT_EXPIRATION_MINUTES` | Vigencia del token en minutos |
+| `PARKIO_TEST_DB_URL` | URL JDBC para pruebas |
+| `PARKIO_TEST_DB_USERNAME` | Usuario PostgreSQL para pruebas |
+| `PARKIO_TEST_DB_PASSWORD` | Contraseña PostgreSQL para pruebas |
+| `PARKIO_TEST_JPA_SHOW_SQL` | Activa o desactiva logs SQL en pruebas |
+
+Ejemplo en PowerShell:
+
+```powershell
+$env:PARKIO_DB_URL="jdbc:postgresql://localhost:5432/parkio"
+$env:PARKIO_DB_USERNAME="postgres"
+$env:PARKIO_DB_PASSWORD="123123"
+$env:PARKIO_JWT_SECRET="clave-segura-local"
+```
+
+`PARKIO_JWT_SECRET` no debe reutilizar el valor local por defecto fuera de desarrollo.
 
 Hibernate utiliza `ddl-auto: validate`, por lo que valida el esquema, pero no crea ni actualiza las tablas. Flyway es responsable de ejecutar las migraciones.
 
@@ -437,7 +512,7 @@ La URL del repositorio remoto y un procedimiento oficial para aprovisionar Postg
    CREATE DATABASE parkio;
    ```
 
-3. Verificar que las credenciales de `application.yaml` correspondan con la instalación local de PostgreSQL.
+3. Verificar que las variables de entorno o los valores locales por defecto correspondan con la instalación local de PostgreSQL.
 
 4. Descargar dependencias y compilar el proyecto.
 
@@ -463,6 +538,12 @@ En Windows:
 .\mvnw.cmd spring-boot:run
 ```
 
+También se puede indicar explícitamente el perfil:
+
+```powershell
+.\mvnw.cmd spring-boot:run "-Dspring-boot.run.profiles=dev"
+```
+
 En Linux o macOS:
 
 ```bash
@@ -475,12 +556,18 @@ Si la conexión con PostgreSQL y las migraciones son correctas, la aplicación i
 http://localhost:8023
 ```
 
-Actualmente está disponible el login bajo `/api/auth/login` y la creación de usuarios mediante `POST /api/usuarios` sin token. Los endpoints CRUD de roles bajo `/api/roles` requieren un token JWT válido con rol `ADMIN`. En `/api/usuarios`, las operaciones administrativas requieren `ADMIN` y las operaciones sobre el propio usuario permiten `USER` u `OPERADOR` cuando el `usuarioId` de la ruta coincide con el claim del JWT. En `/api/estacionamientos`, las consultas permiten `ADMIN`, `OPERADOR` y `USER`, mientras que las modificaciones requieren `ADMIN`. En `/api/cajones`, las consultas permiten `ADMIN`, `OPERADOR` y `USER`, el cambio de estado permite `ADMIN` y `OPERADOR`, y las operaciones de creación, actualización y eliminación requieren `ADMIN`.
+Actualmente está disponible el login bajo `/api/auth/login` y la creación de usuarios mediante `POST /api/usuarios` sin token. La creación pública asigna automáticamente el rol base `USER`. Los endpoints CRUD de roles bajo `/api/roles` requieren un token JWT válido con rol `ADMIN`. En `/api/usuarios`, las operaciones administrativas requieren `ADMIN` y las operaciones sobre el propio usuario permiten `USER` u `OPERADOR` cuando el `usuarioId` de la ruta coincide con el claim del JWT. En `/api/estacionamientos`, las consultas permiten `ADMIN`, `OPERADOR` y `USER`, mientras que las modificaciones requieren `ADMIN`. En `/api/cajones`, las consultas permiten `ADMIN`, `OPERADOR` y `USER`, el cambio de estado permite `ADMIN` y `OPERADOR`, y las operaciones de creación, actualización y eliminación requieren `ADMIN`.
 
 También es posible ejecutar el artefacto compilado:
 
 ```bash
 java -jar target/parkio-0.0.1-SNAPSHOT.jar
+```
+
+Para ejecutar pruebas usando explícitamente el perfil `test` en PowerShell:
+
+```powershell
+.\mvnw.cmd "-Dspring.profiles.active=test" test
 ```
 
 ## Migraciones Flyway
@@ -501,10 +588,13 @@ Migraciones existentes:
 | V4 | `V4__create_estacionamiento.sql` | Crea la tabla `estacionamiento` |
 | V5 | `V5__create_usuario_estacionamiento.sql` | Crea la relación entre usuarios y estacionamientos |
 | V6 | `V6__create_cajon.sql` | Crea la tabla `cajon` y sus restricciones |
+| V7 | `V7__insert_roles_base.sql` | Inserta los roles base `ADMIN`, `OPERADOR` y `USER` |
 
 Las migraciones se ejecutan automáticamente al iniciar la aplicación.
 
-No se incluyen migraciones con datos iniciales. Por tanto, el proyecto no crea usuarios, roles ni estacionamientos predeterminados.
+Se incluye una migración de datos iniciales para crear los roles base `ADMIN`, `OPERADOR` y `USER`. La inserción utiliza `ON CONFLICT (nombre) DO NOTHING`, por lo que no falla si alguno de esos roles ya existe.
+
+El proyecto no crea usuarios ni estacionamientos predeterminados.
 
 Las migraciones aplicadas no deben modificarse una vez utilizadas en un entorno compartido. Los cambios futuros de esquema deben agregarse mediante nuevas versiones consecutivas.
 
@@ -534,7 +624,7 @@ Antes de ampliar la implementación conviene mantener estas reglas:
 - Agregar validaciones Jakarta Validation a los DTOs de entrada.
 - Mantener la lógica de negocio en la capa de servicios.
 - Mantener el acceso a datos en repositorios.
-- Externalizar secretos y credenciales.
+- Mantener secretos y credenciales fuera del código fuente mediante variables de entorno.
 - Añadir pruebas para servicios, repositorios y controladores.
 - Crear nuevas migraciones en lugar de modificar migraciones ya aplicadas.
 
@@ -564,8 +654,6 @@ Parte de esta documentación describe componentes futuros. Los módulos Auth, Ro
 
 A partir de las brechas entre el código y la documentación, el trabajo pendiente incluye:
 
-- Externalizar la configuración sensible.
-- Incorporar perfiles para desarrollo, pruebas y producción.
 - Añadir pruebas de integración con PostgreSQL.
 - Mantener sincronizados el contrato API y el código implementado.
 

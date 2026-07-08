@@ -1,27 +1,23 @@
 server:
-  port: 8023
+  port: ${PARKIO_SERVER_PORT:8023}
 
 spring:
   application:
     name: parkio
 
-  datasource:
-    url: jdbc:postgresql://localhost:5432/parkio
-    username: postgres
-    password: 123123
+  profiles:
+    default: dev
 
   jpa:
     hibernate:
       ddl-auto: validate
 
-    show-sql: true
-
   flyway:
-    enabled: true
+    enabled: ${PARKIO_FLYWAY_ENABLED:true}
 
 parkio:
   security:
     jwt:
-      issuer: parkio
+      issuer: ${PARKIO_JWT_ISSUER:parkio}
       secret: ${PARKIO_JWT_SECRET:clave-local-de-desarrollo-cambiar-en-produccion}
-      expiration-minutes: 60
+      expiration-minutes: ${PARKIO_JWT_EXPIRATION_MINUTES:60}

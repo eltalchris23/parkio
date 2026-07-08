@@ -105,25 +105,51 @@ class UsuarioServiceImplTest {
     }
 
     /**
-     * Comprueba que la creación valide el correo, genere el hash y persista la entidad.
+     * Comprueba que la creación valide el correo, genere el hash, asigne el rol
+     * base USER y persista la entidad.
      */
     @Test
-    void debeCrearUsuarioConPasswordCifrado() {
+    void debeCrearUsuarioConPasswordCifradoYRolUser() {
         UsuarioCreateRequest request = crearCreateRequest();
         Usuario usuario = crearUsuario();
+        Rol rolUser = crearRolUser();
         UsuarioResponse response = crearResponse();
 
         when(usuarioRepository.existsByEmail(request.email())).thenReturn(false);
         when(passwordEncoder.encode(request.password())).thenReturn("hash-seguro");
         when(usuarioMapper.toEntity(request, "hash-seguro")).thenReturn(usuario);
+        when(rolRepository.findByNombre("USER")).thenReturn(Optional.of(rolUser));
         when(usuarioRepository.save(usuario)).thenReturn(usuario);
         when(usuarioMapper.toResponse(usuario)).thenReturn(response);
 
         UsuarioResponse resultado = usuarioService.addUser(request);
 
         assertThat(resultado).isEqualTo(response);
+        assertThat(usuario.getRoles()).containsExactly(rolUser);
         verify(passwordEncoder).encode(request.password());
+        verify(rolRepository).findByNombre("USER");
         verify(usuarioRepository).save(usuario);
+    }
+
+    /**
+     * Verifica que la creación falle de forma controlada si no existe el rol
+     * base USER requerido para el registro público.
+     */
+    @Test
+    void debeRechazarCreacionCuandoRolUserNoExiste() {
+        UsuarioCreateRequest request = crearCreateRequest();
+        Usuario usuario = crearUsuario();
+
+        when(usuarioRepository.existsByEmail(request.email())).thenReturn(false);
+        when(passwordEncoder.encode(request.password())).thenReturn("hash-seguro");
+        when(usuarioMapper.toEntity(request, "hash-seguro")).thenReturn(usuario);
+        when(rolRepository.findByNombre("USER")).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> usuarioService.addUser(request))
+                .isInstanceOf(ResourceNotFoundException.class)
+                .hasMessage("Rol con identificador 'USER' no fue encontrado");
+
+        verify(usuarioRepository, never()).save(any());
     }
 
     /**
@@ -486,6 +512,17 @@ class UsuarioServiceImplTest {
         Rol rol = new Rol();
         rol.setId(2L);
         rol.setNombre("ADMIN");
+        rol.setActivo(true);
+        return rol;
+    }
+
+    /**
+     * Construye el rol base USER utilizado durante el registro público de usuarios.
+     */
+    private Rol crearRolUser() {
+        Rol rol = new Rol();
+        rol.setId(4L);
+        rol.setNombre("USER");
         rol.setActivo(true);
         return rol;
     }
