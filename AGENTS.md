@@ -26,7 +26,7 @@ Parkio es un backend en desarrollo para administrar:
 
 El proyecto contiene actualmente el modelo persistente, DTOs, repositorios, contratos de servicio, migraciones y documentación de arquitectura. Los módulos Rol, Estacionamiento, Cajón y Usuario cuentan además con mapper, servicio transaccional, controlador REST y pruebas unitarias. El módulo Auth implementa login y emisión de JWT.
 
-La API REST está implementada para Auth, Rol, Estacionamiento, Cajón y Usuario. Usuario permite asignar y retirar roles y estacionamientos. La autenticación JWT está implementada. La autorización granular por roles ya inició en Rol, Usuario y Estacionamiento: `/api/roles` requiere rol `ADMIN`; `/api/usuarios` distingue entre operaciones administrativas de `ADMIN` y operaciones propias de `USER` u `OPERADOR`; `/api/estacionamientos` permite consulta a `ADMIN`, `OPERADOR` y `USER`, y escritura solo a `ADMIN`. Cajón todavía no tiene reglas específicas por rol.
+La API REST está implementada para Auth, Rol, Estacionamiento, Cajón y Usuario. Usuario permite asignar y retirar roles y estacionamientos. La autenticación JWT está implementada. La autorización granular por roles ya inició en Rol, Usuario, Estacionamiento y Cajón: `/api/roles` requiere rol `ADMIN`; `/api/usuarios` distingue entre operaciones administrativas de `ADMIN` y operaciones propias de `USER` u `OPERADOR`; `/api/estacionamientos` permite consulta a `ADMIN`, `OPERADOR` y `USER`, y escritura solo a `ADMIN`; `/api/cajones` permite consulta a `ADMIN`, `OPERADOR` y `USER`, cambios de estado a `ADMIN` y `OPERADOR`, y escritura administrativa solo a `ADMIN`.
 
 ## Estado Actual
 
@@ -39,6 +39,7 @@ Antes de realizar cambios, considerar lo siguiente:
 - La autorización granular por roles está implementada inicialmente en `RolController` mediante `@PreAuthorize("hasRole('ADMIN')")`.
 - `UsuarioController` utiliza `@PreAuthorize` para permitir operaciones administrativas a `ADMIN` y operaciones propias a `USER` u `OPERADOR`.
 - `EstacionamientoController` utiliza `@PreAuthorize` para permitir consultas a `ADMIN`, `OPERADOR` y `USER`, y modificaciones solo a `ADMIN`.
+- `CajonController` utiliza `@PreAuthorize` para permitir consultas a `ADMIN`, `OPERADOR` y `USER`; cambios de estado a `ADMIN` y `OPERADOR`; y creación, actualización o eliminación solo a `ADMIN`.
 - `UsuarioSecurity` compara el `usuarioId` de la ruta con el claim `usuarioId` del JWT.
 - Los roles del claim `roles` del JWT se convierten a authorities de Spring Security con prefijo `ROLE_`.
 - `RolMapper`, `EstacionamientoMapper`, `CajonMapper` y `UsuarioMapper` están implementados.
@@ -460,7 +461,7 @@ Estado actual:
 - Existe endpoint de login en `POST /api/auth/login`.
 - No existe `JwtFilter` propio; Spring Security valida el token mediante OAuth2 Resource Server.
 - Los endpoints distintos al login y `POST /api/usuarios` requieren JWT válido. `POST /api/usuarios` queda público para permitir registro inicial.
-- Existe autorización granular inicial por roles: `RolController` requiere `ADMIN`, `UsuarioController` protege operaciones con `ADMIN`, `USER` y `OPERADOR`, y `EstacionamientoController` permite lectura a `ADMIN`/`OPERADOR`/`USER` y escritura a `ADMIN`.
+- Existe autorización granular inicial por roles: `RolController` requiere `ADMIN`, `UsuarioController` protege operaciones con `ADMIN`, `USER` y `OPERADOR`, `EstacionamientoController` permite lectura a `ADMIN`/`OPERADOR`/`USER` y escritura a `ADMIN`, y `CajonController` permite lectura a `ADMIN`/`OPERADOR`/`USER`, cambio de estado a `ADMIN`/`OPERADOR` y escritura administrativa a `ADMIN`.
 - `SecurityConfig` habilita `@EnableMethodSecurity`.
 - `SecurityConfig` convierte el claim `roles` del JWT en authorities `ROLE_*`.
 

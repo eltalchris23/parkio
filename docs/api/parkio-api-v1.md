@@ -21,7 +21,7 @@ POST /api/usuarios
 
 Los demás endpoints requieren un token JWT válido en el encabezado `Authorization`.
 
-La autorización granular por roles ya inició. Actualmente el módulo Rol requiere rol `ADMIN`, el módulo Usuario distingue entre operaciones administrativas de `ADMIN` y operaciones propias de `USER` u `OPERADOR`, y el módulo Estacionamiento permite consulta a `ADMIN`, `OPERADOR` y `USER`, dejando la escritura únicamente a `ADMIN`. Cajón todavía no tiene reglas específicas por rol.
+La autorización granular por roles ya inició. Actualmente el módulo Rol requiere rol `ADMIN`, el módulo Usuario distingue entre operaciones administrativas de `ADMIN` y operaciones propias de `USER` u `OPERADOR`, el módulo Estacionamiento permite consulta a `ADMIN`, `OPERADOR` y `USER`, dejando la escritura únicamente a `ADMIN`, y el módulo Cajón permite consulta a `ADMIN`, `OPERADOR` y `USER`, cambio de estado a `ADMIN` y `OPERADOR`, y escritura administrativa solo a `ADMIN`.
 
 Los roles incluidos en el claim `roles` del JWT se convierten en authorities de Spring Security con prefijo `ROLE_`. Por ejemplo, `ADMIN` se interpreta como `ROLE_ADMIN`.
 
@@ -33,7 +33,7 @@ Los roles incluidos en el claim `roles` del JWT se convierten en authorities de 
 | Auth | Login JWT implementado |
 | Usuario | CRUD REST, roles, estacionamientos, validaciones, hash BCrypt y autorización `ADMIN`/`USER`/`OPERADOR` implementados |
 | Estacionamiento | CRUD REST implementado con autorización `ADMIN`/`OPERADOR`/`USER` para consulta y `ADMIN` para escritura |
-| Cajón | CRUD REST y validaciones implementados |
+| Cajón | CRUD REST, validaciones y autorización `ADMIN`/`OPERADOR`/`USER` implementados |
 
 Los endpoints protegidos deben enviar el token con este formato:
 
@@ -602,6 +602,13 @@ Se devuelve cuando una relación existente impide eliminar el estacionamiento.
 ---
 
 # Módulo Cajón
+
+Seguridad actual:
+
+- Requiere JWT válido en todos sus endpoints.
+- `GET /api/cajones`, `GET /api/cajones?estacionamientoId={id}` y `GET /api/cajones/{cajonId}` permiten `ADMIN`, `OPERADOR` y `USER`.
+- `PATCH /api/cajones/{cajonId}/estado` permite `ADMIN` y `OPERADOR`.
+- `POST /api/cajones`, `PUT /api/cajones/{cajonId}` y `DELETE /api/cajones/{cajonId}` requieren `ADMIN`.
 
 ## Listar Cajones
 

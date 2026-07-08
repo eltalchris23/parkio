@@ -5,6 +5,13 @@ import com.kasaca.parkio.auth.controller.AuthController;
 import com.kasaca.parkio.auth.dto.AuthLoginRequest;
 import com.kasaca.parkio.auth.dto.AuthResponse;
 import com.kasaca.parkio.auth.service.AuthService;
+import com.kasaca.parkio.cajon.controller.CajonController;
+import com.kasaca.parkio.cajon.dto.CajonEstadoRequest;
+import com.kasaca.parkio.cajon.dto.CajonRequest;
+import com.kasaca.parkio.cajon.dto.CajonResponse;
+import com.kasaca.parkio.cajon.entity.EstadoCajon;
+import com.kasaca.parkio.cajon.entity.TipoCajon;
+import com.kasaca.parkio.cajon.service.CajonService;
 import com.kasaca.parkio.estacionamiento.controller.EstacionamientoController;
 import com.kasaca.parkio.estacionamiento.dto.EstacionamientoRequest;
 import com.kasaca.parkio.estacionamiento.dto.EstacionamientoResponse;
@@ -39,12 +46,19 @@ import static org.mockito.Mockito.verifyNoInteractions;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.jwt;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-@WebMvcTest({AuthController.class, UsuarioController.class, RolController.class, EstacionamientoController.class})
+@WebMvcTest({
+        AuthController.class,
+        UsuarioController.class,
+        RolController.class,
+        EstacionamientoController.class,
+        CajonController.class
+})
 @Import({SecurityConfig.class, RestAuthenticationEntryPoint.class, GlobalExceptionHandler.class, UsuarioSecurity.class})
 @TestPropertySource(properties = {
         "parkio.security.jwt.issuer=parkio-test",
@@ -70,6 +84,9 @@ class SecurityConfigTest {
 
     @MockitoBean
     private EstacionamientoService estacionamientoService;
+
+    @MockitoBean
+    private CajonService cajonService;
 
     @MockitoBean
     private JpaMetamodelMappingContext jpaMetamodelMappingContext;
@@ -464,5 +481,228 @@ class SecurityConfigTest {
                 .andExpect(status().isForbidden());
 
         verifyNoInteractions(estacionamientoService);
+    }
+
+    /**
+     * Verifica que ADMIN pueda listar cajones.
+     */
+    @Test
+    void debePermitirListarCajonesCuandoTieneRolAdmin() throws Exception {
+        CajonResponse response = crearCajonResponse(EstadoCajon.LIBRE);
+
+        when(cajonService.getCajones()).thenReturn(List.of(response));
+
+        mockMvc.perform(get("/api/cajones")
+                        .with(jwt().authorities(() -> "ROLE_ADMIN")))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[0].id").value(1L))
+                .andExpect(jsonPath("$[0].numero").value("A-001"));
+
+        verify(cajonService).getCajones();
+    }
+
+    /**
+     * Verifica que OPERADOR pueda listar cajones.
+     */
+    @Test
+    void debePermitirListarCajonesCuandoTieneRolOperador() throws Exception {
+        when(cajonService.getCajones()).thenReturn(List.of());
+
+        mockMvc.perform(get("/api/cajones")
+                        .with(jwt().authorities(() -> "ROLE_OPERADOR")))
+                .andExpect(status().isOk());
+
+        verify(cajonService).getCajones();
+    }
+
+    /**
+     * Verifica que USER pueda listar cajones.
+     */
+    @Test
+    void debePermitirListarCajonesCuandoTieneRolUser() throws Exception {
+        when(cajonService.getCajones()).thenReturn(List.of());
+
+        mockMvc.perform(get("/api/cajones")
+                        .with(jwt().authorities(() -> "ROLE_USER")))
+                .andExpect(status().isOk());
+
+        verify(cajonService).getCajones();
+    }
+
+    /**
+     * Verifica que ADMIN pueda listar cajones filtrados por estacionamiento.
+     */
+    @Test
+    void debePermitirListarCajonesPorEstacionamientoCuandoTieneRolAdmin() throws Exception {
+        CajonResponse response = crearCajonResponse(EstadoCajon.LIBRE);
+
+        when(cajonService.getCajonesByEstacionamientoId(10L)).thenReturn(List.of(response));
+
+        mockMvc.perform(get("/api/cajones")
+                        .param("estacionamientoId", "10")
+                        .with(jwt().authorities(() -> "ROLE_ADMIN")))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[0].estacionamientoId").value(10L));
+
+        verify(cajonService).getCajonesByEstacionamientoId(10L);
+    }
+
+    /**
+     * Verifica que USER pueda consultar un cajón por identificador.
+     */
+    @Test
+    void debePermitirConsultarCajonCuandoTieneRolUser() throws Exception {
+        CajonResponse response = crearCajonResponse(EstadoCajon.LIBRE);
+
+        when(cajonService.getCajon(1L)).thenReturn(response);
+
+        mockMvc.perform(get("/api/cajones/1")
+                        .with(jwt().authorities(() -> "ROLE_USER")))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.id").value(1L))
+                .andExpect(jsonPath("$.numero").value("A-001"));
+
+        verify(cajonService).getCajon(1L);
+    }
+
+    /**
+     * Verifica que solo ADMIN pueda crear cajones.
+     */
+    @Test
+    void debeRechazarCrearCajonCuandoTieneRolOperador() throws Exception {
+        CajonRequest request = crearCajonRequest();
+
+        mockMvc.perform(post("/api/cajones")
+                        .with(jwt().authorities(() -> "ROLE_OPERADOR"))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isForbidden());
+
+        verifyNoInteractions(cajonService);
+    }
+
+    /**
+     * Verifica que ADMIN pueda crear cajones.
+     */
+    @Test
+    void debePermitirCrearCajonCuandoTieneRolAdmin() throws Exception {
+        CajonRequest request = crearCajonRequest();
+        CajonResponse response = crearCajonResponse(EstadoCajon.LIBRE);
+
+        when(cajonService.addCajon(request)).thenReturn(response);
+
+        mockMvc.perform(post("/api/cajones")
+                        .with(jwt().authorities(() -> "ROLE_ADMIN"))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.id").value(1L))
+                .andExpect(jsonPath("$.numero").value("A-001"));
+
+        verify(cajonService).addCajon(request);
+    }
+
+    /**
+     * Verifica que solo ADMIN pueda actualizar cajones.
+     */
+    @Test
+    void debeRechazarActualizarCajonCuandoTieneRolUser() throws Exception {
+        CajonRequest request = crearCajonRequest();
+
+        mockMvc.perform(put("/api/cajones/1")
+                        .with(jwt().authorities(() -> "ROLE_USER"))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isForbidden());
+
+        verifyNoInteractions(cajonService);
+    }
+
+    /**
+     * Verifica que OPERADOR pueda cambiar el estado de un cajón.
+     */
+    @Test
+    void debePermitirCambiarEstadoCajonCuandoTieneRolOperador() throws Exception {
+        CajonEstadoRequest request = new CajonEstadoRequest(EstadoCajon.OCUPADO);
+        CajonResponse response = crearCajonResponse(EstadoCajon.OCUPADO);
+
+        when(cajonService.updateEstado(1L, request)).thenReturn(response);
+
+        mockMvc.perform(patch("/api/cajones/1/estado")
+                        .with(jwt().authorities(() -> "ROLE_OPERADOR"))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.id").value(1L))
+                .andExpect(jsonPath("$.estado").value("OCUPADO"));
+
+        verify(cajonService).updateEstado(1L, request);
+    }
+
+    /**
+     * Verifica que USER no pueda cambiar el estado de un cajón.
+     */
+    @Test
+    void debeRechazarCambiarEstadoCajonCuandoTieneRolUser() throws Exception {
+        CajonEstadoRequest request = new CajonEstadoRequest(EstadoCajon.OCUPADO);
+
+        mockMvc.perform(patch("/api/cajones/1/estado")
+                        .with(jwt().authorities(() -> "ROLE_USER"))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isForbidden());
+
+        verifyNoInteractions(cajonService);
+    }
+
+    /**
+     * Verifica que ADMIN pueda eliminar cajones.
+     */
+    @Test
+    void debePermitirEliminarCajonCuandoTieneRolAdmin() throws Exception {
+        mockMvc.perform(delete("/api/cajones/1")
+                        .with(jwt().authorities(() -> "ROLE_ADMIN")))
+                .andExpect(status().isNoContent());
+
+        verify(cajonService).deleteCajon(1L);
+    }
+
+    /**
+     * Verifica que OPERADOR no pueda eliminar cajones.
+     */
+    @Test
+    void debeRechazarEliminarCajonCuandoTieneRolOperador() throws Exception {
+        mockMvc.perform(delete("/api/cajones/1")
+                        .with(jwt().authorities(() -> "ROLE_OPERADOR")))
+                .andExpect(status().isForbidden());
+
+        verifyNoInteractions(cajonService);
+    }
+
+    /**
+     * Crea una solicitud reutilizable para las pruebas de seguridad del módulo Cajón.
+     *
+     * @return solicitud válida para crear o actualizar un cajón
+     */
+    private CajonRequest crearCajonRequest() {
+        return new CajonRequest("A-001", TipoCajon.AUTO, 10L);
+    }
+
+    /**
+     * Crea una respuesta reutilizable para las pruebas de seguridad del módulo Cajón.
+     *
+     * @param estado estado que tendrá el cajón en la respuesta
+     * @return respuesta válida de un cajón
+     */
+    private CajonResponse crearCajonResponse(EstadoCajon estado) {
+        return new CajonResponse(
+                1L,
+                "A-001",
+                TipoCajon.AUTO,
+                estado,
+                10L,
+                true,
+                LocalDateTime.of(2026, 7, 7, 9, 0)
+        );
     }
 }
