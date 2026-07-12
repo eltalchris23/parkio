@@ -21,19 +21,29 @@ public class RolServiceImpl implements RolService {
     private final RolRepository rolRepository;
     private final RolMapper rolMapper;
 
+    /**
+     * Obtiene únicamente los roles activos para no exponer registros desactivados
+     * mediante borrado lógico.
+     */
     @Override
     public List<RolResponse> getRoles() {
-        return rolRepository.findAll()
+        return rolRepository.findByActivoTrue()
                 .stream()
                 .map(rolMapper::toResponse)
                 .toList();
     }
 
+    /**
+     * Consulta un rol activo por identificador.
+     */
     @Override
     public RolResponse getRol(Long rolId) {
         return rolMapper.toResponse(findRolById(rolId));
     }
 
+    /**
+     * Crea un rol nuevo después de validar que su nombre no esté registrado.
+     */
     @Override
     @Transactional
     public RolResponse addRol(RolRequest request) {
@@ -45,6 +55,9 @@ public class RolServiceImpl implements RolService {
         return rolMapper.toResponse(savedRol);
     }
 
+    /**
+     * Actualiza un rol activo después de validar que el nuevo nombre no esté duplicado.
+     */
     @Override
     @Transactional
     public RolResponse updateRol(Long rolId, RolRequest request) {
@@ -62,18 +75,31 @@ public class RolServiceImpl implements RolService {
         return rolMapper.toResponse(updatedRol);
     }
 
+    /**
+     * Realiza el borrado lógico del rol cambiando su bandera activo a false.
+     * No elimina físicamente el registro para conservar trazabilidad.
+     */
     @Override
     @Transactional
     public void deleteRol(Long rolId) {
         Rol rol = findRolById(rolId);
-        rolRepository.delete(rol);
+
+        rol.setActivo(false);
+        rolRepository.save(rol);
     }
 
+    /**
+     * Busca un rol activo por identificador o lanza una excepción 404 cuando no existe
+     * o cuando fue desactivado mediante borrado lógico.
+     */
     private Rol findRolById(Long rolId) {
-        return rolRepository.findById(rolId)
+        return rolRepository.findByIdAndActivoTrue(rolId)
                 .orElseThrow(() -> new ResourceNotFoundException("Rol", rolId));
     }
 
+    /**
+     * Verifica que no exista otro rol con el mismo nombre antes de crear uno nuevo.
+     */
     private void validateUniqueName(String nombre) {
         if (rolRepository.existsByNombre(nombre)) {
             throw new ConflictException(

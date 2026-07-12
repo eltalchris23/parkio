@@ -1,5 +1,7 @@
 package com.kasaca.parkio.estacionamiento.service;
 
+import com.kasaca.parkio.cajon.entity.Cajon;
+import com.kasaca.parkio.cajon.repository.CajonRepository;
 import com.kasaca.parkio.estacionamiento.dto.EstacionamientoRequest;
 import com.kasaca.parkio.estacionamiento.dto.EstacionamientoResponse;
 import com.kasaca.parkio.estacionamiento.entity.Estacionamiento;
@@ -31,6 +33,9 @@ class EstacionamientoServiceImplTest {
     private EstacionamientoRepository estacionamientoRepository;
 
     @Mock
+    private CajonRepository cajonRepository;
+
+    @Mock
     private EstacionamientoMapper estacionamientoMapper;
 
     @InjectMocks
@@ -41,7 +46,7 @@ class EstacionamientoServiceImplTest {
         Estacionamiento estacionamiento = crearEstacionamiento();
         EstacionamientoResponse response = crearResponse();
 
-        when(estacionamientoRepository.findAll())
+        when(estacionamientoRepository.findByActivoTrue())
                 .thenReturn(List.of(estacionamiento));
         when(estacionamientoMapper.toResponse(estacionamiento))
                 .thenReturn(response);
@@ -50,7 +55,7 @@ class EstacionamientoServiceImplTest {
                 estacionamientoService.getEstacionamientos();
 
         assertThat(resultado).containsExactly(response);
-        verify(estacionamientoRepository).findAll();
+        verify(estacionamientoRepository).findByActivoTrue();
         verify(estacionamientoMapper).toResponse(estacionamiento);
     }
 
@@ -59,7 +64,7 @@ class EstacionamientoServiceImplTest {
         Estacionamiento estacionamiento = crearEstacionamiento();
         EstacionamientoResponse response = crearResponse();
 
-        when(estacionamientoRepository.findById(1L))
+        when(estacionamientoRepository.findByIdAndActivoTrue(1L))
                 .thenReturn(Optional.of(estacionamiento));
         when(estacionamientoMapper.toResponse(estacionamiento))
                 .thenReturn(response);
@@ -72,7 +77,7 @@ class EstacionamientoServiceImplTest {
 
     @Test
     void debeLanzarExcepcionCuandoEstacionamientoNoExiste() {
-        when(estacionamientoRepository.findById(1L))
+        when(estacionamientoRepository.findByIdAndActivoTrue(1L))
                 .thenReturn(Optional.empty());
 
         assertThatThrownBy(() ->
@@ -130,7 +135,7 @@ class EstacionamientoServiceImplTest {
                         estacionamiento.getFechaCreacion()
                 );
 
-        when(estacionamientoRepository.findById(1L))
+        when(estacionamientoRepository.findByIdAndActivoTrue(1L))
                 .thenReturn(Optional.of(estacionamiento));
         when(estacionamientoRepository.save(estacionamiento))
                 .thenReturn(estacionamiento);
@@ -153,7 +158,7 @@ class EstacionamientoServiceImplTest {
     void debeRechazarActualizacionCuandoEstacionamientoNoExiste() {
         EstacionamientoRequest request = crearRequest();
 
-        when(estacionamientoRepository.findById(99L))
+        when(estacionamientoRepository.findByIdAndActivoTrue(99L))
                 .thenReturn(Optional.empty());
 
         assertThatThrownBy(() ->
@@ -173,21 +178,32 @@ class EstacionamientoServiceImplTest {
     }
 
     @Test
-    void debeEliminarEstacionamiento() {
+    void debeEliminarEstacionamientoLogicamenteConSusCajones() {
         Estacionamiento estacionamiento = crearEstacionamiento();
+        Cajon cajon = new Cajon();
+        cajon.setId(2L);
+        cajon.setActivo(true);
 
-        when(estacionamientoRepository.findById(1L))
+        when(estacionamientoRepository.findByIdAndActivoTrue(1L))
                 .thenReturn(Optional.of(estacionamiento));
+        when(cajonRepository.findByEstacionamientoIdAndActivoTrue(1L))
+                .thenReturn(List.of(cajon));
+        when(cajonRepository.saveAll(List.of(cajon)))
+                .thenReturn(List.of(cajon));
+        when(estacionamientoRepository.save(estacionamiento))
+                .thenReturn(estacionamiento);
 
         estacionamientoService.deleteEstacionamiento(1L);
 
-        verify(estacionamientoRepository)
-                .delete(estacionamiento);
+        assertThat(estacionamiento.getActivo()).isFalse();
+        assertThat(cajon.getActivo()).isFalse();
+        verify(cajonRepository).saveAll(List.of(cajon));
+        verify(estacionamientoRepository).save(estacionamiento);
     }
 
     @Test
     void debeRechazarEliminacionCuandoEstacionamientoNoExiste() {
-        when(estacionamientoRepository.findById(99L))
+        when(estacionamientoRepository.findByIdAndActivoTrue(99L))
                 .thenReturn(Optional.empty());
 
         assertThatThrownBy(() ->
@@ -198,8 +214,8 @@ class EstacionamientoServiceImplTest {
                         "Estacionamiento con identificador '99' no fue encontrado"
                 );
 
-        verify(estacionamientoRepository, never())
-                .delete(any());
+        verify(estacionamientoRepository, never()).save(any());
+        verify(cajonRepository, never()).saveAll(any());
     }
 
     private EstacionamientoRequest crearRequest() {

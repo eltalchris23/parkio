@@ -27,18 +27,30 @@ public class EstacionamientoController {
 
     private final EstacionamientoService estacionamientoService;
 
+    /**
+     * Lista los estacionamientos activos disponibles para usuarios autenticados
+     * con rol ADMIN, OPERADOR o USER.
+     */
     @PreAuthorize("hasAnyRole('ADMIN', 'OPERADOR', 'USER')")
     @GetMapping
     public List<EstacionamientoResponse> getEstacionamientos() {
         return estacionamientoService.getEstacionamientos();
     }
 
+    /**
+     * Consulta un estacionamiento activo por identificador para usuarios
+     * autenticados con rol ADMIN, OPERADOR o USER.
+     */
     @PreAuthorize("hasAnyRole('ADMIN', 'OPERADOR', 'USER')")
     @GetMapping("/{estacionamientoId}")
     public EstacionamientoResponse getEstacionamientoById(@PathVariable Long estacionamientoId) {
         return estacionamientoService.getEstacionamientoById(estacionamientoId);
     }
 
+    /**
+     * Crea un nuevo estacionamiento con datos validados. Esta operación solo está
+     * permitida para usuarios con rol ADMIN.
+     */
     @PreAuthorize("hasRole('ADMIN')")
     @PostMapping
     public ResponseEntity<EstacionamientoResponse> addEstacionamiento(@Valid @RequestBody EstacionamientoRequest request) {
@@ -49,12 +61,20 @@ public class EstacionamientoController {
                 .body(response);
     }
 
+    /**
+     * Actualiza un estacionamiento activo existente. Esta operación solo está
+     * permitida para usuarios con rol ADMIN.
+     */
     @PreAuthorize("hasRole('ADMIN')")
     @PutMapping("/{estacionamientoId}")
     public EstacionamientoResponse updateEstacionamiento(@PathVariable Long estacionamientoId,@Valid @RequestBody EstacionamientoRequest request) {
         return estacionamientoService.updateEstacionamiento(estacionamientoId, request);
     }
 
+    /**
+     * Elimina lógicamente un estacionamiento activo. La capa de servicio también
+     * desactiva sus cajones activos asociados.
+     */
     @PreAuthorize("hasRole('ADMIN')")
     @DeleteMapping("/{estacionamientoId}")
     @ResponseStatus(HttpStatus.NO_CONTENT)

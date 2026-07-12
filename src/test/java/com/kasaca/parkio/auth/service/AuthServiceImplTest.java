@@ -51,7 +51,7 @@ class AuthServiceImplTest {
         AuthLoginRequest request = new AuthLoginRequest("christian@parkio.com", "clave");
         Usuario usuario = crearUsuario();
 
-        when(usuarioRepository.findByEmail("christian@parkio.com")).thenReturn(Optional.of(usuario));
+        when(usuarioRepository.findByEmailAndActivoTrue("christian@parkio.com")).thenReturn(Optional.of(usuario));
         when(passwordEncoder.matches("clave", "hash-bcrypt")).thenReturn(true);
         when(jwtService.generateToken(usuario)).thenReturn("jwt-generado");
         when(jwtService.getExpirationSeconds()).thenReturn(3600L);
@@ -62,7 +62,7 @@ class AuthServiceImplTest {
         assertEquals("Bearer", response.tokenType());
         assertEquals(3600L, response.expiresIn());
 
-        verify(usuarioRepository).findByEmail("christian@parkio.com");
+        verify(usuarioRepository).findByEmailAndActivoTrue("christian@parkio.com");
         verify(passwordEncoder).matches("clave", "hash-bcrypt");
         verify(jwtService).generateToken(usuario);
     }
@@ -73,7 +73,7 @@ class AuthServiceImplTest {
     @Test
     void debeRechazarCorreoInexistente() {
         AuthLoginRequest request = new AuthLoginRequest("nadie@parkio.com", "clave");
-        when(usuarioRepository.findByEmail("nadie@parkio.com")).thenReturn(Optional.empty());
+        when(usuarioRepository.findByEmailAndActivoTrue("nadie@parkio.com")).thenReturn(Optional.empty());
 
         UnauthorizedException exception = assertThrows(
                 UnauthorizedException.class,
@@ -81,7 +81,7 @@ class AuthServiceImplTest {
         );
 
         assertEquals("Credenciales invalidas", exception.getMessage());
-        verify(usuarioRepository).findByEmail("nadie@parkio.com");
+        verify(usuarioRepository).findByEmailAndActivoTrue("nadie@parkio.com");
         verifyNoInteractions(passwordEncoder, jwtService);
     }
 
@@ -93,7 +93,7 @@ class AuthServiceImplTest {
         AuthLoginRequest request = new AuthLoginRequest("christian@parkio.com", "incorrecta");
         Usuario usuario = crearUsuario();
 
-        when(usuarioRepository.findByEmail("christian@parkio.com")).thenReturn(Optional.of(usuario));
+        when(usuarioRepository.findByEmailAndActivoTrue("christian@parkio.com")).thenReturn(Optional.of(usuario));
         when(passwordEncoder.matches("incorrecta", "hash-bcrypt")).thenReturn(false);
 
         UnauthorizedException exception = assertThrows(
@@ -102,7 +102,7 @@ class AuthServiceImplTest {
         );
 
         assertEquals("Credenciales invalidas", exception.getMessage());
-        verify(usuarioRepository).findByEmail("christian@parkio.com");
+        verify(usuarioRepository).findByEmailAndActivoTrue("christian@parkio.com");
         verify(passwordEncoder).matches("incorrecta", "hash-bcrypt");
         verifyNoInteractions(jwtService);
     }
@@ -114,6 +114,7 @@ class AuthServiceImplTest {
         Usuario usuario = new Usuario();
         usuario.setEmail("christian@parkio.com");
         usuario.setPasswordHash("hash-bcrypt");
+        usuario.setActivo(true);
         return usuario;
     }
 }

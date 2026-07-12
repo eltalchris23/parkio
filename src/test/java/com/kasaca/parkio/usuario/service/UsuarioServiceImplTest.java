@@ -64,13 +64,13 @@ class UsuarioServiceImplTest {
         Usuario usuario = crearUsuario();
         UsuarioResponse response = crearResponse();
 
-        when(usuarioRepository.findAll()).thenReturn(List.of(usuario));
+        when(usuarioRepository.findByActivoTrue()).thenReturn(List.of(usuario));
         when(usuarioMapper.toResponse(usuario)).thenReturn(response);
 
         List<UsuarioResponse> resultado = usuarioService.getAllUsers();
 
         assertThat(resultado).containsExactly(response);
-        verify(usuarioRepository).findAll();
+        verify(usuarioRepository).findByActivoTrue();
         verify(usuarioMapper).toResponse(usuario);
     }
 
@@ -82,7 +82,7 @@ class UsuarioServiceImplTest {
         Usuario usuario = crearUsuario();
         UsuarioResponse response = crearResponse();
 
-        when(usuarioRepository.findById(1L)).thenReturn(Optional.of(usuario));
+        when(usuarioRepository.findByIdAndActivoTrue(1L)).thenReturn(Optional.of(usuario));
         when(usuarioMapper.toResponse(usuario)).thenReturn(response);
 
         UsuarioResponse resultado = usuarioService.getUserById(1L);
@@ -91,11 +91,11 @@ class UsuarioServiceImplTest {
     }
 
     /**
-     * Confirma que consultar un usuario inexistente produzca una excepción 404.
+     * Confirma que consultar un usuario inexistente produzca una excepciÃ³n 404.
      */
     @Test
     void debeLanzarExcepcionCuandoUsuarioNoExiste() {
-        when(usuarioRepository.findById(99L)).thenReturn(Optional.empty());
+        when(usuarioRepository.findByIdAndActivoTrue(99L)).thenReturn(Optional.empty());
 
         assertThatThrownBy(() -> usuarioService.getUserById(99L))
                 .isInstanceOf(ResourceNotFoundException.class)
@@ -105,7 +105,7 @@ class UsuarioServiceImplTest {
     }
 
     /**
-     * Comprueba que la creación valide el correo, genere el hash, asigne el rol
+     * Comprueba que la creaciÃ³n valide el correo, genere el hash, asigne el rol
      * base USER y persista la entidad.
      */
     @Test
@@ -118,7 +118,7 @@ class UsuarioServiceImplTest {
         when(usuarioRepository.existsByEmail(request.email())).thenReturn(false);
         when(passwordEncoder.encode(request.password())).thenReturn("hash-seguro");
         when(usuarioMapper.toEntity(request, "hash-seguro")).thenReturn(usuario);
-        when(rolRepository.findByNombre("USER")).thenReturn(Optional.of(rolUser));
+        when(rolRepository.findByNombreAndActivoTrue("USER")).thenReturn(Optional.of(rolUser));
         when(usuarioRepository.save(usuario)).thenReturn(usuario);
         when(usuarioMapper.toResponse(usuario)).thenReturn(response);
 
@@ -127,13 +127,13 @@ class UsuarioServiceImplTest {
         assertThat(resultado).isEqualTo(response);
         assertThat(usuario.getRoles()).containsExactly(rolUser);
         verify(passwordEncoder).encode(request.password());
-        verify(rolRepository).findByNombre("USER");
+        verify(rolRepository).findByNombreAndActivoTrue("USER");
         verify(usuarioRepository).save(usuario);
     }
 
     /**
-     * Verifica que la creación falle de forma controlada si no existe el rol
-     * base USER requerido para el registro público.
+     * Verifica que la creaciÃ³n falle de forma controlada si no existe el rol
+     * base USER requerido para el registro pÃºblico.
      */
     @Test
     void debeRechazarCreacionCuandoRolUserNoExiste() {
@@ -143,7 +143,7 @@ class UsuarioServiceImplTest {
         when(usuarioRepository.existsByEmail(request.email())).thenReturn(false);
         when(passwordEncoder.encode(request.password())).thenReturn("hash-seguro");
         when(usuarioMapper.toEntity(request, "hash-seguro")).thenReturn(usuario);
-        when(rolRepository.findByNombre("USER")).thenReturn(Optional.empty());
+        when(rolRepository.findByNombreAndActivoTrue("USER")).thenReturn(Optional.empty());
 
         assertThatThrownBy(() -> usuarioService.addUser(request))
                 .isInstanceOf(ResourceNotFoundException.class)
@@ -153,7 +153,7 @@ class UsuarioServiceImplTest {
     }
 
     /**
-     * Verifica que no se cifre ni persista cuando el correo ya está registrado.
+     * Verifica que no se cifre ni persista cuando el correo ya estÃ¡ registrado.
      */
     @Test
     void debeRechazarCorreoDuplicadoAlCrear() {
@@ -169,7 +169,7 @@ class UsuarioServiceImplTest {
     }
 
     /**
-     * Comprueba que la actualización genere un hash nuevo y persista los cambios.
+     * Comprueba que la actualizaciÃ³n genere un hash nuevo y persista los cambios.
      */
     @Test
     void debeActualizarUsuarioConPasswordCifrado() {
@@ -177,7 +177,7 @@ class UsuarioServiceImplTest {
         Usuario usuario = crearUsuario();
         UsuarioResponse response = crearResponse();
 
-        when(usuarioRepository.findById(1L)).thenReturn(Optional.of(usuario));
+        when(usuarioRepository.findByIdAndActivoTrue(1L)).thenReturn(Optional.of(usuario));
         when(usuarioRepository.existsByEmailAndIdNot(request.email(), 1L)).thenReturn(false);
         when(usuarioRepository.save(usuario)).thenReturn(usuario);
         when(usuarioMapper.toResponse(usuario)).thenReturn(response);
@@ -198,7 +198,7 @@ class UsuarioServiceImplTest {
         UsuarioUpdateRequest request = crearUpdateRequest();
         Usuario usuario = crearUsuario();
 
-        when(usuarioRepository.findById(1L)).thenReturn(Optional.of(usuario));
+        when(usuarioRepository.findByIdAndActivoTrue(1L)).thenReturn(Optional.of(usuario));
         when(usuarioRepository.existsByEmailAndIdNot(request.email(), 1L)).thenReturn(true);
 
         assertThatThrownBy(() -> usuarioService.updateUser(1L, request))
@@ -211,30 +211,32 @@ class UsuarioServiceImplTest {
     }
 
     /**
-     * Verifica que la eliminación utilice la entidad previamente localizada.
+     * Verifica que la eliminación desactive lógicamente la entidad previamente localizada.
      */
     @Test
-    void debeEliminarUsuario() {
+    void debeEliminarUsuarioLogicamente() {
         Usuario usuario = crearUsuario();
-        when(usuarioRepository.findById(1L)).thenReturn(Optional.of(usuario));
+        when(usuarioRepository.findByIdAndActivoTrue(1L)).thenReturn(Optional.of(usuario));
+        when(usuarioRepository.save(usuario)).thenReturn(usuario);
 
         usuarioService.deleteUser(1L);
 
-        verify(usuarioRepository).delete(usuario);
+        assertThat(usuario.getActivo()).isFalse();
+        verify(usuarioRepository).save(usuario);
     }
 
     /**
-     * Confirma que no se invoque delete cuando el usuario no existe.
+     * Confirma que no se guarde ningún cambio cuando el usuario no existe.
      */
     @Test
     void debeRechazarEliminacionCuandoUsuarioNoExiste() {
-        when(usuarioRepository.findById(99L)).thenReturn(Optional.empty());
+        when(usuarioRepository.findByIdAndActivoTrue(99L)).thenReturn(Optional.empty());
 
         assertThatThrownBy(() -> usuarioService.deleteUser(99L))
                 .isInstanceOf(ResourceNotFoundException.class)
                 .hasMessage("Usuario con identificador '99' no fue encontrado");
 
-        verify(usuarioRepository, never()).delete(any());
+        verify(usuarioRepository, never()).save(any());
     }
 
     /**
@@ -248,8 +250,8 @@ class UsuarioServiceImplTest {
         UsuarioRolRequest request = new UsuarioRolRequest(2L);
         UsuarioResponse response = crearResponse();
 
-        when(usuarioRepository.findById(1L)).thenReturn(Optional.of(usuario));
-        when(rolRepository.findById(2L)).thenReturn(Optional.of(rol));
+        when(usuarioRepository.findByIdAndActivoTrue(1L)).thenReturn(Optional.of(usuario));
+        when(rolRepository.findByIdAndActivoTrue(2L)).thenReturn(Optional.of(rol));
         when(usuarioRepository.save(usuario)).thenReturn(usuario);
         when(usuarioMapper.toResponse(usuario)).thenReturn(response);
 
@@ -261,8 +263,8 @@ class UsuarioServiceImplTest {
     }
 
     /**
-     * Comprueba que la asignación sea rechazada cuando otro objeto Rol con el
-     * mismo identificador ya está asociado al usuario.
+     * Comprueba que la asignaciÃ³n sea rechazada cuando otro objeto Rol con el
+     * mismo identificador ya estÃ¡ asociado al usuario.
      */
     @Test
     void debeRechazarRolDuplicadoPorIdentificador() {
@@ -271,8 +273,8 @@ class UsuarioServiceImplTest {
         Rol rolEncontrado = crearRol();
         usuario.getRoles().add(rolAsignado);
 
-        when(usuarioRepository.findById(1L)).thenReturn(Optional.of(usuario));
-        when(rolRepository.findById(2L)).thenReturn(Optional.of(rolEncontrado));
+        when(usuarioRepository.findByIdAndActivoTrue(1L)).thenReturn(Optional.of(usuario));
+        when(rolRepository.findByIdAndActivoTrue(2L)).thenReturn(Optional.of(rolEncontrado));
 
         assertThatThrownBy(() -> usuarioService.assignRole(1L, new UsuarioRolRequest(2L)))
                 .isInstanceOf(ConflictException.class)
@@ -287,8 +289,8 @@ class UsuarioServiceImplTest {
     @Test
     void debeRechazarAsignacionCuandoRolNoExiste() {
         Usuario usuario = crearUsuario();
-        when(usuarioRepository.findById(1L)).thenReturn(Optional.of(usuario));
-        when(rolRepository.findById(99L)).thenReturn(Optional.empty());
+        when(usuarioRepository.findByIdAndActivoTrue(1L)).thenReturn(Optional.of(usuario));
+        when(rolRepository.findByIdAndActivoTrue(99L)).thenReturn(Optional.empty());
 
         assertThatThrownBy(() -> usuarioService.assignRole(1L, new UsuarioRolRequest(99L)))
                 .isInstanceOf(ResourceNotFoundException.class)
@@ -298,7 +300,7 @@ class UsuarioServiceImplTest {
     }
 
     /**
-     * Verifica que el retiro elimine la relación comparando identificadores,
+     * Verifica que el retiro elimine la relaciÃ³n comparando identificadores,
      * incluso cuando las instancias de Rol sean distintas.
      */
     @Test
@@ -308,8 +310,8 @@ class UsuarioServiceImplTest {
         Rol rolEncontrado = crearRol();
         usuario.getRoles().add(rolAsignado);
 
-        when(usuarioRepository.findById(1L)).thenReturn(Optional.of(usuario));
-        when(rolRepository.findById(2L)).thenReturn(Optional.of(rolEncontrado));
+        when(usuarioRepository.findByIdAndActivoTrue(1L)).thenReturn(Optional.of(usuario));
+        when(rolRepository.findByIdAndActivoTrue(2L)).thenReturn(Optional.of(rolEncontrado));
 
         usuarioService.removeRole(1L, 2L);
 
@@ -326,8 +328,8 @@ class UsuarioServiceImplTest {
         Usuario usuario = crearUsuario();
         Rol rol = crearRol();
 
-        when(usuarioRepository.findById(1L)).thenReturn(Optional.of(usuario));
-        when(rolRepository.findById(2L)).thenReturn(Optional.of(rol));
+        when(usuarioRepository.findByIdAndActivoTrue(1L)).thenReturn(Optional.of(usuario));
+        when(rolRepository.findByIdAndActivoTrue(2L)).thenReturn(Optional.of(rol));
 
         assertThatThrownBy(() -> usuarioService.removeRole(1L, 2L))
                 .isInstanceOf(ConflictException.class)
@@ -347,8 +349,8 @@ class UsuarioServiceImplTest {
         UsuarioEstacionamientoRequest request = new UsuarioEstacionamientoRequest(3L);
         UsuarioResponse response = crearResponse();
 
-        when(usuarioRepository.findById(1L)).thenReturn(Optional.of(usuario));
-        when(estacionamientoRepository.findById(3L)).thenReturn(Optional.of(estacionamiento));
+        when(usuarioRepository.findByIdAndActivoTrue(1L)).thenReturn(Optional.of(usuario));
+        when(estacionamientoRepository.findByIdAndActivoTrue(3L)).thenReturn(Optional.of(estacionamiento));
         when(usuarioRepository.save(usuario)).thenReturn(usuario);
         when(usuarioMapper.toResponse(usuario)).thenReturn(response);
 
@@ -369,8 +371,8 @@ class UsuarioServiceImplTest {
         usuario.getEstacionamientos().add(crearEstacionamiento());
         Estacionamiento estacionamientoEncontrado = crearEstacionamiento();
 
-        when(usuarioRepository.findById(1L)).thenReturn(Optional.of(usuario));
-        when(estacionamientoRepository.findById(3L)).thenReturn(Optional.of(estacionamientoEncontrado));
+        when(usuarioRepository.findByIdAndActivoTrue(1L)).thenReturn(Optional.of(usuario));
+        when(estacionamientoRepository.findByIdAndActivoTrue(3L)).thenReturn(Optional.of(estacionamientoEncontrado));
 
         assertThatThrownBy(() -> usuarioService.assignEstacionamiento(
                 1L,
@@ -383,13 +385,13 @@ class UsuarioServiceImplTest {
     }
 
     /**
-     * Confirma que un estacionamiento inexistente produzca una excepción 404.
+     * Confirma que un estacionamiento inexistente produzca una excepciÃ³n 404.
      */
     @Test
     void debeRechazarAsignacionCuandoEstacionamientoNoExiste() {
         Usuario usuario = crearUsuario();
-        when(usuarioRepository.findById(1L)).thenReturn(Optional.of(usuario));
-        when(estacionamientoRepository.findById(99L)).thenReturn(Optional.empty());
+        when(usuarioRepository.findByIdAndActivoTrue(1L)).thenReturn(Optional.of(usuario));
+        when(estacionamientoRepository.findByIdAndActivoTrue(99L)).thenReturn(Optional.empty());
 
         assertThatThrownBy(() -> usuarioService.assignEstacionamiento(
                 1L,
@@ -411,8 +413,8 @@ class UsuarioServiceImplTest {
         usuario.getEstacionamientos().add(crearEstacionamiento());
         Estacionamiento estacionamientoEncontrado = crearEstacionamiento();
 
-        when(usuarioRepository.findById(1L)).thenReturn(Optional.of(usuario));
-        when(estacionamientoRepository.findById(3L)).thenReturn(Optional.of(estacionamientoEncontrado));
+        when(usuarioRepository.findByIdAndActivoTrue(1L)).thenReturn(Optional.of(usuario));
+        when(estacionamientoRepository.findByIdAndActivoTrue(3L)).thenReturn(Optional.of(estacionamientoEncontrado));
 
         usuarioService.removeEstacionamiento(1L, 3L);
 
@@ -428,8 +430,8 @@ class UsuarioServiceImplTest {
         Usuario usuario = crearUsuario();
         Estacionamiento estacionamiento = crearEstacionamiento();
 
-        when(usuarioRepository.findById(1L)).thenReturn(Optional.of(usuario));
-        when(estacionamientoRepository.findById(3L)).thenReturn(Optional.of(estacionamiento));
+        when(usuarioRepository.findByIdAndActivoTrue(1L)).thenReturn(Optional.of(usuario));
+        when(estacionamientoRepository.findByIdAndActivoTrue(3L)).thenReturn(Optional.of(estacionamiento));
 
         assertThatThrownBy(() -> usuarioService.removeEstacionamiento(1L, 3L))
                 .isInstanceOf(ConflictException.class)
@@ -439,15 +441,15 @@ class UsuarioServiceImplTest {
     }
 
     /**
-     * Verifica que el cambio de contraseña genere un hash nuevo y lo persista sin
-     * modificar los demás datos del usuario.
+     * Verifica que el cambio de contraseÃ±a genere un hash nuevo y lo persista sin
+     * modificar los demÃ¡s datos del usuario.
      */
     @Test
     void debeActualizarPasswordConHashSeguro() {
         Usuario usuario = crearUsuario();
         UsuarioPasswordRequest request = new UsuarioPasswordRequest("nueva-clave");
 
-        when(usuarioRepository.findById(1L)).thenReturn(Optional.of(usuario));
+        when(usuarioRepository.findByIdAndActivoTrue(1L)).thenReturn(Optional.of(usuario));
         when(passwordEncoder.encode("nueva-clave")).thenReturn("hash-nuevo");
 
         usuarioService.updatePassword(1L, request);
@@ -458,12 +460,12 @@ class UsuarioServiceImplTest {
     }
 
     /**
-     * Confirma que no se genere un hash cuando se intenta cambiar la contraseña
+     * Confirma que no se genere un hash cuando se intenta cambiar la contraseÃ±a
      * de un usuario inexistente.
      */
     @Test
     void debeRechazarCambioPasswordCuandoUsuarioNoExiste() {
-        when(usuarioRepository.findById(99L)).thenReturn(Optional.empty());
+        when(usuarioRepository.findByIdAndActivoTrue(99L)).thenReturn(Optional.empty());
 
         assertThatThrownBy(() -> usuarioService.updatePassword(
                 99L,
@@ -477,21 +479,21 @@ class UsuarioServiceImplTest {
     }
 
     /**
-     * Construye una solicitud válida reutilizable por las pruebas del servicio.
+     * Construye una solicitud vÃ¡lida reutilizable por las pruebas del servicio.
      */
     private UsuarioCreateRequest crearCreateRequest() {
         return new UsuarioCreateRequest("Christian", "Salazar", "christian@parkio.com", "clave-segura");
     }
 
     /**
-     * Construye una solicitud válida para actualizar datos generales.
+     * Construye una solicitud vÃ¡lida para actualizar datos generales.
      */
     private UsuarioUpdateRequest crearUpdateRequest() {
         return new UsuarioUpdateRequest("Christian", "Salazar", "christian@parkio.com");
     }
 
     /**
-     * Construye una entidad válida reutilizable por las pruebas del servicio.
+     * Construye una entidad vÃ¡lida reutilizable por las pruebas del servicio.
      */
     private Usuario crearUsuario() {
         Usuario usuario = new Usuario();
@@ -506,7 +508,7 @@ class UsuarioServiceImplTest {
     }
 
     /**
-     * Construye un rol válido reutilizable por las pruebas de asignación.
+     * Construye un rol vÃ¡lido reutilizable por las pruebas de asignaciÃ³n.
      */
     private Rol crearRol() {
         Rol rol = new Rol();
@@ -517,7 +519,7 @@ class UsuarioServiceImplTest {
     }
 
     /**
-     * Construye el rol base USER utilizado durante el registro público de usuarios.
+     * Construye el rol base USER utilizado durante el registro pÃºblico de usuarios.
      */
     private Rol crearRolUser() {
         Rol rol = new Rol();
@@ -528,7 +530,7 @@ class UsuarioServiceImplTest {
     }
 
     /**
-     * Construye un estacionamiento válido para las pruebas de asignación.
+     * Construye un estacionamiento vÃ¡lido para las pruebas de asignaciÃ³n.
      */
     private Estacionamiento crearEstacionamiento() {
         Estacionamiento estacionamiento = new Estacionamiento();
@@ -539,10 +541,11 @@ class UsuarioServiceImplTest {
     }
 
     /**
-     * Construye una respuesta pública reutilizable por las pruebas del servicio.
+     * Construye una respuesta pÃºblica reutilizable por las pruebas del servicio.
      */
     private UsuarioResponse crearResponse() {
         return new UsuarioResponse(1L, "Christian", "Salazar", "christian@parkio.com", true,
                 LocalDateTime.of(2026, 6, 28, 12, 0), Set.of(), Set.of());
     }
 }
+

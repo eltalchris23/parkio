@@ -1,5 +1,7 @@
 package com.kasaca.parkio.estacionamiento.service;
 
+import com.kasaca.parkio.cajon.entity.Cajon;
+import com.kasaca.parkio.cajon.repository.CajonRepository;
 import com.kasaca.parkio.estacionamiento.dto.EstacionamientoRequest;
 import com.kasaca.parkio.estacionamiento.dto.EstacionamientoResponse;
 import com.kasaca.parkio.estacionamiento.entity.Estacionamiento;
@@ -19,16 +21,24 @@ public class EstacionamientoServiceImpl
         implements EstacionamientoService {
 
     private final EstacionamientoRepository estacionamientoRepository;
+    private final CajonRepository cajonRepository;
     private final EstacionamientoMapper estacionamientoMapper;
 
+    /**
+     * Obtiene únicamente estacionamientos activos para ocultar registros
+     * desactivados mediante borrado lógico.
+     */
     @Override
     public List<EstacionamientoResponse> getEstacionamientos() {
-        return estacionamientoRepository.findAll()
+        return estacionamientoRepository.findByActivoTrue()
                 .stream()
                 .map(estacionamientoMapper::toResponse)
                 .toList();
     }
 
+    /**
+     * Consulta un estacionamiento activo por identificador.
+     */
     @Override
     public EstacionamientoResponse getEstacionamientoById(Long id) {
         return estacionamientoMapper.toResponse(
@@ -36,6 +46,9 @@ public class EstacionamientoServiceImpl
         );
     }
 
+    /**
+     * Crea un estacionamiento nuevo a partir del DTO de entrada.
+     */
     @Override
     @Transactional
     public EstacionamientoResponse addEstacionamiento(
@@ -50,6 +63,9 @@ public class EstacionamientoServiceImpl
         return estacionamientoMapper.toResponse(savedEstacionamiento);
     }
 
+    /**
+     * Actualiza los datos de un estacionamiento activo.
+     */
     @Override
     @Transactional
     public EstacionamientoResponse updateEstacionamiento(
@@ -72,17 +88,32 @@ public class EstacionamientoServiceImpl
         );
     }
 
+    /**
+     * Realiza el borrado lógico del estacionamiento y de sus cajones activos.
+     * Esto conserva la trazabilidad y evita dejar cajones activos dentro de un
+     * estacionamiento desactivado.
+     */
     @Override
     @Transactional
     public void deleteEstacionamiento(Long id) {
         Estacionamiento estacionamiento =
                 findEstacionamientoById(id);
 
-        estacionamientoRepository.delete(estacionamiento);
+        List<Cajon> cajones = cajonRepository.findByEstacionamientoIdAndActivoTrue(id);
+
+        cajones.forEach(cajon -> cajon.setActivo(false));
+        estacionamiento.setActivo(false);
+
+        cajonRepository.saveAll(cajones);
+        estacionamientoRepository.save(estacionamiento);
     }
 
+    /**
+     * Busca internamente un estacionamiento activo o lanza una excepción 404
+     * cuando no existe o fue desactivado mediante borrado lógico.
+     */
     private Estacionamiento findEstacionamientoById(Long id) {
-        return estacionamientoRepository.findById(id)
+        return estacionamientoRepository.findByIdAndActivoTrue(id)
                 .orElseThrow(() ->
                         new ResourceNotFoundException(
                                 "Estacionamiento",

@@ -42,6 +42,10 @@ Antes de realizar cambios, considerar lo siguiente:
 - `CajonController` utiliza `@PreAuthorize` para permitir consultas a `ADMIN`, `OPERADOR` y `USER`; cambios de estado a `ADMIN` y `OPERADOR`; y creación, actualización o eliminación solo a `ADMIN`.
 - `UsuarioSecurity` compara el `usuarioId` de la ruta con el claim `usuarioId` del JWT.
 - Los roles del claim `roles` del JWT se convierten a authorities de Spring Security con prefijo `ROLE_`.
+- Las operaciones `DELETE` de Rol, Usuario, Estacionamiento y Cajón realizan borrado lógico mediante `activo=false`.
+- Las consultas normales trabajan solo con registros activos. Un registro inactivo debe tratarse como no encontrado para la API.
+- Al desactivar un estacionamiento, también se desactivan lógicamente sus cajones activos.
+- Los usuarios inactivos no pueden iniciar sesión.
 - `RolMapper`, `EstacionamientoMapper`, `CajonMapper` y `UsuarioMapper` están implementados.
 - El manejo global de excepciones está implementado mediante `GlobalExceptionHandler` y `ApiError`.
 - `RolRequest`, `EstacionamientoRequest`, `CajonRequest`, `CajonEstadoRequest`, `UsuarioCreateRequest`, `UsuarioUpdateRequest`, `UsuarioPasswordRequest`, `UsuarioRolRequest` y `UsuarioEstacionamientoRequest` tienen validaciones Jakarta Validation.
@@ -276,7 +280,7 @@ Todos los repositorios existentes utilizan `Long`, en concordancia con el identi
 
 El código nuevo también debe utilizar `Long` y mantener esta consistencia en todas sus referencias.
 
-Las consultas derivadas deben usar nombres que representen exactamente el criterio aplicado. `UsuarioRepository` comprueba duplicados mediante `existsByEmail` y `existsByEmailAndIdNot`, y busca usuarios para autenticación mediante `findByEmail`.
+Las consultas derivadas deben usar nombres que representen exactamente el criterio aplicado. Para consultas funcionales se deben preferir métodos filtrados por activos, como `findByActivoTrue`, `findByIdAndActivoTrue`, `findByEmailAndActivoTrue`, `findByNombreAndActivoTrue` y `findByEstacionamientoIdAndActivoTrue`. `UsuarioRepository` comprueba duplicados mediante `existsByEmail` y `existsByEmailAndIdNot`, y busca usuarios activos para autenticación mediante `findByEmailAndActivoTrue`.
 
 ## Convenciones para Services
 
@@ -302,6 +306,22 @@ Reglas obligatorias:
 `RolServiceImpl`, `EstacionamientoServiceImpl`, `CajonServiceImpl` y `UsuarioServiceImpl` son las implementaciones de referencia actuales: utilizan `@Service`, transacciones, dependencias `final` y Lombok `@RequiredArgsConstructor`.
 
 No se deben modificar las firmas existentes sin evaluar el impacto en documentación, pruebas y futuros controladores.
+
+### Borrado lógico
+
+Los módulos Rol, Usuario, Estacionamiento y Cajón utilizan borrado lógico.
+
+Reglas obligatorias:
+
+- No usar `repository.delete(...)` para eliminar entidades principales.
+- Cambiar `activo` a `false` y guardar la entidad.
+- Listar únicamente registros activos.
+- Consultar por identificador únicamente registros activos.
+- Tratar registros inactivos como `404 Not Found` desde la API.
+- No permitir login de usuarios inactivos.
+- Al desactivar un estacionamiento, desactivar también sus cajones activos.
+- No modificar migraciones históricas para esta política, porque `activo` ya existe en `BaseEntity` y en las tablas actuales.
+- No asumir que un valor único de un registro inactivo puede reutilizarse; las restricciones únicas de base de datos siguen aplicando.
 
 ## Convenciones para Controllers
 

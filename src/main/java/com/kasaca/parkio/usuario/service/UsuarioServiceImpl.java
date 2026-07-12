@@ -37,18 +37,18 @@ public class UsuarioServiceImpl implements UsuarioService {
     private final PasswordEncoder passwordEncoder;
 
     /**
-     * Obtiene todos los usuarios y los convierte en respuestas públicas.
+     * Obtiene únicamente los usuarios activos y los convierte en respuestas públicas.
      */
     @Override
     public List<UsuarioResponse> getAllUsers() {
-        return usuarioRepository.findAll()
+        return usuarioRepository.findByActivoTrue()
                 .stream()
                 .map(usuarioMapper::toResponse)
                 .toList();
     }
 
     /**
-     * Busca un usuario por su identificador.
+     * Busca un usuario activo por su identificador.
      */
     @Override
     public UsuarioResponse getUserById(Long id) {
@@ -111,13 +111,16 @@ public class UsuarioServiceImpl implements UsuarioService {
     }
 
     /**
-     * Elimina un usuario después de comprobar que existe.
+     * Realiza el borrado lógico de un usuario activo cambiando su bandera activo
+     * a false para conservar el registro por auditoría.
      */
     @Override
     @Transactional
     public void deleteUser(Long id) {
         Usuario usuario = findUsuarioById(id);
-        usuarioRepository.delete(usuario);
+
+        usuario.setActivo(false);
+        usuarioRepository.save(usuario);
     }
 
     /**
@@ -213,18 +216,20 @@ public class UsuarioServiceImpl implements UsuarioService {
     }
 
     /**
-     * Busca internamente un usuario o lanza una excepción 404.
+     * Busca internamente un usuario activo o lanza una excepción 404 cuando no existe
+     * o cuando fue desactivado mediante borrado lógico.
      */
     private Usuario findUsuarioById(Long id) {
-        return usuarioRepository.findById(id)
+        return usuarioRepository.findByIdAndActivoTrue(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Usuario", id));
     }
 
     /**
-     * Busca internamente un rol o lanza una excepción cuando no existe.
+     * Busca internamente un rol activo o lanza una excepción cuando no existe
+     * o cuando fue desactivado mediante borrado lógico.
      */
     private Rol findRolById(Long rolId) {
-        return rolRepository.findById(rolId)
+        return rolRepository.findByIdAndActivoTrue(rolId)
                 .orElseThrow(() -> new ResourceNotFoundException("Rol", rolId));
     }
 
@@ -233,15 +238,16 @@ public class UsuarioServiceImpl implements UsuarioService {
      * creados por Flyway, como USER, sin depender de identificadores fijos.
      */
     private Rol findRolByNombre(String nombre) {
-        return rolRepository.findByNombre(nombre)
+        return rolRepository.findByNombreAndActivoTrue(nombre)
                 .orElseThrow(() -> new ResourceNotFoundException("Rol", nombre));
     }
 
     /**
-     * Busca internamente un estacionamiento o lanza una excepción cuando no existe.
+     * Busca internamente un estacionamiento activo o lanza una excepción cuando no
+     * existe o cuando fue desactivado mediante borrado lógico.
      */
     private Estacionamiento findEstacionamientoById(Long estacionamientoId) {
-        return estacionamientoRepository.findById(estacionamientoId)
+        return estacionamientoRepository.findByIdAndActivoTrue(estacionamientoId)
                 .orElseThrow(() -> new ResourceNotFoundException(
                         "Estacionamiento",
                         estacionamientoId

@@ -190,7 +190,7 @@ Todas las entidades principales heredan de `BaseEntity`, que define:
 | Campo | Tipo | Descripción |
 |---|---|---|
 | `id` | `Long` | Identificador autogenerado |
-| `activo` | `Boolean` | Indicador de registro activo |
+| `activo` | `Boolean` | Indicador de registro activo usado para borrado lógico |
 | `fechaCreacion` | `LocalDateTime` | Fecha de creación administrada por auditoría JPA |
 | `fechaActualizacion` | `LocalDateTime` | Fecha de última actualización |
 
@@ -294,7 +294,7 @@ Incluye:
 
 El repositorio utiliza `Long` como tipo de identificador, en concordancia con `BaseEntity`.
 
-El módulo implementa operaciones para listar, consultar, crear, actualizar y eliminar usuarios, además de asignar y retirar roles y estacionamientos. Al crear un usuario mediante el registro público se asigna automáticamente el rol base `USER`. Valida correos duplicados y asociaciones, utiliza transacciones y nunca incluye `passwordHash` en las respuestas. `UsuarioResponse` expone los nombres de roles y los identificadores de estacionamientos asociados.
+El módulo implementa operaciones para listar, consultar, crear, actualizar y eliminar usuarios, además de asignar y retirar roles y estacionamientos. Al crear un usuario mediante el registro público se asigna automáticamente el rol base `USER`. La eliminación es lógica mediante `activo=false`. Valida correos duplicados y asociaciones, utiliza transacciones y nunca incluye `passwordHash` en las respuestas. `UsuarioResponse` expone los nombres de roles y los identificadores de estacionamientos asociados.
 
 La autorización de Usuario usa `@PreAuthorize` y el helper `UsuarioSecurity` para comparar el `usuarioId` de la ruta contra el claim `usuarioId` del JWT. `ADMIN` puede administrar usuarios; `USER` y `OPERADOR` solo pueden consultar, actualizar y cambiar la contraseña de su propio usuario. Las operaciones de asignación y retiro de roles o estacionamientos son exclusivas de `ADMIN`.
 
@@ -314,7 +314,7 @@ Incluye:
 - Validaciones de entrada.
 - Pruebas unitarias de mapper, servicio y controlador.
 
-El módulo implementa operaciones para listar, consultar, crear, actualizar y eliminar roles. Utiliza DTOs, mapper, transacciones, validación de nombres duplicados y las excepciones compartidas `ResourceNotFoundException` y `ConflictException`.
+El módulo implementa operaciones para listar, consultar, crear, actualizar y eliminar roles. La eliminación es lógica mediante `activo=false`. Utiliza DTOs, mapper, transacciones, validación de nombres duplicados y las excepciones compartidas `ResourceNotFoundException` y `ConflictException`.
 
 ### Estacionamiento
 
@@ -330,7 +330,7 @@ Incluye:
 - Validaciones de entrada.
 - Pruebas unitarias de mapper, servicio y controlador.
 
-El módulo implementa operaciones para listar, consultar, crear, actualizar y eliminar estacionamientos. Utiliza DTOs, mapper, transacciones y `ResourceNotFoundException` para recursos inexistentes. La eliminación actual es física; una restricción de integridad se traduce a `409 Conflict` mediante el manejador global. La autorización permite listar y consultar a `ADMIN`, `OPERADOR` y `USER`; crear, actualizar y eliminar son operaciones exclusivas de `ADMIN`.
+El módulo implementa operaciones para listar, consultar, crear, actualizar y eliminar estacionamientos. Utiliza DTOs, mapper, transacciones y `ResourceNotFoundException` para recursos inexistentes. La eliminación es lógica mediante `activo=false` y también desactiva lógicamente los cajones activos asociados. La autorización permite listar y consultar a `ADMIN`, `OPERADOR` y `USER`; crear, actualizar y eliminar son operaciones exclusivas de `ADMIN`.
 
 ### Cajón
 
@@ -347,7 +347,7 @@ Incluye:
 - `CajonEstadoRequest` para cambios de estado.
 - Pruebas unitarias de mapper, servicio y controlador.
 
-El módulo implementa operaciones para listar, filtrar por estacionamiento, consultar, crear, actualizar, cambiar el estado y eliminar cajones. Valida la existencia del cajón y del estacionamiento, evita números duplicados dentro del mismo estacionamiento y aplica Jakarta Validation en `CajonRequest` y `CajonEstadoRequest`. La autorización permite listar y consultar a `ADMIN`, `OPERADOR` y `USER`; cambiar estado a `ADMIN` y `OPERADOR`; crear, actualizar y eliminar son operaciones exclusivas de `ADMIN`.
+El módulo implementa operaciones para listar, filtrar por estacionamiento, consultar, crear, actualizar, cambiar el estado y eliminar cajones. La eliminación es lógica mediante `activo=false`. Valida la existencia del cajón y del estacionamiento, evita números duplicados dentro del mismo estacionamiento y aplica Jakarta Validation en `CajonRequest` y `CajonEstadoRequest`. La autorización permite listar y consultar a `ADMIN`, `OPERADOR` y `USER`; cambiar estado a `ADMIN` y `OPERADOR`; crear, actualizar y eliminar son operaciones exclusivas de `ADMIN`.
 
 ### Auditoría
 
@@ -557,6 +557,8 @@ http://localhost:8023
 ```
 
 Actualmente está disponible el login bajo `/api/auth/login` y la creación de usuarios mediante `POST /api/usuarios` sin token. La creación pública asigna automáticamente el rol base `USER`. Los endpoints CRUD de roles bajo `/api/roles` requieren un token JWT válido con rol `ADMIN`. En `/api/usuarios`, las operaciones administrativas requieren `ADMIN` y las operaciones sobre el propio usuario permiten `USER` u `OPERADOR` cuando el `usuarioId` de la ruta coincide con el claim del JWT. En `/api/estacionamientos`, las consultas permiten `ADMIN`, `OPERADOR` y `USER`, mientras que las modificaciones requieren `ADMIN`. En `/api/cajones`, las consultas permiten `ADMIN`, `OPERADOR` y `USER`, el cambio de estado permite `ADMIN` y `OPERADOR`, y las operaciones de creación, actualización y eliminación requieren `ADMIN`.
+
+Las operaciones `DELETE` implementan borrado lógico. Los registros se conservan en base de datos con `activo=false`, no se devuelven en consultas normales y no pueden consultarse por identificador desde la API. Un usuario desactivado tampoco puede iniciar sesión.
 
 También es posible ejecutar el artefacto compilado:
 

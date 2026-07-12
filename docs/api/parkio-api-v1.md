@@ -25,6 +25,18 @@ La autorización granular por roles ya inició. Actualmente el módulo Rol requi
 
 Los roles incluidos en el claim `roles` del JWT se convierten en authorities de Spring Security con prefijo `ROLE_`. Por ejemplo, `ADMIN` se interpreta como `ROLE_ADMIN`.
 
+### Borrado lógico
+
+Las operaciones `DELETE` de Rol, Usuario, Estacionamiento y Cajón realizan borrado lógico mediante `activo=false`.
+
+Reglas de comportamiento:
+
+- Los registros inactivos no se devuelven en listados.
+- Consultar un registro inactivo por identificador responde `404 Not Found`.
+- Un usuario inactivo no puede iniciar sesión.
+- Al desactivar un estacionamiento, también se desactivan sus cajones activos.
+- Las restricciones únicas de base de datos siguen aplicando aunque el registro esté inactivo.
+
 ### Bootstrap del primer ADMIN
 
 El endpoint público `POST /api/usuarios` crea usuarios con el rol base `USER`. Por seguridad, no existe un endpoint público para crear administradores.
@@ -215,7 +227,7 @@ DELETE /api/roles/{rolId}
 
 ### Response 204
 
-La eliminación actual es física y la respuesta no contiene cuerpo.
+La eliminación es lógica mediante `activo=false` y la respuesta no contiene cuerpo.
 
 ---
 
@@ -401,7 +413,7 @@ DELETE /api/usuarios/{id}
 
 ### Response 204
 
-Sin cuerpo de respuesta.
+Sin cuerpo de respuesta. La eliminación es lógica mediante `activo=false`.
 
 ### Respuestas de error
 
@@ -619,7 +631,7 @@ DELETE /api/estacionamientos/{estacionamientoId}
 
 ### Response 204
 
-La eliminación actual es física y la respuesta no contiene cuerpo.
+La eliminación es lógica mediante `activo=false`, también desactiva los cajones activos asociados y la respuesta no contiene cuerpo.
 
 ### Response 404
 
@@ -790,7 +802,7 @@ DELETE /api/cajones/{cajonId}
 
 ### Response 204
 
-La eliminación es física y la respuesta no contiene cuerpo.
+La eliminación es lógica mediante `activo=false` y la respuesta no contiene cuerpo.
 
 ### Response 404
 

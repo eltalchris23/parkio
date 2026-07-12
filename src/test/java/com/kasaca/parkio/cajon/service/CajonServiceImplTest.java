@@ -49,13 +49,13 @@ class CajonServiceImplTest {
         Cajon cajon = crearCajon();
         CajonResponse response = crearResponse();
 
-        when(cajonRepository.findAll()).thenReturn(List.of(cajon));
+        when(cajonRepository.findByActivoTrue()).thenReturn(List.of(cajon));
         when(cajonMapper.toResponseCajon(cajon)).thenReturn(response);
 
         List<CajonResponse> resultado = cajonService.getCajones();
 
         assertThat(resultado).containsExactly(response);
-        verify(cajonRepository).findAll();
+        verify(cajonRepository).findByActivoTrue();
         verify(cajonMapper).toResponseCajon(cajon);
     }
 
@@ -65,9 +65,9 @@ class CajonServiceImplTest {
         Cajon cajon = crearCajon();
         CajonResponse response = crearResponse();
 
-        when(estacionamientoRepository.findById(10L))
+        when(estacionamientoRepository.findByIdAndActivoTrue(10L))
                 .thenReturn(Optional.of(estacionamiento));
-        when(cajonRepository.findByEstacionamientoId(10L))
+        when(cajonRepository.findByEstacionamientoIdAndActivoTrue(10L))
                 .thenReturn(List.of(cajon));
         when(cajonMapper.toResponseCajon(cajon)).thenReturn(response);
 
@@ -79,7 +79,7 @@ class CajonServiceImplTest {
 
     @Test
     void debeRechazarListadoCuandoEstacionamientoNoExiste() {
-        when(estacionamientoRepository.findById(99L))
+        when(estacionamientoRepository.findByIdAndActivoTrue(99L))
                 .thenReturn(Optional.empty());
 
         assertThatThrownBy(() ->
@@ -91,7 +91,7 @@ class CajonServiceImplTest {
                 );
 
         verify(cajonRepository, never())
-                .findByEstacionamientoId(any());
+                .findByEstacionamientoIdAndActivoTrue(any());
     }
 
     @Test
@@ -99,7 +99,7 @@ class CajonServiceImplTest {
         Cajon cajon = crearCajon();
         CajonResponse response = crearResponse();
 
-        when(cajonRepository.findById(1L))
+        when(cajonRepository.findByIdAndActivoTrue(1L))
                 .thenReturn(Optional.of(cajon));
         when(cajonMapper.toResponseCajon(cajon)).thenReturn(response);
 
@@ -110,7 +110,7 @@ class CajonServiceImplTest {
 
     @Test
     void debeRechazarConsultaCuandoCajonNoExiste() {
-        when(cajonRepository.findById(99L))
+        when(cajonRepository.findByIdAndActivoTrue(99L))
                 .thenReturn(Optional.empty());
 
         assertThatThrownBy(() -> cajonService.getCajon(99L))
@@ -129,7 +129,7 @@ class CajonServiceImplTest {
         Cajon cajon = crearCajon();
         CajonResponse response = crearResponse();
 
-        when(estacionamientoRepository.findById(10L))
+        when(estacionamientoRepository.findByIdAndActivoTrue(10L))
                 .thenReturn(Optional.of(estacionamiento));
         when(cajonRepository.existsByEstacionamientoIdAndNumero(
                 10L,
@@ -150,7 +150,7 @@ class CajonServiceImplTest {
     void debeRechazarCreacionCuandoNumeroEstaDuplicado() {
         CajonRequest request = crearRequest();
 
-        when(estacionamientoRepository.findById(10L))
+        when(estacionamientoRepository.findByIdAndActivoTrue(10L))
                 .thenReturn(Optional.of(crearEstacionamiento()));
         when(cajonRepository.existsByEstacionamientoIdAndNumero(
                 10L,
@@ -185,9 +185,9 @@ class CajonServiceImplTest {
                 cajon.getFechaCreacion()
         );
 
-        when(cajonRepository.findById(1L))
+        when(cajonRepository.findByIdAndActivoTrue(1L))
                 .thenReturn(Optional.of(cajon));
-        when(estacionamientoRepository.findById(10L))
+        when(estacionamientoRepository.findByIdAndActivoTrue(10L))
                 .thenReturn(Optional.of(estacionamiento));
         when(cajonRepository
                 .existsByEstacionamientoIdAndNumeroAndIdNot(
@@ -214,9 +214,9 @@ class CajonServiceImplTest {
         CajonRequest request = crearRequest();
         Cajon cajon = crearCajon();
 
-        when(cajonRepository.findById(1L))
+        when(cajonRepository.findByIdAndActivoTrue(1L))
                 .thenReturn(Optional.of(cajon));
-        when(estacionamientoRepository.findById(10L))
+        when(estacionamientoRepository.findByIdAndActivoTrue(10L))
                 .thenReturn(Optional.of(crearEstacionamiento()));
         when(cajonRepository
                 .existsByEstacionamientoIdAndNumeroAndIdNot(
@@ -248,7 +248,7 @@ class CajonServiceImplTest {
                 cajon.getFechaCreacion()
         );
 
-        when(cajonRepository.findById(1L))
+        when(cajonRepository.findByIdAndActivoTrue(1L))
                 .thenReturn(Optional.of(cajon));
         when(cajonRepository.save(cajon)).thenReturn(cajon);
         when(cajonMapper.toResponseCajon(cajon)).thenReturn(response);
@@ -266,7 +266,7 @@ class CajonServiceImplTest {
                 EstadoCajon.FUERA_SERVICIO
         );
 
-        when(cajonRepository.findById(99L))
+        when(cajonRepository.findByIdAndActivoTrue(99L))
                 .thenReturn(Optional.empty());
 
         assertThatThrownBy(() ->
@@ -281,20 +281,22 @@ class CajonServiceImplTest {
     }
 
     @Test
-    void debeEliminarCajon() {
+    void debeEliminarCajonLogicamente() {
         Cajon cajon = crearCajon();
 
-        when(cajonRepository.findById(1L))
+        when(cajonRepository.findByIdAndActivoTrue(1L))
                 .thenReturn(Optional.of(cajon));
+        when(cajonRepository.save(cajon)).thenReturn(cajon);
 
         cajonService.deleteCajon(1L);
 
-        verify(cajonRepository).delete(cajon);
+        assertThat(cajon.getActivo()).isFalse();
+        verify(cajonRepository).save(cajon);
     }
 
     @Test
     void debeRechazarEliminacionCuandoCajonNoExiste() {
-        when(cajonRepository.findById(99L))
+        when(cajonRepository.findByIdAndActivoTrue(99L))
                 .thenReturn(Optional.empty());
 
         assertThatThrownBy(() -> cajonService.deleteCajon(99L))
@@ -303,7 +305,7 @@ class CajonServiceImplTest {
                         "Cajón con identificador '99' no fue encontrado"
                 );
 
-        verify(cajonRepository, never()).delete(any());
+        verify(cajonRepository, never()).save(any());
     }
 
     private CajonRequest crearRequest() {

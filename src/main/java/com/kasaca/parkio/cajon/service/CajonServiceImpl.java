@@ -25,31 +25,44 @@ public class CajonServiceImpl implements CajonService {
     private final EstacionamientoRepository estacionamientoRepository;
     private final CajonMapper cajonMapper;
 
+    /**
+     * Obtiene únicamente cajones activos para ocultar registros desactivados
+     * mediante borrado lógico.
+     */
     @Override
     public List<CajonResponse> getCajones() {
 
-        return cajonRepository.findAll()
+        return cajonRepository.findByActivoTrue()
                 .stream()
                 .map(cajonMapper::toResponseCajon)
                 .toList();
     }
 
+    /**
+     * Obtiene los cajones activos de un estacionamiento activo.
+     */
     @Override
     public List<CajonResponse> getCajonesByEstacionamientoId(Long estacionamientoId) {
         findEstacionamientoById(estacionamientoId);
 
         return cajonRepository
-                .findByEstacionamientoId(estacionamientoId)
+                .findByEstacionamientoIdAndActivoTrue(estacionamientoId)
                 .stream()
                 .map(cajonMapper::toResponseCajon)
                 .toList();
     }
 
+    /**
+     * Consulta un cajón activo por identificador.
+     */
     @Override
     public CajonResponse getCajon(Long id) {
         return cajonMapper.toResponseCajon(findCajonById(id));
     }
 
+    /**
+     * Crea un cajón dentro de un estacionamiento activo validando duplicados.
+     */
     @Override
     @Transactional
     public CajonResponse addCajon(CajonRequest request) {
@@ -74,6 +87,10 @@ public class CajonServiceImpl implements CajonService {
         return cajonMapper.toResponseCajon(savedCajon);
     }
 
+    /**
+     * Actualiza un cajón activo y valida que el nuevo número no esté duplicado
+     * dentro del estacionamiento indicado.
+     */
     @Override
     @Transactional
     public CajonResponse updateCajon(Long id, CajonRequest request) {
@@ -110,6 +127,9 @@ public class CajonServiceImpl implements CajonService {
         return cajonMapper.toResponseCajon(updatedCajon);
     }
 
+    /**
+     * Actualiza el estado operativo de un cajón activo.
+     */
     @Override
     @Transactional
     public CajonResponse updateEstado(Long id,CajonEstadoRequest request) {
@@ -121,15 +141,25 @@ public class CajonServiceImpl implements CajonService {
         return cajonMapper.toResponseCajon(updatedCajon);
     }
 
+    /**
+     * Realiza el borrado lógico de un cajón activo cambiando su bandera activo a
+     * false para conservar el registro por auditoría.
+     */
     @Override
     @Transactional
     public void deleteCajon(Long id) {
         Cajon cajon = findCajonById(id);
-        cajonRepository.delete(cajon);
+
+        cajon.setActivo(false);
+        cajonRepository.save(cajon);
     }
 
+    /**
+     * Busca internamente un cajón activo o lanza una excepción 404 cuando no existe
+     * o fue desactivado mediante borrado lógico.
+     */
     private Cajon findCajonById(Long id) {
-        return cajonRepository.findById(id)
+        return cajonRepository.findByIdAndActivoTrue(id)
                 .orElseThrow(() ->
                         new ResourceNotFoundException(
                                 "Cajón",
@@ -138,8 +168,12 @@ public class CajonServiceImpl implements CajonService {
                 );
     }
 
+    /**
+     * Busca internamente un estacionamiento activo para impedir operar cajones
+     * sobre estacionamientos desactivados.
+     */
     private Estacionamiento findEstacionamientoById(Long id) {
-        return estacionamientoRepository.findById(id)
+        return estacionamientoRepository.findByIdAndActivoTrue(id)
                 .orElseThrow(() ->
                         new ResourceNotFoundException(
                                 "Estacionamiento",

@@ -4,6 +4,7 @@ import com.kasaca.parkio.cajon.entity.Cajon;
 import org.springframework.data.jpa.repository.JpaRepository;
 
 import java.util.List;
+import java.util.Optional;
 
 public interface CajonRepository extends JpaRepository<Cajon, Long> {
 
@@ -20,5 +21,9 @@ public interface CajonRepository extends JpaRepository<Cajon, Long> {
             Long cajonId
     );
 
-    List<Cajon> findByEstacionamientoId(Long estacionamientoId);
+    List<Cajon> findByActivoTrue();
+
+    Optional<Cajon> findByIdAndActivoTrue(Long id);
+
+    List<Cajon> findByEstacionamientoIdAndActivoTrue(Long estacionamientoId);
 }

@@ -28,16 +28,25 @@ public class RolController {
 
     private final RolService rolService;
 
+    /**
+     * Lista los roles activos registrados en el sistema.
+     */
     @GetMapping
     public List<RolResponse> getRoles() {
         return rolService.getRoles();
     }
 
+    /**
+     * Consulta un rol activo por su identificador.
+     */
     @GetMapping("/{rolId}")
     public RolResponse getRol(@PathVariable Long rolId) {
         return rolService.getRol(rolId);
     }
 
+    /**
+     * Crea un nuevo rol validando los datos recibidos en la solicitud.
+     */
     @PostMapping
     public ResponseEntity<RolResponse> addRol(
             @Valid @RequestBody RolRequest request
@@ -49,6 +58,10 @@ public class RolController {
                 .body(response);
     }
 
+    /**
+     * Actualiza un rol activo existente usando el identificador de la ruta y los
+     * datos validados del cuerpo de la solicitud.
+     */
     @PutMapping("/{rolId}")
     public RolResponse updateRol(
             @PathVariable Long rolId,
@@ -57,6 +70,10 @@ public class RolController {
         return rolService.updateRol(rolId, request);
     }
 
+    /**
+     * Elimina lógicamente un rol activo cambiando su estado a inactivo desde la
+     * capa de servicio.
+     */
     @DeleteMapping("/{rolId}")
     @ResponseStatus(HttpStatus.NO_CONTENT)
     public void deleteRol(@PathVariable Long rolId) {

@@ -41,13 +41,13 @@ class RolServiceImplTest {
         Rol rol = crearRol();
         RolResponse response = crearResponse();
 
-        when(rolRepository.findAll()).thenReturn(List.of(rol));
+        when(rolRepository.findByActivoTrue()).thenReturn(List.of(rol));
         when(rolMapper.toResponse(rol)).thenReturn(response);
 
         List<RolResponse> resultado = rolService.getRoles();
 
         assertThat(resultado).containsExactly(response);
-        verify(rolRepository).findAll();
+        verify(rolRepository).findByActivoTrue();
         verify(rolMapper).toResponse(rol);
     }
 
@@ -56,7 +56,7 @@ class RolServiceImplTest {
         Rol rol = crearRol();
         RolResponse response = crearResponse();
 
-        when(rolRepository.findById(1L))
+        when(rolRepository.findByIdAndActivoTrue(1L))
                 .thenReturn(Optional.of(rol));
         when(rolMapper.toResponse(rol)).thenReturn(response);
 
@@ -67,7 +67,7 @@ class RolServiceImplTest {
 
     @Test
     void debeLanzarExcepcionCuandoRolNoExiste() {
-        when(rolRepository.findById(1L))
+        when(rolRepository.findByIdAndActivoTrue(1L))
                 .thenReturn(Optional.empty());
 
         assertThatThrownBy(() -> rolService.getRol(1L))
@@ -121,7 +121,7 @@ class RolServiceImplTest {
                 rol.getFechaCreacion()
         );
 
-        when(rolRepository.findById(1L))
+        when(rolRepository.findByIdAndActivoTrue(1L))
                 .thenReturn(Optional.of(rol));
         when(rolRepository.existsByNombreAndIdNot("SUPERVISOR", 1L))
                 .thenReturn(false);
@@ -140,7 +140,7 @@ class RolServiceImplTest {
         RolRequest request = new RolRequest("ADMIN", true);
         Rol rol = crearRol();
 
-        when(rolRepository.findById(1L))
+        when(rolRepository.findByIdAndActivoTrue(1L))
                 .thenReturn(Optional.of(rol));
         when(rolRepository.existsByNombreAndIdNot("ADMIN", 1L))
                 .thenReturn(true);
@@ -154,27 +154,29 @@ class RolServiceImplTest {
     }
 
     @Test
-    void debeEliminarRol() {
+    void debeEliminarRolLogicamente() {
         Rol rol = crearRol();
 
-        when(rolRepository.findById(1L))
+        when(rolRepository.findByIdAndActivoTrue(1L))
                 .thenReturn(Optional.of(rol));
+        when(rolRepository.save(rol)).thenReturn(rol);
 
         rolService.deleteRol(1L);
 
-        verify(rolRepository).delete(rol);
+        assertThat(rol.getActivo()).isFalse();
+        verify(rolRepository).save(rol);
     }
 
     @Test
     void debeRechazarEliminacionCuandoRolNoExiste() {
-        when(rolRepository.findById(1L))
+        when(rolRepository.findByIdAndActivoTrue(1L))
                 .thenReturn(Optional.empty());
 
         assertThatThrownBy(() -> rolService.deleteRol(1L))
                 .isInstanceOf(ResourceNotFoundException.class)
                 .hasMessage("Rol con identificador '1' no fue encontrado");
 
-        verify(rolRepository, never()).delete(any());
+        verify(rolRepository, never()).save(any());
     }
 
     private Rol crearRol() {

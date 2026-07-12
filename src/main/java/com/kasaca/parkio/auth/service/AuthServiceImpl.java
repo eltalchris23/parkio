@@ -29,13 +29,14 @@ public class AuthServiceImpl implements AuthService {
     /**
      * Realiza el inicio de sesion de un usuario.
      *
-     * <p>Busca al usuario por correo, verifica la contrasena usando BCrypt y,
-     * si las credenciales son validas, genera un token JWT con la identidad y
-     * roles del usuario.</p>
+     * <p>Busca al usuario activo por correo, verifica la contrasena usando BCrypt
+     * y, si las credenciales son validas, genera un token JWT con la identidad y
+     * roles del usuario. Los usuarios desactivados por borrado logico no pueden
+     * iniciar sesion.</p>
      */
     @Override
     public AuthResponse login(AuthLoginRequest request) {
-        Usuario usuario = usuarioRepository.findByEmail(request.email())
+        Usuario usuario = usuarioRepository.findByEmailAndActivoTrue(request.email())
                 .orElseThrow(() -> new UnauthorizedException("Credenciales invalidas"));
 
         if (!passwordEncoder.matches(request.password(), usuario.getPasswordHash())) {
