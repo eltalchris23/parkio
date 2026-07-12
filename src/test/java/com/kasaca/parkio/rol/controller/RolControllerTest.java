@@ -5,6 +5,7 @@ import com.fasterxml.jackson.databind.json.JsonMapper;
 import com.kasaca.parkio.rol.dto.RolRequest;
 import com.kasaca.parkio.rol.dto.RolResponse;
 import com.kasaca.parkio.rol.service.RolService;
+import com.kasaca.parkio.shared.dto.PageResponse;
 import com.kasaca.parkio.shared.exception.ConflictException;
 import com.kasaca.parkio.shared.exception.GlobalExceptionHandler;
 import com.kasaca.parkio.shared.exception.ResourceNotFoundException;
@@ -13,6 +14,9 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.web.PageableHandlerMethodArgumentResolver;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
@@ -20,6 +24,7 @@ import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 import java.time.LocalDateTime;
 import java.util.List;
 
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
@@ -46,6 +51,7 @@ class RolControllerTest {
 
         mockMvc = MockMvcBuilders
                 .standaloneSetup(rolController)
+                .setCustomArgumentResolvers(new PageableHandlerMethodArgumentResolver())
                 .setControllerAdvice(new GlobalExceptionHandler())
                 .build();
 
@@ -57,16 +63,29 @@ class RolControllerTest {
     @Test
     void debeListarRoles() throws Exception {
         RolResponse response = crearResponse();
+        PageResponse<RolResponse> pageResponse = PageResponse.from(
+                new PageImpl<>(List.of(response), PageRequest.of(0, 10), 1)
+        );
 
-        when(rolService.getRoles()).thenReturn(List.of(response));
+        when(rolService.getRoles(any()))
+                .thenReturn(pageResponse);
 
-        mockMvc.perform(get("/api/roles"))
+        mockMvc.perform(get("/api/roles")
+                        .param("page", "0")
+                        .param("size", "10")
+                        .param("sort", "nombre,asc"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$[0].id").value(1L))
-                .andExpect(jsonPath("$[0].nombre").value("ADMIN"))
-                .andExpect(jsonPath("$[0].activo").value(true));
+                .andExpect(jsonPath("$.status").value(200))
+                .andExpect(jsonPath("$.message").value("Roles consultados correctamente"))
+                .andExpect(jsonPath("$.transactionId").isNotEmpty())
+                .andExpect(jsonPath("$.data.content[0].id").value(1L))
+                .andExpect(jsonPath("$.data.content[0].nombre").value("ADMIN"))
+                .andExpect(jsonPath("$.data.content[0].activo").value(true))
+                .andExpect(jsonPath("$.data.totalElements").value(1))
+                .andExpect(jsonPath("$.data.size").value(10))
+                .andExpect(jsonPath("$.data.page").value(0));
 
-        verify(rolService).getRoles();
+        verify(rolService).getRoles(any());
     }
 
     @Test

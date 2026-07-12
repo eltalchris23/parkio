@@ -3,14 +3,17 @@ package com.kasaca.parkio.cajon.service;
 import com.kasaca.parkio.cajon.dto.CajonRequest;
 import com.kasaca.parkio.cajon.dto.CajonResponse;
 import com.kasaca.parkio.cajon.dto.CajonEstadoRequest;
-
-import java.util.List;
+import com.kasaca.parkio.shared.dto.PageResponse;
+import org.springframework.data.domain.Pageable;
 
 public interface CajonService {
 
-    List<CajonResponse> getCajones();
+    PageResponse<CajonResponse> getCajones(Pageable pageable);
 
-    List<CajonResponse> getCajonesByEstacionamientoId(Long estacionamientoId);
+    PageResponse<CajonResponse> getCajonesByEstacionamientoId(
+            Long estacionamientoId,
+            Pageable pageable
+    );
 
     CajonResponse getCajon(Long id);
 

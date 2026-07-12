@@ -7,8 +7,11 @@ import com.kasaca.parkio.estacionamiento.dto.EstacionamientoResponse;
 import com.kasaca.parkio.estacionamiento.entity.Estacionamiento;
 import com.kasaca.parkio.estacionamiento.mapper.EstacionamientoMapper;
 import com.kasaca.parkio.estacionamiento.repository.EstacionamientoRepository;
+import com.kasaca.parkio.shared.dto.PageResponse;
 import com.kasaca.parkio.shared.exception.ResourceNotFoundException;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -29,11 +32,12 @@ public class EstacionamientoServiceImpl
      * desactivados mediante borrado lógico.
      */
     @Override
-    public List<EstacionamientoResponse> getEstacionamientos() {
-        return estacionamientoRepository.findByActivoTrue()
-                .stream()
-                .map(estacionamientoMapper::toResponse)
-                .toList();
+    public PageResponse<EstacionamientoResponse> getEstacionamientos(Pageable pageable) {
+        Page<EstacionamientoResponse> estacionamientos =
+                estacionamientoRepository.findByActivoTrue(pageable)
+                        .map(estacionamientoMapper::toResponse);
+
+        return PageResponse.from(estacionamientos);
     }
 
     /**

@@ -44,6 +44,11 @@ Antes de realizar cambios, considerar lo siguiente:
 - Los roles del claim `roles` del JWT se convierten a authorities de Spring Security con prefijo `ROLE_`.
 - Las operaciones `DELETE` de Rol, Usuario, Estacionamiento y Cajón realizan borrado lógico mediante `activo=false`.
 - Las consultas normales trabajan solo con registros activos. Un registro inactivo debe tratarse como no encontrado para la API.
+- El listado de roles `GET /api/roles` devuelve una respuesta estandarizada mediante `ApiResponse<PageResponse<RolResponse>>` y acepta `page`, `size` y `sort`.
+- El listado de estacionamientos `GET /api/estacionamientos` devuelve una respuesta estandarizada mediante `ApiResponse<PageResponse<EstacionamientoResponse>>` y acepta `page`, `size` y `sort`.
+- Los listados de cajones `GET /api/cajones` y `GET /api/cajones?estacionamientoId={id}` devuelven una respuesta estandarizada mediante `ApiResponse<PageResponse<CajonResponse>>` y aceptan `page`, `size` y `sort`.
+- El listado de usuarios `GET /api/usuarios` devuelve una respuesta estandarizada mediante `ApiResponse<PageResponse<UsuarioResponse>>` y acepta `page`, `size` y `sort`.
+- Existe `TransactionIdFilter`, que genera o reutiliza el header `X-Transaction-Id`, lo agrega al response, lo deja disponible para logs mediante MDC y lo incluye en respuestas exitosas estandarizadas y errores.
 - Al desactivar un estacionamiento, también se desactivan lógicamente sus cajones activos.
 - Los usuarios inactivos no pueden iniciar sesión.
 - `RolMapper`, `EstacionamientoMapper`, `CajonMapper` y `UsuarioMapper` están implementados.
@@ -372,7 +377,7 @@ Estos códigos forman parte del contrato común. El módulo Rol ya implementa re
 
 ## Manejo de Excepciones
 
-Existe un mecanismo global basado en `GlobalExceptionHandler` y el record `ApiError`.
+Existe un mecanismo global basado en `GlobalExceptionHandler` y el record `ApiError`. Las respuestas de error incluyen `transactionId` para facilitar trazabilidad entre frontend, backend y logs.
 
 Mapeo HTTP implementado:
 

@@ -2,12 +2,12 @@ package com.kasaca.parkio.rol.service;
 
 import com.kasaca.parkio.rol.dto.RolRequest;
 import com.kasaca.parkio.rol.dto.RolResponse;
-
-import java.util.List;
+import com.kasaca.parkio.shared.dto.PageResponse;
+import org.springframework.data.domain.Pageable;
 
 public interface RolService {
 
-    List<RolResponse> getRoles();
+    PageResponse<RolResponse> getRoles(Pageable pageable);
 
     RolResponse getRol(Long rolId);
 

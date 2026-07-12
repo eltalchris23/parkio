@@ -20,6 +20,7 @@ import com.kasaca.parkio.rol.controller.RolController;
 import com.kasaca.parkio.rol.dto.RolResponse;
 import com.kasaca.parkio.rol.service.RolService;
 import com.kasaca.parkio.security.authorization.UsuarioSecurity;
+import com.kasaca.parkio.shared.dto.PageResponse;
 import com.kasaca.parkio.shared.exception.GlobalExceptionHandler;
 import com.kasaca.parkio.usuario.controller.UsuarioController;
 import com.kasaca.parkio.usuario.dto.UsuarioCreateRequest;
@@ -29,6 +30,8 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.context.annotation.Import;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.data.jpa.mapping.JpaMetamodelMappingContext;
 import org.springframework.http.MediaType;
 import org.springframework.test.context.TestPropertySource;
@@ -40,6 +43,7 @@ import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Set;
 
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.when;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
@@ -177,15 +181,24 @@ class SecurityConfigTest {
                 LocalDateTime.of(2026, 7, 7, 9, 0)
         );
 
-        when(rolService.getRoles()).thenReturn(List.of(response));
+        PageResponse<RolResponse> pageResponse = PageResponse.from(
+                new PageImpl<>(List.of(response), PageRequest.of(0, 10), 1)
+        );
+
+        when(rolService.getRoles(any()))
+                .thenReturn(pageResponse);
 
         mockMvc.perform(get("/api/roles")
+                        .param("page", "0")
+                        .param("size", "10")
                         .with(jwt().authorities(() -> "ROLE_ADMIN")))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$[0].id").value(1L))
-                .andExpect(jsonPath("$[0].nombre").value("ADMIN"));
+                .andExpect(jsonPath("$.status").value(200))
+                .andExpect(jsonPath("$.transactionId").isNotEmpty())
+                .andExpect(jsonPath("$.data.content[0].id").value(1L))
+                .andExpect(jsonPath("$.data.content[0].nombre").value("ADMIN"));
 
-        verify(rolService).getRoles();
+        verify(rolService).getRoles(any());
     }
 
     /**
@@ -204,15 +217,24 @@ class SecurityConfigTest {
                 Set.of()
         );
 
-        when(usuarioService.getAllUsers()).thenReturn(List.of(response));
+        PageResponse<UsuarioResponse> pageResponse = PageResponse.from(
+                new PageImpl<>(List.of(response), PageRequest.of(0, 10), 1)
+        );
+
+        when(usuarioService.getAllUsers(any()))
+                .thenReturn(pageResponse);
 
         mockMvc.perform(get("/api/usuarios")
+                        .param("page", "0")
+                        .param("size", "10")
                         .with(jwt().authorities(() -> "ROLE_ADMIN")))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$[0].id").value(1L))
-                .andExpect(jsonPath("$[0].email").value("christian@parkio.com"));
+                .andExpect(jsonPath("$.status").value(200))
+                .andExpect(jsonPath("$.transactionId").isNotEmpty())
+                .andExpect(jsonPath("$.data.content[0].id").value(1L))
+                .andExpect(jsonPath("$.data.content[0].email").value("christian@parkio.com"));
 
-        verify(usuarioService).getAllUsers();
+        verify(usuarioService).getAllUsers(any());
     }
 
     /**
@@ -330,15 +352,24 @@ class SecurityConfigTest {
                 LocalDateTime.of(2026, 7, 7, 9, 0)
         );
 
-        when(estacionamientoService.getEstacionamientos()).thenReturn(List.of(response));
+        PageResponse<EstacionamientoResponse> pageResponse = PageResponse.from(
+                new PageImpl<>(List.of(response), PageRequest.of(0, 10), 1)
+        );
+
+        when(estacionamientoService.getEstacionamientos(any()))
+                .thenReturn(pageResponse);
 
         mockMvc.perform(get("/api/estacionamientos")
+                        .param("page", "0")
+                        .param("size", "10")
                         .with(jwt().authorities(() -> "ROLE_ADMIN")))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$[0].id").value(1L))
-                .andExpect(jsonPath("$[0].nombre").value("Estacionamiento Centro"));
+                .andExpect(jsonPath("$.status").value(200))
+                .andExpect(jsonPath("$.transactionId").isNotEmpty())
+                .andExpect(jsonPath("$.data.content[0].id").value(1L))
+                .andExpect(jsonPath("$.data.content[0].nombre").value("Estacionamiento Centro"));
 
-        verify(estacionamientoService).getEstacionamientos();
+        verify(estacionamientoService).getEstacionamientos(any());
     }
 
     /**
@@ -346,13 +377,18 @@ class SecurityConfigTest {
      */
     @Test
     void debePermitirListarEstacionamientosCuandoTieneRolOperador() throws Exception {
-        when(estacionamientoService.getEstacionamientos()).thenReturn(List.of());
+        when(estacionamientoService.getEstacionamientos(any()))
+                .thenReturn(PageResponse.from(
+                        new PageImpl<>(List.of(), PageRequest.of(0, 10), 0)
+                ));
 
         mockMvc.perform(get("/api/estacionamientos")
+                        .param("page", "0")
+                        .param("size", "10")
                         .with(jwt().authorities(() -> "ROLE_OPERADOR")))
                 .andExpect(status().isOk());
 
-        verify(estacionamientoService).getEstacionamientos();
+        verify(estacionamientoService).getEstacionamientos(any());
     }
 
     /**
@@ -360,13 +396,18 @@ class SecurityConfigTest {
      */
     @Test
     void debePermitirListarEstacionamientosCuandoTieneRolUser() throws Exception {
-        when(estacionamientoService.getEstacionamientos()).thenReturn(List.of());
+        when(estacionamientoService.getEstacionamientos(any()))
+                .thenReturn(PageResponse.from(
+                        new PageImpl<>(List.of(), PageRequest.of(0, 10), 0)
+                ));
 
         mockMvc.perform(get("/api/estacionamientos")
+                        .param("page", "0")
+                        .param("size", "10")
                         .with(jwt().authorities(() -> "ROLE_USER")))
                 .andExpect(status().isOk());
 
-        verify(estacionamientoService).getEstacionamientos();
+        verify(estacionamientoService).getEstacionamientos(any());
     }
 
     /**
@@ -489,16 +530,24 @@ class SecurityConfigTest {
     @Test
     void debePermitirListarCajonesCuandoTieneRolAdmin() throws Exception {
         CajonResponse response = crearCajonResponse(EstadoCajon.LIBRE);
+        PageResponse<CajonResponse> pageResponse = PageResponse.from(
+                new PageImpl<>(List.of(response), PageRequest.of(0, 10), 1)
+        );
 
-        when(cajonService.getCajones()).thenReturn(List.of(response));
+        when(cajonService.getCajones(any()))
+                .thenReturn(pageResponse);
 
         mockMvc.perform(get("/api/cajones")
+                        .param("page", "0")
+                        .param("size", "10")
                         .with(jwt().authorities(() -> "ROLE_ADMIN")))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$[0].id").value(1L))
-                .andExpect(jsonPath("$[0].numero").value("A-001"));
+                .andExpect(jsonPath("$.status").value(200))
+                .andExpect(jsonPath("$.transactionId").isNotEmpty())
+                .andExpect(jsonPath("$.data.content[0].id").value(1L))
+                .andExpect(jsonPath("$.data.content[0].numero").value("A-001"));
 
-        verify(cajonService).getCajones();
+        verify(cajonService).getCajones(any());
     }
 
     /**
@@ -506,13 +555,18 @@ class SecurityConfigTest {
      */
     @Test
     void debePermitirListarCajonesCuandoTieneRolOperador() throws Exception {
-        when(cajonService.getCajones()).thenReturn(List.of());
+        when(cajonService.getCajones(any()))
+                .thenReturn(PageResponse.from(
+                        new PageImpl<>(List.of(), PageRequest.of(0, 10), 0)
+                ));
 
         mockMvc.perform(get("/api/cajones")
+                        .param("page", "0")
+                        .param("size", "10")
                         .with(jwt().authorities(() -> "ROLE_OPERADOR")))
                 .andExpect(status().isOk());
 
-        verify(cajonService).getCajones();
+        verify(cajonService).getCajones(any());
     }
 
     /**
@@ -520,13 +574,18 @@ class SecurityConfigTest {
      */
     @Test
     void debePermitirListarCajonesCuandoTieneRolUser() throws Exception {
-        when(cajonService.getCajones()).thenReturn(List.of());
+        when(cajonService.getCajones(any()))
+                .thenReturn(PageResponse.from(
+                        new PageImpl<>(List.of(), PageRequest.of(0, 10), 0)
+                ));
 
         mockMvc.perform(get("/api/cajones")
+                        .param("page", "0")
+                        .param("size", "10")
                         .with(jwt().authorities(() -> "ROLE_USER")))
                 .andExpect(status().isOk());
 
-        verify(cajonService).getCajones();
+        verify(cajonService).getCajones(any());
     }
 
     /**
@@ -535,16 +594,22 @@ class SecurityConfigTest {
     @Test
     void debePermitirListarCajonesPorEstacionamientoCuandoTieneRolAdmin() throws Exception {
         CajonResponse response = crearCajonResponse(EstadoCajon.LIBRE);
+        PageResponse<CajonResponse> pageResponse = PageResponse.from(
+                new PageImpl<>(List.of(response), PageRequest.of(0, 10), 1)
+        );
 
-        when(cajonService.getCajonesByEstacionamientoId(10L)).thenReturn(List.of(response));
+        when(cajonService.getCajonesByEstacionamientoId(any(Long.class), any()))
+                .thenReturn(pageResponse);
 
         mockMvc.perform(get("/api/cajones")
                         .param("estacionamientoId", "10")
+                        .param("page", "0")
+                        .param("size", "10")
                         .with(jwt().authorities(() -> "ROLE_ADMIN")))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$[0].estacionamientoId").value(10L));
+                .andExpect(jsonPath("$.data.content[0].estacionamientoId").value(10L));
 
-        verify(cajonService).getCajonesByEstacionamientoId(10L);
+        verify(cajonService).getCajonesByEstacionamientoId(any(Long.class), any());
     }
 
     /**

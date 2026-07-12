@@ -119,6 +119,7 @@ POST /api/auth/login
   "status": 401,
   "error": "Unauthorized",
   "message": "Credenciales invalidas",
+  "transactionId": "0f5d5c9b-8dc1-4bd1-a173-08f16eb4f96e",
   "path": "/api/auth/login",
   "validationErrors": {}
 }
@@ -138,20 +139,46 @@ Seguridad:
 ## Listar Roles
 
 ```http
-GET /api/roles
+GET /api/roles?page=0&size=10&sort=nombre,asc
 ```
+
+Query params soportados por Spring Data:
+
+| ParÃ¡metro | DescripciÃ³n |
+|---|---|
+| `page` | NÃºmero de pÃ¡gina solicitado. Inicia en `0`. |
+| `size` | Cantidad mÃ¡xima de registros por pÃ¡gina. |
+| `sort` | Campo Java de la entidad y direcciÃ³n. Ejemplo: `nombre,asc`. |
 
 ### Response 200
 
+El cuerpo completo usa `ApiResponse<PageResponse<EstacionamientoResponse>>`.
+El arreglo mostrado a continuaciÃ³n corresponde al contenido de `data.content`.
+
 ```json
-[
-  {
-    "id": 1,
-    "nombre": "ADMIN",
-    "activo": true,
-    "fechaCreacion": "2026-06-20T12:00:00"
+{
+  "timestamp": "2026-07-12T10:10:00",
+  "status": 200,
+  "message": "Roles consultados correctamente",
+  "transactionId": "0f5d5c9b-8dc1-4bd1-a173-08f16eb4f96e",
+  "data": {
+    "content": [
+      {
+        "id": 1,
+        "nombre": "ADMIN",
+        "activo": true,
+        "fechaCreacion": "2026-06-20T12:00:00"
+      }
+    ],
+    "page": 0,
+    "size": 10,
+    "totalElements": 1,
+    "totalPages": 1,
+    "first": true,
+    "last": true,
+    "empty": false
   }
-]
+}
 ```
 
 ## Consultar Rol
@@ -249,24 +276,49 @@ La creación utiliza `UsuarioCreateRequest`, la actualización general utiliza `
 ### Endpoint
 
 ```http
-GET /api/usuarios
+GET /api/usuarios?page=0&size=10&sort=email,asc
 ```
+
+### Query params
+
+| Parámetro | Tipo | Requerido | Descripción |
+|---|---|---|---|
+| `page` | number | No | Número de página basado en cero. |
+| `size` | number | No | Cantidad de registros por página. |
+| `sort` | string | No | Campo y dirección de ordenamiento, por ejemplo `email,asc`. |
 
 ### Response 200
 
+El cuerpo completo usa `ApiResponse<PageResponse<UsuarioResponse>>`.
+
 ```json
-[
-  {
-    "id": 1,
-    "nombre": "Juan",
-    "apellido": "Pérez",
-    "email": "juan@parkio.com",
-    "activo": true,
-    "fechaCreacion": "2026-06-28T12:00:00",
-    "roles": [],
-    "estacionamientoIds": []
+{
+  "timestamp": "2026-07-12T11:20:00",
+  "status": 200,
+  "message": "Usuarios consultados correctamente",
+  "transactionId": "0f5d5c9b-8dc1-4bd1-a173-08f16eb4f96e",
+  "data": {
+    "content": [
+      {
+        "id": 1,
+        "nombre": "Juan",
+        "apellido": "Pérez",
+        "email": "juan@parkio.com",
+        "activo": true,
+        "fechaCreacion": "2026-06-28T12:00:00",
+        "roles": [],
+        "estacionamientoIds": []
+      }
+    ],
+    "page": 0,
+    "size": 10,
+    "totalElements": 1,
+    "totalPages": 1,
+    "first": true,
+    "last": true,
+    "empty": false
   }
-]
+}
 ```
 
 ---
@@ -528,8 +580,19 @@ Seguridad actual:
 ### Endpoint
 
 ```http
-GET /api/estacionamientos
+GET /api/estacionamientos?page=0&size=10&sort=nombre,asc
 ```
+
+El listado devuelve una respuesta estandarizada con `ApiResponse<PageResponse<EstacionamientoResponse>>`.
+La informaciÃ³n de paginaciÃ³n se encuentra dentro de `data`.
+
+Query params soportados por Spring Data:
+
+| ParÃ¡metro | DescripciÃ³n |
+|---|---|
+| `page` | NÃºmero de pÃ¡gina solicitado. Inicia en `0`. |
+| `size` | Cantidad mÃ¡xima de registros por pÃ¡gina. |
+| `sort` | Campo Java de la entidad y direcciÃ³n. Ejemplo: `nombre,asc`. |
 
 ### Response 200
 
@@ -655,33 +718,66 @@ Seguridad actual:
 ## Listar Cajones
 
 ```http
-GET /api/cajones
+GET /api/cajones?page=0&size=10&sort=numero,asc
 ```
+
+Query params soportados por Spring Data:
+
+| ParÃ¡metro | DescripciÃ³n |
+|---|---|
+| `page` | NÃºmero de pÃ¡gina solicitado. Inicia en `0`. |
+| `size` | Cantidad mÃ¡xima de registros por pÃ¡gina. |
+| `sort` | Campo Java de la entidad y direcciÃ³n. Ejemplo: `numero,asc`. |
 
 ### Response 200
 
-Devuelve todos los cajones registrados.
+Devuelve los cajones activos registrados usando `ApiResponse<PageResponse<CajonResponse>>`.
+La informaciÃ³n de paginaciÃ³n se encuentra dentro de `data`.
 
 ## Listar Cajones por Estacionamiento
 
 ```http
-GET /api/cajones?estacionamientoId=1
+GET /api/cajones?estacionamientoId=1&page=0&size=10&sort=numero,asc
 ```
+
+Query params soportados por Spring Data:
+
+| ParÃ¡metro | DescripciÃ³n |
+|---|---|
+| `estacionamientoId` | Identificador del estacionamiento usado para filtrar cajones. |
+| `page` | NÃºmero de pÃ¡gina solicitado. Inicia en `0`. |
+| `size` | Cantidad mÃ¡xima de registros por pÃ¡gina. |
+| `sort` | Campo Java de la entidad y direcciÃ³n. Ejemplo: `numero,asc`. |
 
 ### Response 200
 
 ```json
-[
-  {
-    "id": 1,
-    "numero": "A-001",
-    "tipo": "AUTO",
-    "estado": "LIBRE",
-    "estacionamientoId": 1,
-    "activo": true,
-    "fechaCreacion": "2026-06-27T12:00:00"
+{
+  "timestamp": "2026-07-12T11:05:00",
+  "status": 200,
+  "message": "Cajones consultados correctamente",
+  "transactionId": "0f5d5c9b-8dc1-4bd1-a173-08f16eb4f96e",
+  "data": {
+    "content": [
+      {
+        "id": 1,
+        "numero": "A-001",
+        "tipo": "AUTO",
+        "estado": "LIBRE",
+        "estacionamientoId": 1,
+        "activo": true,
+        "fechaCreacion": "2026-06-27T12:00:00"
+      }
+    ],
+    "page": 0,
+    "size": 10,
+    "totalElements": 1,
+    "totalPages": 1,
+    "first": true,
+    "last": true,
+    "empty": false
   }
-]
+}
 ```
 
 ### Response 404
@@ -834,9 +930,15 @@ Las operaciones implementadas utilizan el siguiente formato:
   "status": 400,
   "error": "Bad Request",
   "message": "La solicitud contiene datos inválidos",
+  "transactionId": "0f5d5c9b-8dc1-4bd1-a173-08f16eb4f96e",
   "path": "/api/roles",
   "validationErrors": {
     "nombre": "El nombre del rol es obligatorio"
   }
 }
 ```
+
+Todas las respuestas HTTP incluyen el header `X-Transaction-Id`. Si el cliente lo envÃ­a,
+Parkio reutiliza ese valor; si no lo envÃ­a, el backend genera uno nuevo. El mismo valor
+se incluye en respuestas exitosas estandarizadas y en respuestas de error para facilitar
+trazabilidad entre frontend, backend y logs.

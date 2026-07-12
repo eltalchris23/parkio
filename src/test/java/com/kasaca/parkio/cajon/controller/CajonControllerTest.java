@@ -8,6 +8,7 @@ import com.kasaca.parkio.cajon.dto.CajonEstadoRequest;
 import com.kasaca.parkio.cajon.entity.EstadoCajon;
 import com.kasaca.parkio.cajon.entity.TipoCajon;
 import com.kasaca.parkio.cajon.service.CajonService;
+import com.kasaca.parkio.shared.dto.PageResponse;
 import com.kasaca.parkio.shared.exception.ConflictException;
 import com.kasaca.parkio.shared.exception.GlobalExceptionHandler;
 import com.kasaca.parkio.shared.exception.ResourceNotFoundException;
@@ -16,6 +17,9 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.web.PageableHandlerMethodArgumentResolver;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
@@ -51,6 +55,7 @@ class CajonControllerTest {
 
         mockMvc = MockMvcBuilders
                 .standaloneSetup(controller)
+                .setCustomArgumentResolvers(new PageableHandlerMethodArgumentResolver())
                 .setControllerAdvice(new GlobalExceptionHandler())
                 .build();
 
@@ -61,32 +66,52 @@ class CajonControllerTest {
 
     @Test
     void debeListarTodosLosCajones() throws Exception {
-        when(cajonService.getCajones())
-                .thenReturn(List.of(crearResponse()));
+        PageResponse<CajonResponse> pageResponse = PageResponse.from(
+                new PageImpl<>(List.of(crearResponse()), PageRequest.of(0, 10), 1)
+        );
 
-        mockMvc.perform(get("/api/cajones"))
+        when(cajonService.getCajones(any()))
+                .thenReturn(pageResponse);
+
+        mockMvc.perform(get("/api/cajones")
+                        .param("page", "0")
+                        .param("size", "10")
+                        .param("sort", "numero,asc"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$[0].id").value(1L))
-                .andExpect(jsonPath("$[0].numero").value("A-001"))
-                .andExpect(jsonPath("$[0].tipo").value("AUTO"))
-                .andExpect(jsonPath("$[0].estado").value("LIBRE"));
+                .andExpect(jsonPath("$.status").value(200))
+                .andExpect(jsonPath("$.message").value("Cajones consultados correctamente"))
+                .andExpect(jsonPath("$.transactionId").isNotEmpty())
+                .andExpect(jsonPath("$.data.content[0].id").value(1L))
+                .andExpect(jsonPath("$.data.content[0].numero").value("A-001"))
+                .andExpect(jsonPath("$.data.content[0].tipo").value("AUTO"))
+                .andExpect(jsonPath("$.data.content[0].estado").value("LIBRE"))
+                .andExpect(jsonPath("$.data.totalElements").value(1))
+                .andExpect(jsonPath("$.data.size").value(10))
+                .andExpect(jsonPath("$.data.page").value(0));
 
-        verify(cajonService).getCajones();
+        verify(cajonService).getCajones(any());
     }
 
     @Test
     void debeListarCajonesPorEstacionamiento() throws Exception {
-        when(cajonService.getCajonesByEstacionamientoId(10L))
-                .thenReturn(List.of(crearResponse()));
+        PageResponse<CajonResponse> pageResponse = PageResponse.from(
+                new PageImpl<>(List.of(crearResponse()), PageRequest.of(0, 10), 1)
+        );
+
+        when(cajonService.getCajonesByEstacionamientoId(any(Long.class), any()))
+                .thenReturn(pageResponse);
 
         mockMvc.perform(get("/api/cajones")
-                        .param("estacionamientoId", "10"))
+                        .param("estacionamientoId", "10")
+                        .param("page", "0")
+                        .param("size", "10"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$[0].estacionamientoId")
+                .andExpect(jsonPath("$.status").value(200))
+                .andExpect(jsonPath("$.data.content[0].estacionamientoId")
                         .value(10L));
 
         verify(cajonService)
-                .getCajonesByEstacionamientoId(10L);
+                .getCajonesByEstacionamientoId(any(Long.class), any());
     }
 
     @Test

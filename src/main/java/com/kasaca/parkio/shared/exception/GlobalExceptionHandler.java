@@ -1,5 +1,6 @@
 package com.kasaca.parkio.shared.exception;
 
+import com.kasaca.parkio.shared.web.TransactionIdFilter;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.dao.DataIntegrityViolationException;
@@ -11,6 +12,8 @@ import org.springframework.security.authorization.AuthorizationDeniedException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.context.request.RequestContextHolder;
+import org.springframework.web.context.request.ServletRequestAttributes;
 
 import java.time.LocalDateTime;
 import java.util.LinkedHashMap;
@@ -244,6 +247,7 @@ public class GlobalExceptionHandler {
                 status.value(),
                 status.getReasonPhrase(),
                 message,
+                getCurrentTransactionId(),
                 path,
                 validationErrors
         );
@@ -251,5 +255,16 @@ public class GlobalExceptionHandler {
         return ResponseEntity
                 .status(status)
                 .body(error);
+    }
+
+    /**
+     * Obtiene el identificador de transaccion asociado a la peticion actual para
+     * incluirlo en las respuestas de error.
+     */
+    private String getCurrentTransactionId() {
+        ServletRequestAttributes attributes = (ServletRequestAttributes)
+                RequestContextHolder.currentRequestAttributes();
+
+        return TransactionIdFilter.getOrCreateTransactionId(attributes.getRequest());
     }
 }

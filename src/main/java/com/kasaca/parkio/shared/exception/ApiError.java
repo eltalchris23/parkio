@@ -8,6 +8,7 @@ public record ApiError(
         int status,
         String error,
         String message,
+        String transactionId,
         String path,
         Map<String, String> validationErrors
 ) {

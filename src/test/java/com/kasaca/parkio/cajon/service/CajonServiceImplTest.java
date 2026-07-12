@@ -10,6 +10,7 @@ import com.kasaca.parkio.cajon.mapper.CajonMapper;
 import com.kasaca.parkio.cajon.repository.CajonRepository;
 import com.kasaca.parkio.estacionamiento.entity.Estacionamiento;
 import com.kasaca.parkio.estacionamiento.repository.EstacionamientoRepository;
+import com.kasaca.parkio.shared.dto.PageResponse;
 import com.kasaca.parkio.shared.exception.ConflictException;
 import com.kasaca.parkio.shared.exception.ResourceNotFoundException;
 import org.junit.jupiter.api.Test;
@@ -17,6 +18,9 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -48,14 +52,17 @@ class CajonServiceImplTest {
     void debeObtenerTodosLosCajones() {
         Cajon cajon = crearCajon();
         CajonResponse response = crearResponse();
+        Pageable pageable = PageRequest.of(0, 10);
 
-        when(cajonRepository.findByActivoTrue()).thenReturn(List.of(cajon));
+        when(cajonRepository.findByActivoTrue(pageable))
+                .thenReturn(new PageImpl<>(List.of(cajon), pageable, 1));
         when(cajonMapper.toResponseCajon(cajon)).thenReturn(response);
 
-        List<CajonResponse> resultado = cajonService.getCajones();
+        PageResponse<CajonResponse> resultado = cajonService.getCajones(pageable);
 
-        assertThat(resultado).containsExactly(response);
-        verify(cajonRepository).findByActivoTrue();
+        assertThat(resultado.content()).containsExactly(response);
+        assertThat(resultado.totalElements()).isEqualTo(1);
+        verify(cajonRepository).findByActivoTrue(pageable);
         verify(cajonMapper).toResponseCajon(cajon);
     }
 
@@ -64,17 +71,19 @@ class CajonServiceImplTest {
         Estacionamiento estacionamiento = crearEstacionamiento();
         Cajon cajon = crearCajon();
         CajonResponse response = crearResponse();
+        Pageable pageable = PageRequest.of(0, 10);
 
         when(estacionamientoRepository.findByIdAndActivoTrue(10L))
                 .thenReturn(Optional.of(estacionamiento));
-        when(cajonRepository.findByEstacionamientoIdAndActivoTrue(10L))
-                .thenReturn(List.of(cajon));
+        when(cajonRepository.findByEstacionamientoIdAndActivoTrue(10L, pageable))
+                .thenReturn(new PageImpl<>(List.of(cajon), pageable, 1));
         when(cajonMapper.toResponseCajon(cajon)).thenReturn(response);
 
-        List<CajonResponse> resultado =
-                cajonService.getCajonesByEstacionamientoId(10L);
+        PageResponse<CajonResponse> resultado =
+                cajonService.getCajonesByEstacionamientoId(10L, pageable);
 
-        assertThat(resultado).containsExactly(response);
+        assertThat(resultado.content()).containsExactly(response);
+        assertThat(resultado.totalElements()).isEqualTo(1);
     }
 
     @Test
@@ -83,7 +92,7 @@ class CajonServiceImplTest {
                 .thenReturn(Optional.empty());
 
         assertThatThrownBy(() ->
-                cajonService.getCajonesByEstacionamientoId(99L)
+                cajonService.getCajonesByEstacionamientoId(99L, PageRequest.of(0, 10))
         )
                 .isInstanceOf(ResourceNotFoundException.class)
                 .hasMessage(
@@ -91,7 +100,7 @@ class CajonServiceImplTest {
                 );
 
         verify(cajonRepository, never())
-                .findByEstacionamientoIdAndActivoTrue(any());
+                .findByEstacionamientoIdAndActivoTrue(any(Long.class), any());
     }
 
     @Test

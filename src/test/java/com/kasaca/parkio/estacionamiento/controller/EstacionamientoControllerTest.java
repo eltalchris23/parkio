@@ -5,6 +5,7 @@ import com.fasterxml.jackson.databind.json.JsonMapper;
 import com.kasaca.parkio.estacionamiento.dto.EstacionamientoRequest;
 import com.kasaca.parkio.estacionamiento.dto.EstacionamientoResponse;
 import com.kasaca.parkio.estacionamiento.service.EstacionamientoService;
+import com.kasaca.parkio.shared.dto.PageResponse;
 import com.kasaca.parkio.shared.exception.GlobalExceptionHandler;
 import com.kasaca.parkio.shared.exception.ResourceNotFoundException;
 import org.junit.jupiter.api.BeforeEach;
@@ -12,6 +13,9 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.web.PageableHandlerMethodArgumentResolver;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
@@ -48,6 +52,7 @@ class EstacionamientoControllerTest {
 
         mockMvc = MockMvcBuilders
                 .standaloneSetup(controller)
+                .setCustomArgumentResolvers(new PageableHandlerMethodArgumentResolver())
                 .setControllerAdvice(new GlobalExceptionHandler())
                 .build();
 
@@ -59,18 +64,31 @@ class EstacionamientoControllerTest {
     @Test
     void debeListarEstacionamientos() throws Exception {
         EstacionamientoResponse response = crearResponse();
+        PageResponse<EstacionamientoResponse> pageResponse = PageResponse.from(
+                new PageImpl<>(List.of(response), PageRequest.of(0, 10), 1)
+        );
 
-        when(estacionamientoService.getEstacionamientos())
-                .thenReturn(List.of(response));
+        when(estacionamientoService.getEstacionamientos(any()))
+                .thenReturn(pageResponse);
 
-        mockMvc.perform(get("/api/estacionamientos"))
+        mockMvc.perform(get("/api/estacionamientos")
+                        .param("page", "0")
+                        .param("size", "10")
+                        .param("sort", "nombre,asc"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$[0].id").value(1L))
-                .andExpect(jsonPath("$[0].nombre")
+                .andExpect(jsonPath("$.status").value(200))
+                .andExpect(jsonPath("$.message")
+                        .value("Estacionamientos consultados correctamente"))
+                .andExpect(jsonPath("$.transactionId").isNotEmpty())
+                .andExpect(jsonPath("$.data.content[0].id").value(1L))
+                .andExpect(jsonPath("$.data.content[0].nombre")
                         .value("Parkio Centro"))
-                .andExpect(jsonPath("$[0].activo").value(true));
+                .andExpect(jsonPath("$.data.content[0].activo").value(true))
+                .andExpect(jsonPath("$.data.totalElements").value(1))
+                .andExpect(jsonPath("$.data.size").value(10))
+                .andExpect(jsonPath("$.data.page").value(0));
 
-        verify(estacionamientoService).getEstacionamientos();
+        verify(estacionamientoService).getEstacionamientos(any());
     }
 
     @Test

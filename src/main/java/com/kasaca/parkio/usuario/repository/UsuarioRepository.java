@@ -1,9 +1,10 @@
 package com.kasaca.parkio.usuario.repository;
 
 import com.kasaca.parkio.usuario.entity.Usuario;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 
-import java.util.List;
 import java.util.Optional;
 
 public interface UsuarioRepository extends JpaRepository<Usuario, Long> {
@@ -12,7 +13,7 @@ public interface UsuarioRepository extends JpaRepository<Usuario, Long> {
 
     boolean existsByEmailAndIdNot(String email, Long id);
 
-    List<Usuario> findByActivoTrue();
+    Page<Usuario> findByActivoTrue(Pageable pageable);
 
     Optional<Usuario> findByIdAndActivoTrue(Long id);
 

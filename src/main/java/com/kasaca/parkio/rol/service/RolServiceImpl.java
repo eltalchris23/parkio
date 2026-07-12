@@ -5,17 +5,20 @@ import com.kasaca.parkio.rol.dto.RolResponse;
 import com.kasaca.parkio.rol.entity.Rol;
 import com.kasaca.parkio.rol.mapper.RolMapper;
 import com.kasaca.parkio.rol.repository.RolRepository;
+import com.kasaca.parkio.shared.dto.PageResponse;
 import com.kasaca.parkio.shared.exception.ConflictException;
 import com.kasaca.parkio.shared.exception.ResourceNotFoundException;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-
-import java.util.List;
 
 @Service
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
+@Slf4j
 public class RolServiceImpl implements RolService {
 
     private final RolRepository rolRepository;
@@ -26,11 +29,12 @@ public class RolServiceImpl implements RolService {
      * mediante borrado lógico.
      */
     @Override
-    public List<RolResponse> getRoles() {
-        return rolRepository.findByActivoTrue()
-                .stream()
-                .map(rolMapper::toResponse)
-                .toList();
+    public PageResponse<RolResponse> getRoles(Pageable pageable) {
+        log.info("getRoles - Service");
+        Page<RolResponse> roles = rolRepository.findByActivoTrue(pageable)
+                .map(rolMapper::toResponse);
+
+        return PageResponse.from(roles);
     }
 
     /**

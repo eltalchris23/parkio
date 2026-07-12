@@ -4,6 +4,7 @@ import com.kasaca.parkio.estacionamiento.entity.Estacionamiento;
 import com.kasaca.parkio.estacionamiento.repository.EstacionamientoRepository;
 import com.kasaca.parkio.rol.entity.Rol;
 import com.kasaca.parkio.rol.repository.RolRepository;
+import com.kasaca.parkio.shared.dto.PageResponse;
 import com.kasaca.parkio.shared.exception.ConflictException;
 import com.kasaca.parkio.shared.exception.ResourceNotFoundException;
 import com.kasaca.parkio.usuario.dto.UsuarioCreateRequest;
@@ -16,6 +17,8 @@ import com.kasaca.parkio.usuario.entity.Usuario;
 import com.kasaca.parkio.usuario.mapper.UsuarioMapper;
 import com.kasaca.parkio.usuario.repository.UsuarioRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -37,14 +40,14 @@ public class UsuarioServiceImpl implements UsuarioService {
     private final PasswordEncoder passwordEncoder;
 
     /**
-     * Obtiene únicamente los usuarios activos y los convierte en respuestas públicas.
+     * Obtiene una pagina de usuarios activos y convierte cada entidad en una respuesta publica.
      */
     @Override
-    public List<UsuarioResponse> getAllUsers() {
-        return usuarioRepository.findByActivoTrue()
-                .stream()
-                .map(usuarioMapper::toResponse)
-                .toList();
+    public PageResponse<UsuarioResponse> getAllUsers(Pageable pageable) {
+        Page<UsuarioResponse> usuarios = usuarioRepository.findByActivoTrue(pageable)
+                .map(usuarioMapper::toResponse);
+
+        return PageResponse.from(usuarios);
     }
 
     /**

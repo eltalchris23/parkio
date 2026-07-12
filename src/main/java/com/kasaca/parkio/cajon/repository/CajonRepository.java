@@ -1,6 +1,8 @@
 package com.kasaca.parkio.cajon.repository;
 
 import com.kasaca.parkio.cajon.entity.Cajon;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 
 import java.util.List;
@@ -21,9 +23,14 @@ public interface CajonRepository extends JpaRepository<Cajon, Long> {
             Long cajonId
     );
 
-    List<Cajon> findByActivoTrue();
+    Page<Cajon> findByActivoTrue(Pageable pageable);
 
     Optional<Cajon> findByIdAndActivoTrue(Long id);
+
+    Page<Cajon> findByEstacionamientoIdAndActivoTrue(
+            Long estacionamientoId,
+            Pageable pageable
+    );
 
     List<Cajon> findByEstacionamientoIdAndActivoTrue(Long estacionamientoId);
 }

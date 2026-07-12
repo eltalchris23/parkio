@@ -5,6 +5,7 @@ import com.kasaca.parkio.rol.dto.RolResponse;
 import com.kasaca.parkio.rol.entity.Rol;
 import com.kasaca.parkio.rol.mapper.RolMapper;
 import com.kasaca.parkio.rol.repository.RolRepository;
+import com.kasaca.parkio.shared.dto.PageResponse;
 import com.kasaca.parkio.shared.exception.ConflictException;
 import com.kasaca.parkio.shared.exception.ResourceNotFoundException;
 import org.junit.jupiter.api.Test;
@@ -12,6 +13,10 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -40,14 +45,17 @@ class RolServiceImplTest {
     void debeObtenerTodosLosRoles() {
         Rol rol = crearRol();
         RolResponse response = crearResponse();
+        Pageable pageable = PageRequest.of(0, 10);
 
-        when(rolRepository.findByActivoTrue()).thenReturn(List.of(rol));
+        when(rolRepository.findByActivoTrue(pageable))
+                .thenReturn(new PageImpl<>(List.of(rol), pageable, 1));
         when(rolMapper.toResponse(rol)).thenReturn(response);
 
-        List<RolResponse> resultado = rolService.getRoles();
+        PageResponse<RolResponse> resultado = rolService.getRoles(pageable);
 
-        assertThat(resultado).containsExactly(response);
-        verify(rolRepository).findByActivoTrue();
+        assertThat(resultado.content()).containsExactly(response);
+        assertThat(resultado.totalElements()).isEqualTo(1);
+        verify(rolRepository).findByActivoTrue(pageable);
         verify(rolMapper).toResponse(rol);
     }
 

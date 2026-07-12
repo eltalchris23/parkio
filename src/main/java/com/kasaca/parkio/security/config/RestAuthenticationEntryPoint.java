@@ -2,6 +2,7 @@ package com.kasaca.parkio.security.config;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.kasaca.parkio.shared.exception.ApiError;
+import com.kasaca.parkio.shared.web.TransactionIdFilter;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
@@ -46,6 +47,7 @@ public class RestAuthenticationEntryPoint implements AuthenticationEntryPoint {
                 HttpStatus.UNAUTHORIZED.value(),
                 HttpStatus.UNAUTHORIZED.getReasonPhrase(),
                 "Autenticacion requerida",
+                TransactionIdFilter.getOrCreateTransactionId(request),
                 request.getRequestURI(),
                 Map.of()
         );

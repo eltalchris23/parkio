@@ -3,8 +3,13 @@ package com.kasaca.parkio.rol.controller;
 import com.kasaca.parkio.rol.dto.RolRequest;
 import com.kasaca.parkio.rol.dto.RolResponse;
 import com.kasaca.parkio.rol.service.RolService;
+import com.kasaca.parkio.shared.dto.ApiResponse;
+import com.kasaca.parkio.shared.dto.PageResponse;
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -18,22 +23,35 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
-import java.util.List;
-
 @RestController
 @RequestMapping("/api/roles")
 @RequiredArgsConstructor
 @PreAuthorize("hasRole('ADMIN')")
+@Slf4j
 public class RolController {
 
     private final RolService rolService;
 
     /**
-     * Lista los roles activos registrados en el sistema.
+     * Lista los roles activos registrados en el sistema usando paginaciÃ³n y
+     * ordenamiento recibidos por query params como page, size y sort.
      */
     @GetMapping
-    public List<RolResponse> getRoles() {
-        return rolService.getRoles();
+    public ResponseEntity<ApiResponse<PageResponse<RolResponse>>> getRoles(
+            Pageable pageable,
+            HttpServletRequest request
+    ) {
+        log.info("getRoles - Controller");
+        PageResponse<RolResponse> roles = rolService.getRoles(pageable);
+
+        return ResponseEntity.ok(
+                ApiResponse.of(
+                        request,
+                        HttpStatus.OK.value(),
+                        "Roles consultados correctamente",
+                        roles
+                )
+        );
     }
 
     /**

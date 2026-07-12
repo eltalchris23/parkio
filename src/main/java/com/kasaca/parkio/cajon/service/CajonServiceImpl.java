@@ -8,9 +8,12 @@ import com.kasaca.parkio.cajon.mapper.CajonMapper;
 import com.kasaca.parkio.cajon.repository.CajonRepository;
 import com.kasaca.parkio.estacionamiento.entity.Estacionamiento;
 import com.kasaca.parkio.estacionamiento.repository.EstacionamientoRepository;
+import com.kasaca.parkio.shared.dto.PageResponse;
 import com.kasaca.parkio.shared.exception.ConflictException;
 import com.kasaca.parkio.shared.exception.ResourceNotFoundException;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -30,26 +33,29 @@ public class CajonServiceImpl implements CajonService {
      * mediante borrado lógico.
      */
     @Override
-    public List<CajonResponse> getCajones() {
+    public PageResponse<CajonResponse> getCajones(Pageable pageable) {
 
-        return cajonRepository.findByActivoTrue()
-                .stream()
-                .map(cajonMapper::toResponseCajon)
-                .toList();
+        Page<CajonResponse> cajones = cajonRepository.findByActivoTrue(pageable)
+                .map(cajonMapper::toResponseCajon);
+
+        return PageResponse.from(cajones);
     }
 
     /**
      * Obtiene los cajones activos de un estacionamiento activo.
      */
     @Override
-    public List<CajonResponse> getCajonesByEstacionamientoId(Long estacionamientoId) {
+    public PageResponse<CajonResponse> getCajonesByEstacionamientoId(
+            Long estacionamientoId,
+            Pageable pageable
+    ) {
         findEstacionamientoById(estacionamientoId);
 
-        return cajonRepository
-                .findByEstacionamientoIdAndActivoTrue(estacionamientoId)
-                .stream()
-                .map(cajonMapper::toResponseCajon)
-                .toList();
+        Page<CajonResponse> cajones = cajonRepository
+                .findByEstacionamientoIdAndActivoTrue(estacionamientoId, pageable)
+                .map(cajonMapper::toResponseCajon);
+
+        return PageResponse.from(cajones);
     }
 
     /**

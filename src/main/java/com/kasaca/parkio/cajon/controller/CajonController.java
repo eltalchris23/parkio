@@ -4,8 +4,13 @@ import com.kasaca.parkio.cajon.dto.CajonEstadoRequest;
 import com.kasaca.parkio.cajon.dto.CajonRequest;
 import com.kasaca.parkio.cajon.dto.CajonResponse;
 import com.kasaca.parkio.cajon.service.CajonService;
+import com.kasaca.parkio.shared.dto.ApiResponse;
+import com.kasaca.parkio.shared.dto.PageResponse;
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -21,29 +26,49 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
-import java.util.List;
-
 @RestController
 @RequestMapping("/api/cajones")
 @RequiredArgsConstructor
+@Slf4j
 public class CajonController {
 
     private final CajonService cajonService;
 
     /**
-     * Lista todos los cajones o los filtra por estacionamiento cuando se recibe estacionamientoId.
+     * Lista cajones activos de forma paginada o los filtra por estacionamiento
+     * cuando se recibe estacionamientoId.
      *
      * @param estacionamientoId identificador opcional del estacionamiento usado para filtrar cajones
-     * @return lista de cajones registrados o pertenecientes al estacionamiento solicitado
+     * @return respuesta estandarizada con cajones paginados
      */
     @PreAuthorize("hasAnyRole('ADMIN', 'OPERADOR', 'USER')")
     @GetMapping
-    public List<CajonResponse> getCajones(@RequestParam(required = false) Long estacionamientoId) {
-        if (estacionamientoId == null) {
-            return cajonService.getCajones();
-        }
+    public ResponseEntity<ApiResponse<PageResponse<CajonResponse>>> getCajones(
+            @RequestParam(required = false) Long estacionamientoId,
+            Pageable pageable,
+            HttpServletRequest request
+    ) {
+        log.info("INICIO - Listado de cajones");
+        PageResponse<CajonResponse> cajones;
 
-        return cajonService.getCajonesByEstacionamientoId(estacionamientoId);
+        if (estacionamientoId == null) {
+            cajones = cajonService.getCajones(pageable);
+        } else {
+            cajones = cajonService.getCajonesByEstacionamientoId(
+                    estacionamientoId,
+                    pageable
+            );
+        }
+        log.info("FIN - Listado de cajones");
+
+        return ResponseEntity.ok(
+                ApiResponse.of(
+                        request,
+                        HttpStatus.OK.value(),
+                        "Cajones consultados correctamente",
+                        cajones
+                )
+        );
     }
 
     /**

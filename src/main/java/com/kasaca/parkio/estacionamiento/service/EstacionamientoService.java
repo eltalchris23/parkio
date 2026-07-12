@@ -2,12 +2,12 @@ package com.kasaca.parkio.estacionamiento.service;
 
 import com.kasaca.parkio.estacionamiento.dto.EstacionamientoRequest;
 import com.kasaca.parkio.estacionamiento.dto.EstacionamientoResponse;
-
-import java.util.List;
+import com.kasaca.parkio.shared.dto.PageResponse;
+import org.springframework.data.domain.Pageable;
 
 public interface EstacionamientoService {
 
-    List<EstacionamientoResponse> getEstacionamientos();
+    PageResponse<EstacionamientoResponse> getEstacionamientos(Pageable pageable);
 
     EstacionamientoResponse getEstacionamientoById(Long id);
 

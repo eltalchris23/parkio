@@ -7,12 +7,16 @@ import com.kasaca.parkio.estacionamiento.dto.EstacionamientoResponse;
 import com.kasaca.parkio.estacionamiento.entity.Estacionamiento;
 import com.kasaca.parkio.estacionamiento.mapper.EstacionamientoMapper;
 import com.kasaca.parkio.estacionamiento.repository.EstacionamientoRepository;
+import com.kasaca.parkio.shared.dto.PageResponse;
 import com.kasaca.parkio.shared.exception.ResourceNotFoundException;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
@@ -45,17 +49,19 @@ class EstacionamientoServiceImplTest {
     void debeObtenerTodosLosEstacionamientos() {
         Estacionamiento estacionamiento = crearEstacionamiento();
         EstacionamientoResponse response = crearResponse();
+        Pageable pageable = PageRequest.of(0, 10);
 
-        when(estacionamientoRepository.findByActivoTrue())
-                .thenReturn(List.of(estacionamiento));
+        when(estacionamientoRepository.findByActivoTrue(pageable))
+                .thenReturn(new PageImpl<>(List.of(estacionamiento), pageable, 1));
         when(estacionamientoMapper.toResponse(estacionamiento))
                 .thenReturn(response);
 
-        List<EstacionamientoResponse> resultado =
-                estacionamientoService.getEstacionamientos();
+        PageResponse<EstacionamientoResponse> resultado =
+                estacionamientoService.getEstacionamientos(pageable);
 
-        assertThat(resultado).containsExactly(response);
-        verify(estacionamientoRepository).findByActivoTrue();
+        assertThat(resultado.content()).containsExactly(response);
+        assertThat(resultado.totalElements()).isEqualTo(1);
+        verify(estacionamientoRepository).findByActivoTrue(pageable);
         verify(estacionamientoMapper).toResponse(estacionamiento);
     }
 

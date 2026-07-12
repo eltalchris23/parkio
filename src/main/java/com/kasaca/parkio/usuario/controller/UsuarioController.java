@@ -7,8 +7,13 @@ import com.kasaca.parkio.usuario.dto.UsuarioEstacionamientoRequest;
 import com.kasaca.parkio.usuario.dto.UsuarioRolRequest;
 import com.kasaca.parkio.usuario.dto.UsuarioUpdateRequest;
 import com.kasaca.parkio.usuario.service.UsuarioService;
+import com.kasaca.parkio.shared.dto.ApiResponse;
+import com.kasaca.parkio.shared.dto.PageResponse;
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -23,24 +28,39 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
-import java.util.List;
-
 @RestController
 @RequestMapping("/api/usuarios")
 @RequiredArgsConstructor
+@Slf4j
 public class UsuarioController {
 
     private final UsuarioService usuarioService;
 
     /**
-     * Obtiene todos los usuarios registrados.
+     * Consulta los usuarios activos de forma paginada.
      *
-     * @return lista con los datos públicos de los usuarios
+     * @param pageable parametros de paginacion y ordenamiento recibidos por query params
+     * @param request solicitud HTTP usada para construir la respuesta estandarizada con transactionId
+     * @return respuesta estandarizada con la pagina de usuarios y metadatos de paginacion
      */
     @PreAuthorize("hasRole('ADMIN')")
     @GetMapping
-    public List<UsuarioResponse> getAllUsers() {
-        return usuarioService.getAllUsers();
+    public ResponseEntity<ApiResponse<PageResponse<UsuarioResponse>>> getAllUsers(
+            Pageable pageable,
+            HttpServletRequest request
+    ) {
+        log.info("INICIO - lista de usuarios");
+        PageResponse<UsuarioResponse> usuarios = usuarioService.getAllUsers(pageable);
+        log.info("FINAL - lista de usuarios");
+
+        return ResponseEntity.ok(
+                ApiResponse.of(
+                        request,
+                        HttpStatus.OK.value(),
+                        "Usuarios consultados correctamente",
+                        usuarios
+                )
+        );
     }
 
     /**

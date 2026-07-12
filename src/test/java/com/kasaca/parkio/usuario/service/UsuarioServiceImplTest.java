@@ -4,6 +4,7 @@ import com.kasaca.parkio.estacionamiento.entity.Estacionamiento;
 import com.kasaca.parkio.estacionamiento.repository.EstacionamientoRepository;
 import com.kasaca.parkio.rol.entity.Rol;
 import com.kasaca.parkio.rol.repository.RolRepository;
+import com.kasaca.parkio.shared.dto.PageResponse;
 import com.kasaca.parkio.shared.exception.ConflictException;
 import com.kasaca.parkio.shared.exception.ResourceNotFoundException;
 import com.kasaca.parkio.usuario.dto.UsuarioCreateRequest;
@@ -20,6 +21,9 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 import org.springframework.security.crypto.password.PasswordEncoder;
 
 import java.time.LocalDateTime;
@@ -57,20 +61,23 @@ class UsuarioServiceImplTest {
     private UsuarioServiceImpl usuarioService;
 
     /**
-     * Comprueba que el servicio liste y convierta todos los usuarios encontrados.
+     * Comprueba que el servicio liste usuarios activos de forma paginada y convierta cada entidad a DTO.
      */
     @Test
     void debeObtenerTodosLosUsuarios() {
         Usuario usuario = crearUsuario();
         UsuarioResponse response = crearResponse();
+        Pageable pageable = PageRequest.of(0, 10);
 
-        when(usuarioRepository.findByActivoTrue()).thenReturn(List.of(usuario));
+        when(usuarioRepository.findByActivoTrue(pageable))
+                .thenReturn(new PageImpl<>(List.of(usuario), pageable, 1));
         when(usuarioMapper.toResponse(usuario)).thenReturn(response);
 
-        List<UsuarioResponse> resultado = usuarioService.getAllUsers();
+        PageResponse<UsuarioResponse> resultado = usuarioService.getAllUsers(pageable);
 
-        assertThat(resultado).containsExactly(response);
-        verify(usuarioRepository).findByActivoTrue();
+        assertThat(resultado.content()).containsExactly(response);
+        assertThat(resultado.totalElements()).isEqualTo(1);
+        verify(usuarioRepository).findByActivoTrue(pageable);
         verify(usuarioMapper).toResponse(usuario);
     }
 

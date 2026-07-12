@@ -3,8 +3,13 @@ package com.kasaca.parkio.estacionamiento.controller;
 import com.kasaca.parkio.estacionamiento.dto.EstacionamientoRequest;
 import com.kasaca.parkio.estacionamiento.dto.EstacionamientoResponse;
 import com.kasaca.parkio.estacionamiento.service.EstacionamientoService;
+import com.kasaca.parkio.shared.dto.ApiResponse;
+import com.kasaca.parkio.shared.dto.PageResponse;
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -18,23 +23,37 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
-import java.util.List;
-
 @RestController
 @RequestMapping("/api/estacionamientos")
 @RequiredArgsConstructor
+@Slf4j
 public class EstacionamientoController {
 
     private final EstacionamientoService estacionamientoService;
 
     /**
-     * Lista los estacionamientos activos disponibles para usuarios autenticados
-     * con rol ADMIN, OPERADOR o USER.
+     * Lista los estacionamientos activos de forma paginada para usuarios
+     * autenticados con rol ADMIN, OPERADOR o USER.
      */
     @PreAuthorize("hasAnyRole('ADMIN', 'OPERADOR', 'USER')")
     @GetMapping
-    public List<EstacionamientoResponse> getEstacionamientos() {
-        return estacionamientoService.getEstacionamientos();
+    public ResponseEntity<ApiResponse<PageResponse<EstacionamientoResponse>>> getEstacionamientos(
+            Pageable pageable,
+            HttpServletRequest request
+    ) {
+        log.info("INICIO - Listado de estacionamientos");
+        PageResponse<EstacionamientoResponse> estacionamientos =
+                estacionamientoService.getEstacionamientos(pageable);
+        log.info("FIN - Listado de estacionamientos");
+
+        return ResponseEntity.ok(
+                ApiResponse.of(
+                        request,
+                        HttpStatus.OK.value(),
+                        "Estacionamientos consultados correctamente",
+                        estacionamientos
+                )
+        );
     }
 
     /**
