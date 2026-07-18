@@ -20,6 +20,7 @@ import com.kasaca.parkio.rol.controller.RolController;
 import com.kasaca.parkio.rol.dto.RolResponse;
 import com.kasaca.parkio.rol.service.RolService;
 import com.kasaca.parkio.security.authorization.UsuarioSecurity;
+import com.kasaca.parkio.security.cors.CorsConfig;
 import com.kasaca.parkio.shared.dto.PageResponse;
 import com.kasaca.parkio.shared.exception.GlobalExceptionHandler;
 import com.kasaca.parkio.usuario.controller.UsuarioController;
@@ -33,6 +34,7 @@ import org.springframework.context.annotation.Import;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.jpa.mapping.JpaMetamodelMappingContext;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
@@ -43,6 +45,7 @@ import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Set;
 
+import static org.hamcrest.Matchers.containsString;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.when;
 import static org.mockito.Mockito.verify;
@@ -50,9 +53,11 @@ import static org.mockito.Mockito.verifyNoInteractions;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.jwt;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.options;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -63,11 +68,28 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
         EstacionamientoController.class,
         CajonController.class
 })
-@Import({SecurityConfig.class, RestAuthenticationEntryPoint.class, GlobalExceptionHandler.class, UsuarioSecurity.class})
+@Import({
+        SecurityConfig.class,
+        // Importa la configuracion CORS para probarla integrada con Spring Security.
+        CorsConfig.class,
+        RestAuthenticationEntryPoint.class,
+        GlobalExceptionHandler.class,
+        UsuarioSecurity.class
+})
 @TestPropertySource(properties = {
         "parkio.security.jwt.issuer=parkio-test",
         "parkio.security.jwt.secret=clave-de-prueba-con-longitud-suficiente",
-        "parkio.security.jwt.expiration-minutes=60"
+        "parkio.security.jwt.expiration-minutes=60",
+        // Origenes frontend permitidos durante la prueba.
+        "parkio.cors.allowed-origins=http://localhost:4200,http://localhost:5173",
+        // Metodos HTTP que el navegador puede usar contra la API.
+        "parkio.cors.allowed-methods=GET,POST,PUT,PATCH,DELETE,OPTIONS",
+        // Headers que el frontend puede enviar al backend.
+        "parkio.cors.allowed-headers=Authorization,Content-Type,X-Transaction-Id",
+        // Headers que JavaScript del frontend puede leer desde la respuesta.
+        "parkio.cors.exposed-headers=X-Transaction-Id",
+        // Tiempo que el navegador puede cachear la respuesta preflight.
+        "parkio.cors.max-age-seconds=3600"
 })
 class SecurityConfigTest {
 
@@ -94,6 +116,151 @@ class SecurityConfigTest {
 
     @MockitoBean
     private JpaMetamodelMappingContext jpaMetamodelMappingContext;
+
+    /**
+     * Verifica que CORS permita una peticion preflight desde un origen frontend configurado.
+     *
+     * <p>Una peticion preflight es una llamada OPTIONS que el navegador envia antes
+     * de la peticion real cuando la llamada incluye headers especiales, como
+     * Authorization o X-Transaction-Id.</p>
+     *
+     * <p>Si este preflight falla, el navegador bloquea la llamada real antes de que
+     * el frontend pueda consumir el endpoint.</p>
+     */
+    @Test
+    void debePermitirPreflightCorsDesdeOrigenConfigurado() throws Exception {
+        mockMvc.perform(options("/api/roles")
+                        // Simula el dominio desde donde corre el frontend.
+                        .header(HttpHeaders.ORIGIN, "http://localhost:4200")
+
+                        // Indica al backend que el navegador quiere hacer una peticion GET real despues del preflight.
+                        .header(HttpHeaders.ACCESS_CONTROL_REQUEST_METHOD, "GET")
+
+                        // Indica los headers que el frontend quiere enviar en la peticion real.
+                        // Authorization es necesario para mandar el JWT.
+                        // X-Transaction-Id es necesario para trazabilidad entre frontend y backend.
+                        .header(
+                                HttpHeaders.ACCESS_CONTROL_REQUEST_HEADERS,
+                                "Authorization,Content-Type,X-Transaction-Id"
+                        ))
+
+                // Si CORS acepta el origen, metodo y headers, Spring responde 200.
+                .andExpect(status().isOk())
+
+                // Confirma que el backend permite exactamente el origen del frontend.
+                .andExpect(header().string(
+                        HttpHeaders.ACCESS_CONTROL_ALLOW_ORIGIN,
+                        "http://localhost:4200"
+                ))
+
+                // Confirma que el metodo GET esta permitido para peticiones CORS.
+                .andExpect(header().string(
+                        HttpHeaders.ACCESS_CONTROL_ALLOW_METHODS,
+                        containsString("GET")
+                ))
+
+                // Confirma que el frontend puede enviar el header Authorization con el JWT.
+                .andExpect(header().string(
+                        HttpHeaders.ACCESS_CONTROL_ALLOW_HEADERS,
+                        containsString("Authorization")
+                ))
+
+                // Confirma que el frontend puede enviar X-Transaction-Id para trazabilidad.
+                .andExpect(header().string(
+                        HttpHeaders.ACCESS_CONTROL_ALLOW_HEADERS,
+                        containsString("X-Transaction-Id")
+                ))
+
+                // Confirma que el navegador puede cachear esta validacion preflight durante 3600 segundos.
+                .andExpect(header().string(
+                        HttpHeaders.ACCESS_CONTROL_MAX_AGE,
+                        "3600"
+                ));
+    }
+
+    /**
+     * Verifica que CORS rechace una peticion preflight desde un origen no configurado.
+     *
+     * <p>Esto protege al backend para que un sitio web no autorizado no pueda
+     * consumir la API desde JavaScript en el navegador.</p>
+     *
+     * <p>Nota: CORS es una proteccion aplicada por navegadores. No reemplaza JWT ni
+     * autorizacion por roles; solo controla que origenes web pueden hacer llamadas
+     * desde frontend.</p>
+     */
+    @Test
+    void debeRechazarPreflightCorsDesdeOrigenNoConfigurado() throws Exception {
+        mockMvc.perform(options("/api/roles")
+                        // Simula un sitio externo que no esta dentro de parkio.cors.allowed-origins.
+                        .header(HttpHeaders.ORIGIN, "https://sitio-no-permitido.com")
+
+                        // Indica que el sitio externo quiere hacer una peticion GET real.
+                        .header(HttpHeaders.ACCESS_CONTROL_REQUEST_METHOD, "GET")
+
+                        // Indica que la peticion real intentaria enviar Authorization.
+                        .header(HttpHeaders.ACCESS_CONTROL_REQUEST_HEADERS, "Authorization"))
+
+                // Spring rechaza el preflight porque el origen no esta permitido.
+                .andExpect(status().isForbidden());
+    }
+
+    /**
+     * Verifica que una respuesta real exponga X-Transaction-Id al frontend.
+     *
+     * <p>El backend siempre puede enviar X-Transaction-Id como header, pero el
+     * navegador no permite que JavaScript lea cualquier header automaticamente.</p>
+     *
+     * <p>Para que el frontend pueda leer X-Transaction-Id, la respuesta debe incluir
+     * Access-Control-Expose-Headers con ese header.</p>
+     */
+    @Test
+    void debeExponerTransactionIdEnRespuestaCorsReal() throws Exception {
+        RolResponse response = new RolResponse(
+                1L,
+                "ADMIN",
+                true,
+                LocalDateTime.of(2026, 7, 7, 9, 0)
+        );
+
+        PageResponse<RolResponse> pageResponse = PageResponse.from(
+                new PageImpl<>(List.of(response), PageRequest.of(0, 10), 1)
+        );
+
+        // Simula la respuesta del service porque esta prueba se enfoca en seguridad/CORS, no en la logica de roles.
+        when(rolService.getRoles(any())).thenReturn(pageResponse);
+
+        mockMvc.perform(get("/api/roles")
+                        // Simula una peticion real enviada desde el frontend permitido.
+                        .header(HttpHeaders.ORIGIN, "http://localhost:4200")
+
+                        // Parametros normales del endpoint paginado.
+                        .param("page", "0")
+                        .param("size", "10")
+
+                        // Simula un JWT con rol ADMIN para que la seguridad por roles permita consultar /api/roles.
+                        .with(jwt().authorities(() -> "ROLE_ADMIN")))
+
+                // Confirma que la peticion real fue aceptada.
+                .andExpect(status().isOk())
+
+                // Confirma que CORS permite responderle al origen del frontend.
+                .andExpect(header().string(
+                        HttpHeaders.ACCESS_CONTROL_ALLOW_ORIGIN,
+                        "http://localhost:4200"
+                ))
+
+                // Confirma que el navegador podra leer X-Transaction-Id desde JavaScript.
+                .andExpect(header().string(
+                        HttpHeaders.ACCESS_CONTROL_EXPOSE_HEADERS,
+                        containsString("X-Transaction-Id")
+                ))
+
+                // Confirma que el body estandarizado tambien contiene el transactionId.
+                .andExpect(jsonPath("$.transactionId").isNotEmpty());
+
+        // Confirma que, despues de pasar CORS y seguridad, la peticion llego al service.
+        verify(rolService).getRoles(any());
+    }
 
     /**
      * Verifica que el endpoint de login sea publico y no requiera JWT.

@@ -1055,6 +1055,8 @@ Sin cuerpo. Realiza borrado lógico.
 
 El backend cuenta con pruebas unitarias de mapper, servicio y controlador para Rol, Estacionamiento, Cajón y Usuario.
 
+`SecurityConfigTest` cubre reglas de seguridad HTTP, autorización por roles, autenticación JWT simulada y validaciones CORS. Las pruebas CORS validan preflight `OPTIONS` desde orígenes permitidos, rechazo de orígenes no configurados y exposición de `X-Transaction-Id` para consumo desde frontend.
+
 También existen pruebas de integración con Spring Boot completo, PostgreSQL y perfil `test`:
 
 - `AuthUsuarioIntegrationTest`.
