@@ -62,6 +62,9 @@ Antes de realizar cambios, considerar lo siguiente:
 - `UsuarioServiceImpl` valida correos duplicados y genera hashes BCrypt mediante `PasswordEncoder`.
 - Existen pruebas unitarias para mapper, servicio y controlador de Rol, Estacionamiento, Cajón y Usuario, pruebas de Auth/JWT/seguridad, además de la prueba de carga del contexto.
 - Existe una prueba de integración inicial `AuthUsuarioIntegrationTest` que levanta Spring Boot completo, usa PostgreSQL con perfil `test`, valida Flyway, registra un usuario, inicia sesión y consulta un endpoint protegido con JWT.
+- Existe `RolIntegrationTest`, que levanta Spring Boot completo, usa PostgreSQL con perfil `test`, valida seguridad JWT/ADMIN y prueba el flujo de listar, crear, consultar, actualizar, detectar duplicados y eliminar lógicamente roles.
+- Existe `EstacionamientoIntegrationTest`, que levanta Spring Boot completo, usa PostgreSQL con perfil `test`, valida seguridad JWT/roles y prueba el flujo de listar, crear, consultar, actualizar y eliminar lógicamente estacionamientos, incluyendo la desactivación lógica de cajones activos asociados.
+- Existe `CajonIntegrationTest`, que levanta Spring Boot completo, usa PostgreSQL con perfil `test`, valida seguridad JWT/roles y prueba consulta, creación, actualización, cambio de estado, conflicto por duplicado y borrado lógico de cajones.
 - Usuario permite asignar y retirar roles y estacionamientos mediante `usuario_rol` y `usuario_estacionamiento`. `UsuarioResponse` representa estas relaciones mediante nombres de roles e identificadores de estacionamientos. La creación pública de usuarios asigna automáticamente el rol base `USER`. Creación, actualización general y cambio de contraseña utilizan DTOs y operaciones separadas.
 - La documentación describe parcialmente una arquitectura futura.
 - Todos los repositorios utilizan `Long` como identificador, en concordancia con `BaseEntity`.

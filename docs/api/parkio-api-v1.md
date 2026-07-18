@@ -8,30 +8,151 @@
 /api
 ```
 
+### Estado del contrato
+
+Este documento describe el contrato implementado actualmente para los módulos:
+
+- Auth.
+- Usuario.
+- Rol.
+- Estacionamiento.
+- Cajón.
+
+No describe funcionalidades futuras salvo que se indiquen explícitamente como pendientes.
+
 ### Autenticación
 
-La autenticación JWT está implementada mediante Spring Security y OAuth2 Resource Server.
+La autenticación JWT está implementada con Spring Security y OAuth2 Resource Server.
 
-Los endpoints públicos actuales son:
+Endpoints públicos:
 
 ```http
 POST /api/auth/login
 POST /api/usuarios
 ```
 
-Los demás endpoints requieren un token JWT válido en el encabezado `Authorization`.
+Todos los demás endpoints requieren JWT válido:
 
-La autorización granular por roles ya inició. Actualmente el módulo Rol requiere rol `ADMIN`, el módulo Usuario distingue entre operaciones administrativas de `ADMIN` y operaciones propias de `USER` u `OPERADOR`, el módulo Estacionamiento permite consulta a `ADMIN`, `OPERADOR` y `USER`, dejando la escritura únicamente a `ADMIN`, y el módulo Cajón permite consulta a `ADMIN`, `OPERADOR` y `USER`, cambio de estado a `ADMIN` y `OPERADOR`, y escritura administrativa solo a `ADMIN`.
+```http
+Authorization: Bearer <token>
+```
 
-Los roles incluidos en el claim `roles` del JWT se convierten en authorities de Spring Security con prefijo `ROLE_`. Por ejemplo, `ADMIN` se interpreta como `ROLE_ADMIN`.
+El JWT incluye, entre otros datos:
+
+- `sub`: correo del usuario.
+- `usuarioId`: identificador del usuario.
+- `roles`: roles asignados al usuario.
+
+Los roles del claim `roles` se convierten a authorities de Spring Security con prefijo `ROLE_`. Por ejemplo, `ADMIN` se interpreta internamente como `ROLE_ADMIN`.
+
+### Autorización por roles
+
+| Módulo | Consulta | Escritura / Administración |
+|---|---|---|
+| Auth | Público para login | No aplica |
+| Usuario | `ADMIN`; o propio usuario para `USER`/`OPERADOR` en endpoints permitidos | `ADMIN`; o propio usuario para actualización/cambio de contraseña |
+| Rol | `ADMIN` | `ADMIN` |
+| Estacionamiento | `ADMIN`, `OPERADOR`, `USER` | `ADMIN` |
+| Cajón | `ADMIN`, `OPERADOR`, `USER` | `ADMIN`; cambio de estado también permite `OPERADOR` |
+
+### Identificador de transacción
+
+Todas las respuestas HTTP incluyen el header:
+
+```http
+X-Transaction-Id: <uuid-o-valor-enviado-por-cliente>
+```
+
+Si el cliente envía `X-Transaction-Id`, Parkio reutiliza ese valor. Si no lo envía, el backend genera uno nuevo.
+
+El mismo valor se incluye en:
+
+- respuestas exitosas estandarizadas;
+- respuestas de error;
+- MDC de logs.
+
+### Respuesta exitosa estándar
+
+Las operaciones con cuerpo usan `ApiResponse<T>`:
+
+```json
+{
+  "timestamp": "2026-07-18T10:00:00",
+  "status": 200,
+  "message": "Operación realizada correctamente",
+  "transactionId": "0f5d5c9b-8dc1-4bd1-a173-08f16eb4f96e",
+  "data": {}
+}
+```
+
+### Respuesta paginada estándar
+
+Los listados usan `ApiResponse<PageResponse<T>>`:
+
+```json
+{
+  "timestamp": "2026-07-18T10:00:00",
+  "status": 200,
+  "message": "Registros consultados correctamente",
+  "transactionId": "0f5d5c9b-8dc1-4bd1-a173-08f16eb4f96e",
+  "data": {
+    "content": [],
+    "page": 0,
+    "size": 10,
+    "totalElements": 0,
+    "totalPages": 0,
+    "first": true,
+    "last": true,
+    "empty": true
+  }
+}
+```
+
+Parámetros de paginación soportados por Spring Data:
+
+| Parámetro | Descripción |
+|---|---|
+| `page` | Número de página. Inicia en `0`. |
+| `size` | Cantidad máxima de registros por página. |
+| `sort` | Campo Java y dirección. Ejemplo: `nombre,asc`. |
+
+### Respuesta de error estándar
+
+Las respuestas de error usan `ApiError`:
+
+```json
+{
+  "timestamp": "2026-07-18T10:00:00",
+  "status": 400,
+  "error": "Bad Request",
+  "message": "La solicitud contiene datos inválidos",
+  "transactionId": "0f5d5c9b-8dc1-4bd1-a173-08f16eb4f96e",
+  "path": "/api/roles",
+  "validationErrors": {
+    "nombre": "El nombre del rol es obligatorio"
+  }
+}
+```
+
+Mapeo de errores implementado:
+
+| Excepción / caso | HTTP |
+|---|---|
+| Validación Jakarta Validation | `400 Bad Request` |
+| JSON inválido o enum inválido | `400 Bad Request` |
+| Falta de autenticación | `401 Unauthorized` |
+| Falta de permisos | `403 Forbidden` |
+| Recurso inexistente o inactivo | `404 Not Found` |
+| Conflicto de negocio o integridad | `409 Conflict` |
+| Error no controlado | `500 Internal Server Error` |
 
 ### Borrado lógico
 
 Las operaciones `DELETE` de Rol, Usuario, Estacionamiento y Cajón realizan borrado lógico mediante `activo=false`.
 
-Reglas de comportamiento:
+Reglas implementadas:
 
-- Los registros inactivos no se devuelven en listados.
+- Los registros inactivos no aparecen en listados.
 - Consultar un registro inactivo por identificador responde `404 Not Found`.
 - Un usuario inactivo no puede iniciar sesión.
 - Al desactivar un estacionamiento, también se desactivan sus cajones activos.
@@ -39,19 +160,11 @@ Reglas de comportamiento:
 
 ### Bootstrap del primer ADMIN
 
-El endpoint público `POST /api/usuarios` crea usuarios con el rol base `USER`. Por seguridad, no existe un endpoint público para crear administradores.
+`POST /api/usuarios` crea usuarios con rol base `USER`. No existe creación pública de administradores.
 
-Para habilitar el primer administrador en un entorno local o controlado:
+Para habilitar el primer administrador en un ambiente local o controlado:
 
 ```sql
-SELECT id, email
-FROM usuario
-WHERE email = 'tu-correo@dominio.com';
-
-SELECT id, nombre
-FROM rol
-WHERE nombre = 'ADMIN';
-
 INSERT INTO usuario_rol (usuario_id, rol_id)
 SELECT u.id, r.id
 FROM usuario u
@@ -60,39 +173,19 @@ WHERE u.email = 'tu-correo@dominio.com'
 ON CONFLICT DO NOTHING;
 ```
 
-Después de asignar el rol, el usuario debe iniciar sesión nuevamente para obtener un JWT actualizado con `ADMIN` dentro del claim `roles`.
+Después de asignar el rol, el usuario debe iniciar sesión nuevamente para obtener un JWT actualizado.
 
-### Estado de implementación
+## Módulo Auth
 
-| Módulo | Estado |
-|---|---|
-| Rol | CRUD REST implementado y protegido con rol `ADMIN` |
-| Auth | Login JWT implementado |
-| Usuario | CRUD REST, roles, estacionamientos, validaciones, hash BCrypt y autorización `ADMIN`/`USER`/`OPERADOR` implementados |
-| Estacionamiento | CRUD REST implementado con autorización `ADMIN`/`OPERADOR`/`USER` para consulta y `ADMIN` para escritura |
-| Cajón | CRUD REST, validaciones y autorización `ADMIN`/`OPERADOR`/`USER` implementados |
-
-Los endpoints protegidos deben enviar el token con este formato:
-
-Ejemplo:
-
-```http
-Authorization: Bearer eyJhbGciOiJIUzI1NiJ9...
-```
-
----
-
-# Módulo Auth
-
-## Login
-
-### Endpoint
+### Login
 
 ```http
 POST /api/auth/login
 ```
 
-### Request
+Endpoint público.
+
+#### Request
 
 ```json
 {
@@ -101,63 +194,46 @@ POST /api/auth/login
 }
 ```
 
-### Response 200
+Validaciones:
+
+- `email` es obligatorio y debe tener formato válido.
+- `password` es obligatorio.
+
+#### Response 200
 
 ```json
 {
   "accessToken": "eyJhbGciOiJIUzI1NiJ9...",
   "tokenType": "Bearer",
-  "expiresIn": 86400
+  "expiresIn": 3600
 }
 ```
 
-### Response 401
+#### Errores
 
-```json
-{
-  "timestamp": "2026-07-07T09:00:00",
-  "status": 401,
-  "error": "Unauthorized",
-  "message": "Credenciales invalidas",
-  "transactionId": "0f5d5c9b-8dc1-4bd1-a173-08f16eb4f96e",
-  "path": "/api/auth/login",
-  "validationErrors": {}
-}
-```
+| HTTP | Causa |
+|---|---|
+| `400` | Datos inválidos |
+| `401` | Credenciales inválidas o usuario inactivo |
 
----
-
-# Módulo Rol
+## Módulo Rol
 
 Seguridad:
 
 - Requiere JWT válido.
 - Requiere rol `ADMIN`.
-- Si no se envía token, responde `401 Unauthorized`.
-- Si el token es válido pero no contiene `ADMIN` en el claim `roles`, responde `403 Forbidden`.
 
-## Listar Roles
+### Listar roles
 
 ```http
 GET /api/roles?page=0&size=10&sort=nombre,asc
 ```
 
-Query params soportados por Spring Data:
-
-| ParÃ¡metro | DescripciÃ³n |
-|---|---|
-| `page` | NÃºmero de pÃ¡gina solicitado. Inicia en `0`. |
-| `size` | Cantidad mÃ¡xima de registros por pÃ¡gina. |
-| `sort` | Campo Java de la entidad y direcciÃ³n. Ejemplo: `nombre,asc`. |
-
-### Response 200
-
-El cuerpo completo usa `ApiResponse<PageResponse<RolResponse>>`.
-El arreglo mostrado a continuaciÃ³n corresponde al contenido de `data.content`.
+#### Response 200
 
 ```json
 {
-  "timestamp": "2026-07-12T10:10:00",
+  "timestamp": "2026-07-18T10:00:00",
   "status": 200,
   "message": "Roles consultados correctamente",
   "transactionId": "0f5d5c9b-8dc1-4bd1-a173-08f16eb4f96e",
@@ -167,7 +243,7 @@ El arreglo mostrado a continuaciÃ³n corresponde al contenido de `data.content`
         "id": 1,
         "nombre": "ADMIN",
         "activo": true,
-        "fechaCreacion": "2026-06-20T12:00:00"
+        "fechaCreacion": "2026-07-18T10:00:00"
       }
     ],
     "page": 0,
@@ -181,17 +257,17 @@ El arreglo mostrado a continuaciÃ³n corresponde al contenido de `data.content`
 }
 ```
 
-## Consultar Rol
+### Consultar rol
 
 ```http
 GET /api/roles/{rolId}
 ```
 
-### Response 200
+#### Response 200
 
 ```json
 {
-  "timestamp": "2026-07-17T12:00:00",
+  "timestamp": "2026-07-18T10:00:00",
   "status": 200,
   "message": "Rol consultado correctamente",
   "transactionId": "0f5d5c9b-8dc1-4bd1-a173-08f16eb4f96e",
@@ -199,126 +275,116 @@ GET /api/roles/{rolId}
     "id": 1,
     "nombre": "ADMIN",
     "activo": true,
-    "fechaCreacion": "2026-06-20T12:00:00"
+    "fechaCreacion": "2026-07-18T10:00:00"
   }
 }
 ```
 
-### Response 404
-
-Se devuelve cuando el identificador no corresponde a un rol existente.
-
-## Crear Rol
+### Crear rol
 
 ```http
 POST /api/roles
 ```
 
-### Request
+#### Request
 
 ```json
 {
-  "nombre": "ADMIN",
+  "nombre": "SUPERVISOR",
   "activo": true
 }
 ```
 
 Validaciones:
 
-- `nombre` es obligatorio y admite hasta 50 caracteres.
+- `nombre` es obligatorio.
+- `nombre` permite máximo 50 caracteres.
 - `activo` es obligatorio.
-- El nombre no puede estar duplicado.
+- `nombre` no debe estar duplicado.
 
-### Response 201
+#### Response 201
 
 ```json
 {
-  "timestamp": "2026-07-17T12:00:00",
+  "timestamp": "2026-07-18T10:00:00",
   "status": 201,
   "message": "Rol creado correctamente",
   "transactionId": "0f5d5c9b-8dc1-4bd1-a173-08f16eb4f96e",
   "data": {
-    "id": 1,
-    "nombre": "ADMIN",
+    "id": 4,
+    "nombre": "SUPERVISOR",
     "activo": true,
-    "fechaCreacion": "2026-06-20T12:00:00"
+    "fechaCreacion": "2026-07-18T10:00:00"
   }
 }
 ```
 
-## Actualizar Rol
+### Actualizar rol
 
 ```http
 PUT /api/roles/{rolId}
 ```
 
-Utiliza el mismo cuerpo y las mismas validaciones de la creación.
+Usa el mismo cuerpo de creación.
 
-### Response 200
+#### Response 200
 
 ```json
 {
-  "timestamp": "2026-07-17T12:00:00",
+  "timestamp": "2026-07-18T10:00:00",
   "status": 200,
   "message": "Rol actualizado correctamente",
   "transactionId": "0f5d5c9b-8dc1-4bd1-a173-08f16eb4f96e",
   "data": {
-    "id": 1,
-    "nombre": "SUPERVISOR",
+    "id": 4,
+    "nombre": "SUPERVISOR_GENERAL",
     "activo": true,
-    "fechaCreacion": "2026-06-20T12:00:00"
+    "fechaCreacion": "2026-07-18T10:00:00"
   }
 }
 ```
 
-## Eliminar Rol
+### Eliminar rol
 
 ```http
 DELETE /api/roles/{rolId}
 ```
 
-### Response 204
+#### Response 204
 
-La eliminación es lógica mediante `activo=false` y la respuesta no contiene cuerpo.
+Sin cuerpo. Realiza borrado lógico.
 
----
+#### Errores del módulo
 
-# Módulo Usuario
+| HTTP | Causa |
+|---|---|
+| `400` | Datos inválidos |
+| `401` | JWT ausente o inválido |
+| `403` | Usuario sin rol `ADMIN` |
+| `404` | Rol inexistente o inactivo |
+| `409` | Nombre duplicado o restricción de integridad |
 
-El CRUD de Usuario y la asignación de roles y estacionamientos están implementados bajo `/api/usuarios`. Las contraseñas se transforman en hashes BCrypt y nunca se incluyen en las respuestas.
+## Módulo Usuario
 
-Seguridad actual:
+Seguridad:
 
-- Requiere JWT válido en todos sus endpoints.
-- `POST /api/usuarios` es público para permitir el registro inicial y asigna automáticamente el rol base `USER`.
-- `GET /api/usuarios`, `DELETE /api/usuarios/{id}` y asignaciones/retiros de roles o estacionamientos requieren `ADMIN`.
-- `GET /api/usuarios/{id}`, `PUT /api/usuarios/{id}` y `PATCH /api/usuarios/{id}/password` permiten `ADMIN`, o `USER`/`OPERADOR` cuando el `id` de la ruta coincide con el claim `usuarioId` del JWT.
+- `POST /api/usuarios` es público y asigna automáticamente rol base `USER`.
+- `GET /api/usuarios`, `DELETE /api/usuarios/{usuarioId}` y asignaciones/retiros requieren `ADMIN`.
+- `GET /api/usuarios/{usuarioId}`, `PUT /api/usuarios/{usuarioId}` y `PATCH /api/usuarios/{usuarioId}/password` permiten `ADMIN`, o `USER`/`OPERADOR` cuando el `usuarioId` de la ruta coincide con el claim `usuarioId`.
 
-La creación utiliza `UsuarioCreateRequest`, la actualización general utiliza `UsuarioUpdateRequest` y el cambio de contraseña utiliza `UsuarioPasswordRequest`.
+Las respuestas nunca incluyen `passwordHash`.
 
-## Listar Usuarios
-
-### Endpoint
+### Listar usuarios
 
 ```http
 GET /api/usuarios?page=0&size=10&sort=email,asc
 ```
 
-### Query params
-
-| Parámetro | Tipo | Requerido | Descripción |
-|---|---|---|---|
-| `page` | number | No | Número de página basado en cero. |
-| `size` | number | No | Cantidad de registros por página. |
-| `sort` | string | No | Campo y dirección de ordenamiento, por ejemplo `email,asc`. |
-
-### Response 200
-
-El cuerpo completo usa `ApiResponse<PageResponse<UsuarioResponse>>`.
+#### Response 200
 
 ```json
 {
-  "timestamp": "2026-07-12T11:20:00",
+  "timestamp": "2026-07-18T10:00:00",
   "status": 200,
   "message": "Usuarios consultados correctamente",
   "transactionId": "0f5d5c9b-8dc1-4bd1-a173-08f16eb4f96e",
@@ -330,8 +396,10 @@ El cuerpo completo usa `ApiResponse<PageResponse<UsuarioResponse>>`.
         "apellido": "Pérez",
         "email": "juan@parkio.com",
         "activo": true,
-        "fechaCreacion": "2026-06-28T12:00:00",
-        "roles": [],
+        "fechaCreacion": "2026-07-18T10:00:00",
+        "roles": [
+          "USER"
+        ],
         "estacionamientoIds": []
       }
     ],
@@ -346,17 +414,15 @@ El cuerpo completo usa `ApiResponse<PageResponse<UsuarioResponse>>`.
 }
 ```
 
----
-
-## Crear Usuario
-
-### Endpoint
+### Crear usuario
 
 ```http
 POST /api/usuarios
 ```
 
-### Request
+Endpoint público.
+
+#### Request
 
 ```json
 {
@@ -367,11 +433,20 @@ POST /api/usuarios
 }
 ```
 
-### Response 201
+Validaciones:
+
+- `nombre` es obligatorio y permite máximo 100 caracteres.
+- `apellido` es opcional y permite máximo 100 caracteres.
+- `email` es obligatorio, debe tener formato válido y permite máximo 150 caracteres.
+- `password` es obligatorio.
+- `email` no debe estar duplicado.
+- El rol base `USER` debe existir.
+
+#### Response 201
 
 ```json
 {
-  "timestamp": "2026-07-17T12:00:00",
+  "timestamp": "2026-07-18T10:00:00",
   "status": 201,
   "message": "Usuario creado correctamente",
   "transactionId": "0f5d5c9b-8dc1-4bd1-a173-08f16eb4f96e",
@@ -381,7 +456,7 @@ POST /api/usuarios
     "apellido": "Pérez",
     "email": "juan@parkio.com",
     "activo": true,
-    "fechaCreacion": "2026-06-28T12:00:00",
+    "fechaCreacion": "2026-07-18T10:00:00",
     "roles": [
       "USER"
     ],
@@ -390,29 +465,17 @@ POST /api/usuarios
 }
 ```
 
-La creación pública agrega automáticamente el rol base `USER`, siempre que exista en la tabla `rol`.
-
-### Respuestas de error
-
-- `400 Bad Request`: datos inválidos.
-- `404 Not Found`: el rol base `USER` no existe.
-- `409 Conflict`: el correo ya está registrado.
-
----
-
-## Consultar Usuario
-
-### Endpoint
+### Consultar usuario
 
 ```http
-GET /api/usuarios/{id}
+GET /api/usuarios/{usuarioId}
 ```
 
-### Response 200
+#### Response 200
 
 ```json
 {
-  "timestamp": "2026-07-17T12:00:00",
+  "timestamp": "2026-07-18T10:00:00",
   "status": 200,
   "message": "Usuario consultado correctamente",
   "transactionId": "0f5d5c9b-8dc1-4bd1-a173-08f16eb4f96e",
@@ -422,75 +485,63 @@ GET /api/usuarios/{id}
     "apellido": "Pérez",
     "email": "juan@parkio.com",
     "activo": true,
-    "fechaCreacion": "2026-06-28T12:00:00",
-    "roles": [],
+    "fechaCreacion": "2026-07-18T10:00:00",
+    "roles": [
+      "USER"
+    ],
     "estacionamientoIds": []
   }
 }
 ```
 
-### Respuestas de error
-
-- `404 Not Found`: el usuario no existe.
-
----
-
-## Actualizar Usuario
-
-### Endpoint
+### Actualizar usuario
 
 ```http
-PUT /api/usuarios/{id}
+PUT /api/usuarios/{usuarioId}
 ```
 
-### Request
+#### Request
 
 ```json
 {
-  "nombre": "Juan",
+  "nombre": "Juan Carlos",
   "apellido": "Pérez",
-  "email": "juan@parkio.com"
+  "email": "juan.carlos@parkio.com"
 }
 ```
 
-### Response 200
+La actualización general no exige contraseña.
+
+#### Response 200
 
 ```json
 {
-  "timestamp": "2026-07-17T12:00:00",
+  "timestamp": "2026-07-18T10:00:00",
   "status": 200,
   "message": "Usuario actualizado correctamente",
   "transactionId": "0f5d5c9b-8dc1-4bd1-a173-08f16eb4f96e",
   "data": {
     "id": 1,
-    "nombre": "Juan",
+    "nombre": "Juan Carlos",
     "apellido": "Pérez",
-    "email": "juan@parkio.com",
+    "email": "juan.carlos@parkio.com",
     "activo": true,
-    "fechaCreacion": "2026-06-28T12:00:00",
-    "roles": [],
+    "fechaCreacion": "2026-07-18T10:00:00",
+    "roles": [
+      "USER"
+    ],
     "estacionamientoIds": []
   }
 }
 ```
 
-### Respuestas de error
-
-- `400 Bad Request`: datos inválidos.
-- `404 Not Found`: el usuario no existe.
-- `409 Conflict`: el correo pertenece a otro usuario.
-
----
-
-## Cambiar Contraseña de Usuario
-
-### Endpoint
+### Cambiar contraseña
 
 ```http
-PATCH /api/usuarios/{id}/password
+PATCH /api/usuarios/{usuarioId}/password
 ```
 
-### Request
+#### Request
 
 ```json
 {
@@ -498,44 +549,27 @@ PATCH /api/usuarios/{id}/password
 }
 ```
 
-### Response 204
+#### Response 204
 
-Sin cuerpo de respuesta. La contraseña se almacena como hash BCrypt.
+Sin cuerpo.
 
-### Respuestas de error
-
-- `400 Bad Request`: la nueva contraseña está vacía.
-- `404 Not Found`: el usuario no existe.
-
----
-
-## Eliminar Usuario
-
-### Endpoint
+### Eliminar usuario
 
 ```http
-DELETE /api/usuarios/{id}
+DELETE /api/usuarios/{usuarioId}
 ```
 
-### Response 204
+#### Response 204
 
-Sin cuerpo de respuesta. La eliminación es lógica mediante `activo=false`.
+Sin cuerpo. Realiza borrado lógico.
 
-### Respuestas de error
-
-- `404 Not Found`: el usuario no existe.
-
----
-
-## Asignar Rol a Usuario
-
-### Endpoint
+### Asignar rol a usuario
 
 ```http
 POST /api/usuarios/{usuarioId}/roles
 ```
 
-### Request
+#### Request
 
 ```json
 {
@@ -543,11 +577,11 @@ POST /api/usuarios/{usuarioId}/roles
 }
 ```
 
-### Response 200
+#### Response 200
 
 ```json
 {
-  "timestamp": "2026-07-17T12:00:00",
+  "timestamp": "2026-07-18T10:00:00",
   "status": 200,
   "message": "Rol asignado correctamente al usuario",
   "transactionId": "0f5d5c9b-8dc1-4bd1-a173-08f16eb4f96e",
@@ -557,51 +591,33 @@ POST /api/usuarios/{usuarioId}/roles
     "apellido": "Pérez",
     "email": "juan@parkio.com",
     "activo": true,
-    "fechaCreacion": "2026-06-28T12:00:00",
+    "fechaCreacion": "2026-07-18T10:00:00",
     "roles": [
-      "USER"
+      "USER",
+      "OPERADOR"
     ],
     "estacionamientoIds": []
   }
 }
 ```
 
-### Respuestas de error
-
-- `400 Bad Request`: `rolId` es nulo o no es positivo.
-- `404 Not Found`: el usuario o el rol no existe.
-- `409 Conflict`: el usuario ya tiene asignado el rol.
-
----
-
-## Retirar Rol de Usuario
-
-### Endpoint
+### Retirar rol de usuario
 
 ```http
 DELETE /api/usuarios/{usuarioId}/roles/{rolId}
 ```
 
-### Response 204
+#### Response 204
 
-Sin cuerpo de respuesta.
+Sin cuerpo.
 
-### Respuestas de error
-
-- `404 Not Found`: el usuario o el rol no existe.
-- `409 Conflict`: el usuario no tiene asignado el rol.
-
----
-
-## Asignar Estacionamiento a Usuario
-
-### Endpoint
+### Asignar estacionamiento a usuario
 
 ```http
 POST /api/usuarios/{usuarioId}/estacionamientos
 ```
 
-### Request
+#### Request
 
 ```json
 {
@@ -609,11 +625,11 @@ POST /api/usuarios/{usuarioId}/estacionamientos
 }
 ```
 
-### Response 200
+#### Response 200
 
 ```json
 {
-  "timestamp": "2026-07-17T12:00:00",
+  "timestamp": "2026-07-18T10:00:00",
   "status": 200,
   "message": "Estacionamiento asignado correctamente al usuario",
   "transactionId": "0f5d5c9b-8dc1-4bd1-a173-08f16eb4f96e",
@@ -623,7 +639,7 @@ POST /api/usuarios/{usuarioId}/estacionamientos
     "apellido": "Pérez",
     "email": "juan@parkio.com",
     "activo": true,
-    "fechaCreacion": "2026-06-28T12:00:00",
+    "fechaCreacion": "2026-07-18T10:00:00",
     "roles": [
       "USER"
     ],
@@ -634,271 +650,58 @@ POST /api/usuarios/{usuarioId}/estacionamientos
 }
 ```
 
-### Respuestas de error
-
-- `400 Bad Request`: `estacionamientoId` es nulo o no es positivo.
-- `404 Not Found`: el usuario o el estacionamiento no existe.
-- `409 Conflict`: el usuario ya tiene asignado el estacionamiento.
-
----
-
-## Retirar Estacionamiento de Usuario
-
-### Endpoint
+### Retirar estacionamiento de usuario
 
 ```http
 DELETE /api/usuarios/{usuarioId}/estacionamientos/{estacionamientoId}
 ```
 
-### Response 204
+#### Response 204
 
-Sin cuerpo de respuesta.
+Sin cuerpo.
 
-### Respuestas de error
+#### Errores del módulo
 
-- `404 Not Found`: el usuario o el estacionamiento no existe.
-- `409 Conflict`: el usuario no tiene asignado el estacionamiento.
+| HTTP | Causa |
+|---|---|
+| `400` | Datos inválidos |
+| `401` | JWT ausente o inválido en endpoints protegidos |
+| `403` | Usuario sin permisos o intentando operar otro usuario |
+| `404` | Usuario, rol o estacionamiento inexistente/inactivo |
+| `409` | Email duplicado, relación ya existe o relación no existe al retirarla |
 
----
+## Módulo Estacionamiento
 
-# Módulo Estacionamiento
+Seguridad:
 
-Seguridad actual:
-
-- Requiere JWT válido en todos sus endpoints.
+- Requiere JWT válido.
 - `GET /api/estacionamientos` y `GET /api/estacionamientos/{estacionamientoId}` permiten `ADMIN`, `OPERADOR` y `USER`.
-- `POST /api/estacionamientos`, `PUT /api/estacionamientos/{estacionamientoId}` y `DELETE /api/estacionamientos/{estacionamientoId}` requieren `ADMIN`.
+- `POST`, `PUT` y `DELETE` requieren `ADMIN`.
 
-## Listar Estacionamientos
-
-### Endpoint
+### Listar estacionamientos
 
 ```http
 GET /api/estacionamientos?page=0&size=10&sort=nombre,asc
 ```
 
-El listado devuelve una respuesta estandarizada con `ApiResponse<PageResponse<EstacionamientoResponse>>`.
-La informaciÃ³n de paginaciÃ³n se encuentra dentro de `data`.
-
-Query params soportados por Spring Data:
-
-| ParÃ¡metro | DescripciÃ³n |
-|---|---|
-| `page` | NÃºmero de pÃ¡gina solicitado. Inicia en `0`. |
-| `size` | Cantidad mÃ¡xima de registros por pÃ¡gina. |
-| `sort` | Campo Java de la entidad y direcciÃ³n. Ejemplo: `nombre,asc`. |
-
-### Response 200
-
-```json
-[
-  {
-    "id": 1,
-    "nombre": "Parkio Centro",
-    "descripcion": "Sucursal Centro Histórico",
-    "latitud": 19.432608,
-    "longitud": -99.133209,
-    "activo": true,
-    "fechaCreacion": "2026-06-21T12:00:00"
-  }
-]
-```
-
-## Consultar Estacionamiento
-
-### Endpoint
-
-```http
-GET /api/estacionamientos/{estacionamientoId}
-```
-
-### Response 200
+#### Response 200
 
 ```json
 {
-  "timestamp": "2026-07-17T12:00:00",
+  "timestamp": "2026-07-18T10:00:00",
   "status": 200,
-  "message": "Estacionamiento consultado correctamente",
-  "transactionId": "0f5d5c9b-8dc1-4bd1-a173-08f16eb4f96e",
-  "data": {
-    "id": 1,
-    "nombre": "Parkio Centro",
-    "descripcion": "Sucursal Centro Histórico",
-    "latitud": 19.432608,
-    "longitud": -99.133209,
-    "activo": true,
-    "fechaCreacion": "2026-06-21T12:00:00"
-  }
-}
-```
-
-### Response 404
-
-Se devuelve cuando el identificador no corresponde a un estacionamiento existente.
-
-## Crear Estacionamiento
-
-### Endpoint
-
-```http
-POST /api/estacionamientos
-```
-
-### Request
-
-```json
-{
-  "nombre": "Parkio Centro",
-  "descripcion": "Sucursal Centro Histórico",
-  "latitud": 19.432608,
-  "longitud": -99.133209
-}
-```
-
-Validaciones:
-
-- `nombre` es obligatorio y admite hasta 150 caracteres.
-- `descripcion` es opcional y admite hasta 500 caracteres.
-- `latitud` es obligatoria, admite hasta 8 decimales y debe estar entre `-90` y `90`.
-- `longitud` es obligatoria, admite hasta 8 decimales y debe estar entre `-180` y `180`.
-
-### Response 201
-
-```json
-{
-  "timestamp": "2026-07-17T12:00:00",
-  "status": 201,
-  "message": "Estacionamiento creado correctamente",
-  "transactionId": "0f5d5c9b-8dc1-4bd1-a173-08f16eb4f96e",
-  "data": {
-    "id": 1,
-    "nombre": "Parkio Centro",
-    "descripcion": "Sucursal Centro Histórico",
-    "latitud": 19.432608,
-    "longitud": -99.133209,
-    "activo": true,
-    "fechaCreacion": "2026-06-21T12:00:00"
-  }
-}
-```
-
-## Actualizar Estacionamiento
-
-### Endpoint
-
-```http
-PUT /api/estacionamientos/{estacionamientoId}
-```
-
-Utiliza el mismo cuerpo y las mismas validaciones de la creación.
-
-### Response 200
-
-```json
-{
-  "timestamp": "2026-07-17T12:00:00",
-  "status": 200,
-  "message": "Estacionamiento actualizado correctamente",
-  "transactionId": "0f5d5c9b-8dc1-4bd1-a173-08f16eb4f96e",
-  "data": {
-    "id": 1,
-    "nombre": "Parkio Reforma",
-    "descripcion": "Sucursal Reforma",
-    "latitud": 19.427000,
-    "longitud": -99.167700,
-    "activo": true,
-    "fechaCreacion": "2026-06-21T12:00:00"
-  }
-}
-```
-
-### Response 404
-
-Se devuelve cuando el identificador no corresponde a un estacionamiento existente.
-
-## Eliminar Estacionamiento
-
-### Endpoint
-
-```http
-DELETE /api/estacionamientos/{estacionamientoId}
-```
-
-### Response 204
-
-La eliminación es lógica mediante `activo=false`, también desactiva los cajones activos asociados y la respuesta no contiene cuerpo.
-
-### Response 404
-
-Se devuelve cuando el identificador no corresponde a un estacionamiento existente.
-
-### Response 409
-
-Se devuelve cuando una relación existente impide eliminar el estacionamiento.
-
----
-
-# Módulo Cajón
-
-Seguridad actual:
-
-- Requiere JWT válido en todos sus endpoints.
-- `GET /api/cajones`, `GET /api/cajones?estacionamientoId={id}` y `GET /api/cajones/{cajonId}` permiten `ADMIN`, `OPERADOR` y `USER`.
-- `PATCH /api/cajones/{cajonId}/estado` permite `ADMIN` y `OPERADOR`.
-- `POST /api/cajones`, `PUT /api/cajones/{cajonId}` y `DELETE /api/cajones/{cajonId}` requieren `ADMIN`.
-
-## Listar Cajones
-
-```http
-GET /api/cajones?page=0&size=10&sort=numero,asc
-```
-
-Query params soportados por Spring Data:
-
-| ParÃ¡metro | DescripciÃ³n |
-|---|---|
-| `page` | NÃºmero de pÃ¡gina solicitado. Inicia en `0`. |
-| `size` | Cantidad mÃ¡xima de registros por pÃ¡gina. |
-| `sort` | Campo Java de la entidad y direcciÃ³n. Ejemplo: `numero,asc`. |
-
-### Response 200
-
-Devuelve los cajones activos registrados usando `ApiResponse<PageResponse<CajonResponse>>`.
-La informaciÃ³n de paginaciÃ³n se encuentra dentro de `data`.
-
-## Listar Cajones por Estacionamiento
-
-```http
-GET /api/cajones?estacionamientoId=1&page=0&size=10&sort=numero,asc
-```
-
-Query params soportados por Spring Data:
-
-| ParÃ¡metro | DescripciÃ³n |
-|---|---|
-| `estacionamientoId` | Identificador del estacionamiento usado para filtrar cajones. |
-| `page` | NÃºmero de pÃ¡gina solicitado. Inicia en `0`. |
-| `size` | Cantidad mÃ¡xima de registros por pÃ¡gina. |
-| `sort` | Campo Java de la entidad y direcciÃ³n. Ejemplo: `numero,asc`. |
-
-### Response 200
-
-```json
-{
-  "timestamp": "2026-07-12T11:05:00",
-  "status": 200,
-  "message": "Cajones consultados correctamente",
+  "message": "Estacionamientos consultados correctamente",
   "transactionId": "0f5d5c9b-8dc1-4bd1-a173-08f16eb4f96e",
   "data": {
     "content": [
       {
         "id": 1,
-        "numero": "A-001",
-        "tipo": "AUTO",
-        "estado": "LIBRE",
-        "estacionamientoId": 1,
+        "nombre": "Parkio Centro",
+        "descripcion": "Sucursal Centro Histórico",
+        "latitud": 19.432608,
+        "longitud": -99.133209,
         "activo": true,
-        "fechaCreacion": "2026-06-27T12:00:00"
+        "fechaCreacion": "2026-07-18T10:00:00"
       }
     ],
     "page": 0,
@@ -912,21 +715,199 @@ Query params soportados por Spring Data:
 }
 ```
 
-### Response 404
+### Consultar estacionamiento
 
-Se devuelve cuando el estacionamiento no existe.
+```http
+GET /api/estacionamientos/{estacionamientoId}
+```
 
-## Consultar Cajón
+#### Response 200
+
+```json
+{
+  "timestamp": "2026-07-18T10:00:00",
+  "status": 200,
+  "message": "Estacionamiento consultado correctamente",
+  "transactionId": "0f5d5c9b-8dc1-4bd1-a173-08f16eb4f96e",
+  "data": {
+    "id": 1,
+    "nombre": "Parkio Centro",
+    "descripcion": "Sucursal Centro Histórico",
+    "latitud": 19.432608,
+    "longitud": -99.133209,
+    "activo": true,
+    "fechaCreacion": "2026-07-18T10:00:00"
+  }
+}
+```
+
+### Crear estacionamiento
+
+```http
+POST /api/estacionamientos
+```
+
+#### Request
+
+```json
+{
+  "nombre": "Parkio Centro",
+  "descripcion": "Sucursal Centro Histórico",
+  "latitud": 19.432608,
+  "longitud": -99.133209
+}
+```
+
+Validaciones:
+
+- `nombre` es obligatorio y permite máximo 150 caracteres.
+- `descripcion` es opcional y permite máximo 500 caracteres.
+- `latitud` es obligatoria, debe estar entre `-90` y `90`, y permite hasta 8 decimales.
+- `longitud` es obligatoria, debe estar entre `-180` y `180`, y permite hasta 8 decimales.
+
+#### Response 201
+
+```json
+{
+  "timestamp": "2026-07-18T10:00:00",
+  "status": 201,
+  "message": "Estacionamiento creado correctamente",
+  "transactionId": "0f5d5c9b-8dc1-4bd1-a173-08f16eb4f96e",
+  "data": {
+    "id": 1,
+    "nombre": "Parkio Centro",
+    "descripcion": "Sucursal Centro Histórico",
+    "latitud": 19.432608,
+    "longitud": -99.133209,
+    "activo": true,
+    "fechaCreacion": "2026-07-18T10:00:00"
+  }
+}
+```
+
+### Actualizar estacionamiento
+
+```http
+PUT /api/estacionamientos/{estacionamientoId}
+```
+
+Usa el mismo cuerpo de creación.
+
+#### Response 200
+
+```json
+{
+  "timestamp": "2026-07-18T10:00:00",
+  "status": 200,
+  "message": "Estacionamiento actualizado correctamente",
+  "transactionId": "0f5d5c9b-8dc1-4bd1-a173-08f16eb4f96e",
+  "data": {
+    "id": 1,
+    "nombre": "Parkio Reforma",
+    "descripcion": "Sucursal Reforma",
+    "latitud": 19.427,
+    "longitud": -99.1677,
+    "activo": true,
+    "fechaCreacion": "2026-07-18T10:00:00"
+  }
+}
+```
+
+### Eliminar estacionamiento
+
+```http
+DELETE /api/estacionamientos/{estacionamientoId}
+```
+
+#### Response 204
+
+Sin cuerpo. Realiza borrado lógico del estacionamiento y de sus cajones activos asociados.
+
+#### Errores del módulo
+
+| HTTP | Causa |
+|---|---|
+| `400` | Datos inválidos |
+| `401` | JWT ausente o inválido |
+| `403` | Usuario sin rol `ADMIN` en operaciones de escritura |
+| `404` | Estacionamiento inexistente o inactivo |
+
+## Módulo Cajón
+
+Seguridad:
+
+- Requiere JWT válido.
+- `GET /api/cajones`, `GET /api/cajones?estacionamientoId={id}` y `GET /api/cajones/{cajonId}` permiten `ADMIN`, `OPERADOR` y `USER`.
+- `PATCH /api/cajones/{cajonId}/estado` permite `ADMIN` y `OPERADOR`.
+- `POST`, `PUT` y `DELETE` requieren `ADMIN`.
+
+Tipos permitidos:
+
+- `AUTO`
+- `MOTO`
+- `DISCAPACITADO`
+- `ELECTRICO`
+
+Estados permitidos:
+
+- `LIBRE`
+- `OCUPADO`
+- `FUERA_SERVICIO`
+
+### Listar cajones
+
+```http
+GET /api/cajones?page=0&size=10&sort=numero,asc
+```
+
+### Listar cajones por estacionamiento
+
+```http
+GET /api/cajones?estacionamientoId=1&page=0&size=10&sort=numero,asc
+```
+
+#### Response 200
+
+```json
+{
+  "timestamp": "2026-07-18T10:00:00",
+  "status": 200,
+  "message": "Cajones consultados correctamente",
+  "transactionId": "0f5d5c9b-8dc1-4bd1-a173-08f16eb4f96e",
+  "data": {
+    "content": [
+      {
+        "id": 1,
+        "numero": "A-001",
+        "tipo": "AUTO",
+        "estado": "LIBRE",
+        "estacionamientoId": 1,
+        "activo": true,
+        "fechaCreacion": "2026-07-18T10:00:00"
+      }
+    ],
+    "page": 0,
+    "size": 10,
+    "totalElements": 1,
+    "totalPages": 1,
+    "first": true,
+    "last": true,
+    "empty": false
+  }
+}
+```
+
+### Consultar cajón
 
 ```http
 GET /api/cajones/{cajonId}
 ```
 
-### Response 200
+#### Response 200
 
 ```json
 {
-  "timestamp": "2026-07-17T12:00:00",
+  "timestamp": "2026-07-18T10:00:00",
   "status": 200,
   "message": "Cajon consultado correctamente",
   "transactionId": "0f5d5c9b-8dc1-4bd1-a173-08f16eb4f96e",
@@ -937,24 +918,18 @@ GET /api/cajones/{cajonId}
     "estado": "LIBRE",
     "estacionamientoId": 1,
     "activo": true,
-    "fechaCreacion": "2026-06-27T12:00:00"
+    "fechaCreacion": "2026-07-18T10:00:00"
   }
 }
 ```
 
-### Response 404
-
-Se devuelve cuando el cajón no existe.
-
-## Crear Cajón
-
-### Endpoint
+### Crear cajón
 
 ```http
 POST /api/cajones
 ```
 
-### Request
+#### Request
 
 ```json
 {
@@ -964,15 +939,21 @@ POST /api/cajones
 }
 ```
 
-Tipos permitidos: `AUTO`, `MOTO`, `DISCAPACITADO` y `ELECTRICO`.
+Validaciones:
 
-El estado inicial se asigna automáticamente como `LIBRE`. El número y tipo son obligatorios, y el identificador del estacionamiento debe ser un número positivo.
+- `numero` es obligatorio y permite máximo 20 caracteres.
+- `tipo` es obligatorio y debe ser un valor permitido.
+- `estacionamientoId` es obligatorio y positivo.
+- El estacionamiento debe existir y estar activo.
+- El número no debe estar duplicado dentro del mismo estacionamiento.
 
-### Response 201
+El estado inicial se asigna automáticamente como `LIBRE`.
+
+#### Response 201
 
 ```json
 {
-  "timestamp": "2026-07-17T12:00:00",
+  "timestamp": "2026-07-18T10:00:00",
   "status": 201,
   "message": "Cajon creado correctamente",
   "transactionId": "0f5d5c9b-8dc1-4bd1-a173-08f16eb4f96e",
@@ -983,32 +964,24 @@ El estado inicial se asigna automáticamente como `LIBRE`. El número y tipo son
     "estado": "LIBRE",
     "estacionamientoId": 1,
     "activo": true,
-    "fechaCreacion": "2026-06-27T12:00:00"
+    "fechaCreacion": "2026-07-18T10:00:00"
   }
 }
 ```
 
-### Response 404
-
-Se devuelve cuando el estacionamiento no existe.
-
-### Response 409
-
-Se devuelve cuando el número ya existe dentro del estacionamiento.
-
-## Actualizar Cajón
+### Actualizar cajón
 
 ```http
 PUT /api/cajones/{cajonId}
 ```
 
-Utiliza el mismo cuerpo de la creación. La actualización conserva el estado actual del cajón.
+Usa el mismo cuerpo de creación. La actualización conserva el estado operativo actual del cajón.
 
-### Response 200
+#### Response 200
 
 ```json
 {
-  "timestamp": "2026-07-17T12:00:00",
+  "timestamp": "2026-07-18T10:00:00",
   "status": 200,
   "message": "Cajon actualizado correctamente",
   "transactionId": "0f5d5c9b-8dc1-4bd1-a173-08f16eb4f96e",
@@ -1019,26 +992,18 @@ Utiliza el mismo cuerpo de la creación. La actualización conserva el estado ac
     "estado": "LIBRE",
     "estacionamientoId": 1,
     "activo": true,
-    "fechaCreacion": "2026-06-27T12:00:00"
+    "fechaCreacion": "2026-07-18T10:00:00"
   }
 }
 ```
 
-### Response 404
-
-Se devuelve cuando el cajón o estacionamiento no existe.
-
-### Response 409
-
-Se devuelve cuando el número ya está utilizado por otro cajón del estacionamiento.
-
-## Cambiar Estado del Cajón
+### Cambiar estado del cajón
 
 ```http
 PATCH /api/cajones/{cajonId}/estado
 ```
 
-### Request
+#### Request
 
 ```json
 {
@@ -1046,13 +1011,11 @@ PATCH /api/cajones/{cajonId}/estado
 }
 ```
 
-Estados permitidos: `LIBRE`, `OCUPADO` y `FUERA_SERVICIO`.
-
-### Response 200
+#### Response 200
 
 ```json
 {
-  "timestamp": "2026-07-17T12:00:00",
+  "timestamp": "2026-07-18T10:00:00",
   "status": 200,
   "message": "Estado del cajon actualizado correctamente",
   "transactionId": "0f5d5c9b-8dc1-4bd1-a173-08f16eb4f96e",
@@ -1063,68 +1026,54 @@ Estados permitidos: `LIBRE`, `OCUPADO` y `FUERA_SERVICIO`.
     "estado": "OCUPADO",
     "estacionamientoId": 1,
     "activo": true,
-    "fechaCreacion": "2026-06-27T12:00:00"
+    "fechaCreacion": "2026-07-18T10:00:00"
   }
 }
 ```
 
-### Response 400
-
-Se devuelve cuando el estado es nulo o no corresponde a un valor permitido.
-
-### Response 404
-
-Se devuelve cuando el cajón no existe.
-
-## Eliminar Cajón
+### Eliminar cajón
 
 ```http
 DELETE /api/cajones/{cajonId}
 ```
 
-### Response 204
+#### Response 204
 
-La eliminación es lógica mediante `activo=false` y la respuesta no contiene cuerpo.
+Sin cuerpo. Realiza borrado lógico.
 
-### Response 404
+#### Errores del módulo
 
-Se devuelve cuando el cajón no existe.
+| HTTP | Causa |
+|---|---|
+| `400` | Datos inválidos, tipo inválido o estado inválido |
+| `401` | JWT ausente o inválido |
+| `403` | Usuario sin permisos para la operación |
+| `404` | Cajón o estacionamiento inexistente/inactivo |
+| `409` | Número duplicado dentro del estacionamiento |
 
----
+## Pruebas automatizadas relacionadas
 
-# Códigos HTTP utilizados
+El backend cuenta con pruebas unitarias de mapper, servicio y controlador para Rol, Estacionamiento, Cajón y Usuario.
 
-| Código | Descripción           |
-| ------ | --------------------- |
-| 200    | Operación exitosa     |
-| 201    | Recurso creado        |
-| 204    | Operación exitosa sin cuerpo |
-| 400    | Datos inválidos       |
-| 401    | No autenticado        |
-| 403    | Sin permisos          |
-| 404    | Recurso no encontrado |
-| 409    | Conflicto             |
-| 500    | Error interno         |
+También existen pruebas de integración con Spring Boot completo, PostgreSQL y perfil `test`:
 
-## Formato de Error Implementado
+- `AuthUsuarioIntegrationTest`.
+- `RolIntegrationTest`.
+- `EstacionamientoIntegrationTest`.
+- `CajonIntegrationTest`.
 
-Las operaciones implementadas utilizan el siguiente formato:
+Estas pruebas validan que la conexión use `parkio_test` antes de limpiar datos de prueba.
 
-```json
-{
-  "timestamp": "2026-06-20T16:30:00",
-  "status": 400,
-  "error": "Bad Request",
-  "message": "La solicitud contiene datos inválidos",
-  "transactionId": "0f5d5c9b-8dc1-4bd1-a173-08f16eb4f96e",
-  "path": "/api/roles",
-  "validationErrors": {
-    "nombre": "El nombre del rol es obligatorio"
-  }
-}
-```
+## Códigos HTTP utilizados
 
-Todas las respuestas HTTP incluyen el header `X-Transaction-Id`. Si el cliente lo envÃ­a,
-Parkio reutiliza ese valor; si no lo envÃ­a, el backend genera uno nuevo. El mismo valor
-se incluye en respuestas exitosas estandarizadas y en respuestas de error para facilitar
-trazabilidad entre frontend, backend y logs.
+| Código | Descripción |
+|---|---|
+| `200` | Operación exitosa con cuerpo |
+| `201` | Recurso creado |
+| `204` | Operación exitosa sin cuerpo |
+| `400` | Datos inválidos |
+| `401` | No autenticado |
+| `403` | Sin permisos |
+| `404` | Recurso no encontrado |
+| `409` | Conflicto |
+| `500` | Error interno |

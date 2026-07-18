@@ -528,7 +528,7 @@ La URL del repositorio remoto y un procedimiento oficial para aprovisionar Postg
    ./mvnw clean package
    ```
 
-El proyecto contiene una prueba de carga del contexto de Spring, pruebas unitarias para mapper, servicio y controlador de Rol, Estacionamiento, Cajón y Usuario, y una prueba de integración inicial para el flujo Usuario/Auth/JWT contra PostgreSQL.
+El proyecto contiene una prueba de carga del contexto de Spring, pruebas unitarias para mapper, servicio y controlador de Rol, Estacionamiento, Cajón y Usuario, una prueba de integración para el flujo Usuario/Auth/JWT y pruebas de integración para los módulos Rol, Estacionamiento y Cajón contra PostgreSQL.
 
 ## Ejecución Local
 
@@ -578,7 +578,7 @@ El perfil `test` usa por defecto la base de datos `parkio_test`. Antes de ejecut
 CREATE DATABASE parkio_test;
 ```
 
-La prueba de integración valida que la conexión apunte a `parkio_test` antes de limpiar datos de prueba.
+Las pruebas de integración validan que la conexión apunte a `parkio_test` antes de limpiar datos de prueba.
 
 ## Bootstrap del Primer Administrador
 
@@ -709,7 +709,7 @@ Parte de esta documentación describe componentes futuros. Los módulos Auth, Ro
 
 A partir de las brechas entre el código y la documentación, el trabajo pendiente incluye:
 
-- Ampliar las pruebas de integración con PostgreSQL para cubrir Rol, Estacionamiento y Cajón.
+- Ampliar progresivamente las pruebas de integración con PostgreSQL para cubrir escenarios adicionales de negocio.
 - Mantener sincronizados el contrato API y el código implementado.
 
 Este roadmap se deriva de la documentación existente y del estado incompleto del código. No representa funcionalidades ya disponibles.
