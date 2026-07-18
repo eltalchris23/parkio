@@ -383,6 +383,7 @@ spring:
     default: dev
 
   jpa:
+    open-in-view: false
     hibernate:
       ddl-auto: validate
 
@@ -390,6 +391,13 @@ spring:
     enabled: ${PARKIO_FLYWAY_ENABLED:true}
 
 parkio:
+  cors:
+    allowed-origins: ${PARKIO_CORS_ALLOWED_ORIGINS:http://localhost:4200,http://localhost:5173}
+    allowed-methods: ${PARKIO_CORS_ALLOWED_METHODS:GET,POST,PUT,PATCH,DELETE,OPTIONS}
+    allowed-headers: ${PARKIO_CORS_ALLOWED_HEADERS:Authorization,Content-Type,X-Transaction-Id}
+    exposed-headers: ${PARKIO_CORS_EXPOSED_HEADERS:X-Transaction-Id}
+    max-age-seconds: ${PARKIO_CORS_MAX_AGE_SECONDS:3600}
+
   security:
     jwt:
       issuer: ${PARKIO_JWT_ISSUER:parkio}
@@ -442,6 +450,13 @@ spring:
 
   jpa:
     show-sql: false
+
+parkio:
+  security:
+    jwt:
+      issuer: ${PARKIO_JWT_ISSUER}
+      secret: ${PARKIO_JWT_SECRET}
+      expiration-minutes: ${PARKIO_JWT_EXPIRATION_MINUTES:60}
 ```
 
 La aplicación espera:
@@ -455,6 +470,8 @@ La aplicación espera:
 
 La configuración sensible se externaliza mediante variables de entorno. El archivo `application.yaml` conserva valores por defecto para desarrollo local, pero en entornos compartidos o productivos se deben definir variables reales y seguras.
 
+En el perfil `prod`, `PARKIO_JWT_ISSUER` y `PARKIO_JWT_SECRET` no tienen valor por defecto. Esto evita que producción arranque accidentalmente con la clave local de desarrollo. Si esas variables no se configuran, la aplicación debe fallar al iniciar.
+
 Variables soportadas:
 
 | Variable | Uso |
@@ -465,6 +482,11 @@ Variables soportadas:
 | `PARKIO_DB_PASSWORD` | Contraseña de PostgreSQL |
 | `PARKIO_JPA_SHOW_SQL` | Activa o desactiva logs SQL |
 | `PARKIO_FLYWAY_ENABLED` | Activa o desactiva Flyway |
+| `PARKIO_CORS_ALLOWED_ORIGINS` | Orígenes frontend permitidos para CORS |
+| `PARKIO_CORS_ALLOWED_METHODS` | Métodos HTTP permitidos para CORS |
+| `PARKIO_CORS_ALLOWED_HEADERS` | Headers que el frontend puede enviar |
+| `PARKIO_CORS_EXPOSED_HEADERS` | Headers que el navegador puede leer de la respuesta |
+| `PARKIO_CORS_MAX_AGE_SECONDS` | Tiempo de cache del preflight CORS |
 | `PARKIO_JWT_ISSUER` | Emisor del JWT |
 | `PARKIO_JWT_SECRET` | Secreto usado para firmar JWT |
 | `PARKIO_JWT_EXPIRATION_MINUTES` | Vigencia del token en minutos |
@@ -479,12 +501,17 @@ Ejemplo en PowerShell:
 $env:PARKIO_DB_URL="jdbc:postgresql://localhost:5432/parkio"
 $env:PARKIO_DB_USERNAME="postgres"
 $env:PARKIO_DB_PASSWORD="123123"
+$env:PARKIO_CORS_ALLOWED_ORIGINS="http://localhost:4200,http://localhost:5173"
 $env:PARKIO_JWT_SECRET="clave-segura-local"
 ```
 
-`PARKIO_JWT_SECRET` no debe reutilizar el valor local por defecto fuera de desarrollo.
+`PARKIO_JWT_SECRET` no debe reutilizar el valor local por defecto fuera de desarrollo. En producción debe definirse como un secreto externo, suficientemente largo y no versionado en el repositorio.
+
+La configuración CORS permite que frontends locales como Angular (`http://localhost:4200`) o Vite/React/Vue (`http://localhost:5173`) consuman la API desde navegador. CORS no reemplaza JWT ni autorización por roles; únicamente define qué orígenes, métodos y headers puede usar el frontend. El header `X-Transaction-Id` queda expuesto para que el frontend pueda mostrarlo o registrarlo en trazabilidad.
 
 Hibernate utiliza `ddl-auto: validate`, por lo que valida el esquema, pero no crea ni actualiza las tablas. Flyway es responsable de ejecutar las migraciones.
+
+La configuración global también establece `spring.jpa.open-in-view=false`. Esto significa que Hibernate no mantiene abierta la sesión de persistencia durante la construcción de la respuesta HTTP. Las relaciones JPA necesarias para un DTO deben resolverse dentro de la capa service, bajo los límites transaccionales correspondientes. Si aparece un problema de carga diferida, no debe corregirse reactivando `open-in-view`; debe resolverse ajustando la consulta, el service o el mapper.
 
 ## Requisitos Previos
 

@@ -7,6 +7,7 @@ import org.springframework.boot.context.properties.EnableConfigurationProperties
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
+import org.springframework.security.config.Customizer;
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
@@ -49,6 +50,8 @@ public class SecurityConfig {
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         // Devuelve la configuracion final de seguridad que Spring usara para procesar cada peticion HTTP.
         return http
+                // Activa CORS usando el bean CorsConfigurationSource definido en CorsConfig.
+                .cors(Customizer.withDefaults())
                 // Desactiva CSRF porque la API es stateless y se autentica con JWT, no con cookies de sesion.
                 .csrf(csrf -> csrf.disable())
                 // Indica que Spring Security no debe crear ni usar sesiones HTTP para guardar autenticacion.

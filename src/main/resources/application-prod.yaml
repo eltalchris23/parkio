@@ -6,3 +6,10 @@ spring:
 
   jpa:
     show-sql: false
+
+parkio:
+  security:
+    jwt:
+      issuer: ${PARKIO_JWT_ISSUER}
+      secret: ${PARKIO_JWT_SECRET}
+      expiration-minutes: ${PARKIO_JWT_EXPIRATION_MINUTES:60}

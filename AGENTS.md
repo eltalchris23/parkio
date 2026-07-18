@@ -35,6 +35,8 @@ Antes de realizar cambios, considerar lo siguiente:
 - `RolController`, `EstacionamientoController`, `CajonController` y `UsuarioController` exponen los recursos `/api/roles`, `/api/estacionamientos`, `/api/cajones` y `/api/usuarios`.
 - Existe Spring Security HTTP con OAuth2 Resource Server para proteger endpoints mediante JWT.
 - Existen `AuthController`, `AuthService`, `AuthServiceImpl`, `JwtService`, `JwtProperties` y `SecurityConfig`.
+- Existe configuración CORS mediante `CorsConfig` y `CorsProperties`, usando propiedades bajo `parkio.cors`.
+- En el perfil `prod`, `PARKIO_JWT_ISSUER` y `PARKIO_JWT_SECRET` son obligatorios y no deben tener fallback local.
 - No existe `JwtFilter` propio; la validación del token se delega a Spring Security OAuth2 Resource Server.
 - La autorización granular por roles está implementada inicialmente en `RolController` mediante `@PreAuthorize("hasRole('ADMIN')")`.
 - `UsuarioController` utiliza `@PreAuthorize` para permitir operaciones administrativas a `ADMIN` y operaciones propias a `USER` u `OPERADOR`.
@@ -55,6 +57,7 @@ Antes de realizar cambios, considerar lo siguiente:
 - Existe `TransactionIdFilter`, que genera o reutiliza el header `X-Transaction-Id`, lo agrega al response, lo deja disponible para logs mediante MDC y lo incluye en respuestas exitosas estandarizadas y errores.
 - Al desactivar un estacionamiento, también se desactivan lógicamente sus cajones activos.
 - Los usuarios inactivos no pueden iniciar sesión.
+- `spring.jpa.open-in-view` está desactivado globalmente mediante `open-in-view: false`.
 - `RolMapper`, `EstacionamientoMapper`, `CajonMapper` y `UsuarioMapper` están implementados.
 - El manejo global de excepciones está implementado mediante `GlobalExceptionHandler` y `ApiError`.
 - `RolRequest`, `EstacionamientoRequest`, `CajonRequest`, `CajonEstadoRequest`, `UsuarioCreateRequest`, `UsuarioUpdateRequest`, `UsuarioPasswordRequest`, `UsuarioRolRequest` y `UsuarioEstacionamientoRequest` tienen validaciones Jakarta Validation.
@@ -221,6 +224,8 @@ Reglas obligatorias:
 - Se debe evitar cargar relaciones innecesariamente.
 - No se deben agregar `CascadeType` u `orphanRemoval` sin analizar sus consecuencias.
 - No se deben exponer entidades directamente como contratos HTTP.
+- No se debe depender de Open Session In View para serializar relaciones JPA desde controladores.
+- Las relaciones necesarias para construir DTOs deben resolverse dentro de services transaccionales.
 - No se debe almacenar una contraseña en texto plano. `Usuario.passwordHash` representa un hash.
 - No se debe incluir `passwordHash` en DTOs de respuesta, logs o mensajes de error.
 
@@ -466,11 +471,14 @@ La configuración actual utiliza:
 ```yaml
 spring:
   jpa:
+    open-in-view: false
     hibernate:
       ddl-auto: validate
 ```
 
 Por tanto, Flyway controla el esquema y Hibernate solamente lo valida.
+
+Además, `open-in-view: false` evita que Hibernate mantenga abierta la sesión durante la serialización HTTP. Si una operación necesita datos de relaciones JPA para construir un DTO, esos datos deben obtenerse dentro del service y no desde el controller ni durante la serialización de la respuesta.
 
 Existe una migración de datos iniciales para los roles base `ADMIN`, `OPERADOR` y `USER`. La migración utiliza `ON CONFLICT (nombre) DO NOTHING`, por lo que no falla si alguno de esos roles ya existe.
 
@@ -491,6 +499,7 @@ Estado actual:
 - Existe `spring-boot-starter-security` para seguridad HTTP.
 - Existe `spring-boot-starter-oauth2-resource-server` para validar JWT.
 - Existe `SecurityConfig`.
+- Existe `CorsConfig` para permitir consumo desde frontend usando una lista configurable de orígenes, métodos y headers.
 - Existe `JwtService`.
 - Existe `AuthController`.
 - Existe `AuthService` y `AuthServiceImpl`.
@@ -506,12 +515,15 @@ Estado actual:
 Reglas obligatorias:
 
 - No declarar autorización por roles como completa mientras solo existan reglas explícitas para una parte de los módulos.
+- No confundir CORS con autenticación o autorización; CORS solo controla qué orígenes de navegador pueden consumir la API.
 - No implementar criptografía propia.
 - No guardar ni registrar contraseñas en texto plano.
 - No exponer `passwordHash`.
 - No incluir secretos JWT en el repositorio.
 - Externalizar claves y credenciales para entornos reales.
 - Mantener credenciales de base de datos, secretos JWT y valores sensibles mediante variables de entorno, no como valores fijos obligatorios en `application.yaml`.
+- Mantener orígenes CORS configurables mediante `PARKIO_CORS_ALLOWED_ORIGINS`, evitando quemar dominios productivos en código Java.
+- En producción, no se deben configurar valores por defecto para `PARKIO_JWT_ISSUER` ni `PARKIO_JWT_SECRET`; la aplicación debe fallar si no se proporcionan.
 - Mantener perfiles Spring separados para configuración por ambiente: `dev`, `test` y `prod`.
 - No presentar la autenticación JWT como autorización completa por roles.
 - Verificar autorización por rol en operaciones que la documentación restrinja.
@@ -554,6 +566,8 @@ Toda IA que modifique este repositorio debe:
 - Utilizar `Long` para identificadores JPA.
 - Mantener separadas las responsabilidades por capa.
 - Usar inyección por constructor y Lombok `@RequiredArgsConstructor` en las implementaciones de servicio con dependencias `final`.
+- Mantener `spring.jpa.open-in-view=false` como regla general del backend.
+- Resolver las cargas necesarias de relaciones JPA dentro de services transaccionales, no durante la respuesta HTTP.
 - Evitar exponer entidades JPA.
 - Proteger datos sensibles.
 - Mantener entidades y migraciones sincronizadas.
@@ -583,6 +597,7 @@ No está permitido:
 - Ignorar inconsistencias entre tipos de identificador.
 - Usar inyección de dependencias mediante campos.
 - Agregar cascadas JPA sin evaluar sus efectos.
+- Reactivar `spring.jpa.open-in-view` para ocultar problemas de carga diferida.
 - Capturar excepciones para ocultarlas silenciosamente.
 - Devolver datos ficticios como implementación final.
 - Marcar una tarea como completada si permanecen operaciones no implementadas dentro de su alcance.
