@@ -61,6 +61,7 @@ Antes de realizar cambios, considerar lo siguiente:
 - `RolServiceImpl`, `EstacionamientoServiceImpl`, `CajonServiceImpl` y `UsuarioServiceImpl` están registrados como beans y usan transacciones.
 - `UsuarioServiceImpl` valida correos duplicados y genera hashes BCrypt mediante `PasswordEncoder`.
 - Existen pruebas unitarias para mapper, servicio y controlador de Rol, Estacionamiento, Cajón y Usuario, pruebas de Auth/JWT/seguridad, además de la prueba de carga del contexto.
+- Existe una prueba de integración inicial `AuthUsuarioIntegrationTest` que levanta Spring Boot completo, usa PostgreSQL con perfil `test`, valida Flyway, registra un usuario, inicia sesión y consulta un endpoint protegido con JWT.
 - Usuario permite asignar y retirar roles y estacionamientos mediante `usuario_rol` y `usuario_estacionamiento`. `UsuarioResponse` representa estas relaciones mediante nombres de roles e identificadores de estacionamientos. La creación pública de usuarios asigna automáticamente el rol base `USER`. Creación, actualización general y cambio de contraseña utilizan DTOs y operaciones separadas.
 - La documentación describe parcialmente una arquitectura futura.
 - Todos los repositorios utilizan `Long` como identificador, en concordancia con `BaseEntity`.
@@ -670,6 +671,8 @@ En Linux o macOS:
 ```
 
 Debe considerarse que la prueba de contexto utiliza la configuración PostgreSQL local. Si la base de datos no está disponible, la IA debe reportarlo y no afirmar que las pruebas pasaron.
+
+El perfil `test` debe apuntar por defecto a `parkio_test`. Las pruebas de integración que limpien datos deben validar primero que la conexión actual corresponde a `parkio_test`, para evitar afectar la base local de desarrollo `parkio`.
 
 Para cambios de persistencia también se debe verificar:
 

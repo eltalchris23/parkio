@@ -423,7 +423,7 @@ Configuración de pruebas:
 ```yaml
 spring:
   datasource:
-    url: ${PARKIO_TEST_DB_URL:${PARKIO_DB_URL:jdbc:postgresql://localhost:5432/parkio}}
+    url: ${PARKIO_TEST_DB_URL:${PARKIO_DB_URL:jdbc:postgresql://localhost:5432/parkio_test}}
     username: ${PARKIO_TEST_DB_USERNAME:${PARKIO_DB_USERNAME:postgres}}
     password: ${PARKIO_TEST_DB_PASSWORD:${PARKIO_DB_PASSWORD:123123}}
 
@@ -528,7 +528,7 @@ La URL del repositorio remoto y un procedimiento oficial para aprovisionar Postg
    ./mvnw clean package
    ```
 
-El proyecto contiene una prueba de carga del contexto de Spring y pruebas unitarias para mapper, servicio y controlador de Rol, Estacionamiento, Cajón y Usuario. Todavía no existe una suite de integración dedicada con PostgreSQL.
+El proyecto contiene una prueba de carga del contexto de Spring, pruebas unitarias para mapper, servicio y controlador de Rol, Estacionamiento, Cajón y Usuario, y una prueba de integración inicial para el flujo Usuario/Auth/JWT contra PostgreSQL.
 
 ## Ejecución Local
 
@@ -571,6 +571,14 @@ Para ejecutar pruebas usando explícitamente el perfil `test` en PowerShell:
 ```powershell
 .\mvnw.cmd "-Dspring.profiles.active=test" test
 ```
+
+El perfil `test` usa por defecto la base de datos `parkio_test`. Antes de ejecutar pruebas de integración, crear la base:
+
+```sql
+CREATE DATABASE parkio_test;
+```
+
+La prueba de integración valida que la conexión apunte a `parkio_test` antes de limpiar datos de prueba.
 
 ## Bootstrap del Primer Administrador
 
@@ -701,7 +709,7 @@ Parte de esta documentación describe componentes futuros. Los módulos Auth, Ro
 
 A partir de las brechas entre el código y la documentación, el trabajo pendiente incluye:
 
-- Añadir pruebas de integración con PostgreSQL.
+- Ampliar las pruebas de integración con PostgreSQL para cubrir Rol, Estacionamiento y Cajón.
 - Mantener sincronizados el contrato API y el código implementado.
 
 Este roadmap se deriva de la documentación existente y del estado incompleto del código. No representa funcionalidades ya disponibles.

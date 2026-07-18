@@ -1,6 +1,6 @@
 spring:
   datasource:
-    url: ${PARKIO_TEST_DB_URL:${PARKIO_DB_URL:jdbc:postgresql://localhost:5432/parkio}}
+    url: ${PARKIO_TEST_DB_URL:${PARKIO_DB_URL:jdbc:postgresql://localhost:5432/parkio_test}}
     username: ${PARKIO_TEST_DB_USERNAME:${PARKIO_DB_USERNAME:postgres}}
     password: ${PARKIO_TEST_DB_PASSWORD:${PARKIO_DB_PASSWORD:123123}}
 
