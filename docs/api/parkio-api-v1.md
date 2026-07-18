@@ -1061,8 +1061,11 @@ También existen pruebas de integración con Spring Boot completo, PostgreSQL y 
 - `RolIntegrationTest`.
 - `EstacionamientoIntegrationTest`.
 - `CajonIntegrationTest`.
+- `UsuarioIntegrationTest`.
 
 Estas pruebas validan que la conexión use `parkio_test` antes de limpiar datos de prueba.
+
+`UsuarioIntegrationTest` cubre creación pública con rol base `USER`, conflictos por correo duplicado, permisos sobre usuario propio, bloqueo de acceso a usuarios ajenos, cambio de contraseña, administración de roles y estacionamientos por `ADMIN`, borrado lógico y rechazo de login para usuarios inactivos.
 
 ## Códigos HTTP utilizados
 

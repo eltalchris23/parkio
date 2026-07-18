@@ -38,7 +38,7 @@ Según el modelo actual y la documentación existente, Parkio busca proporcionar
 - Mantener información de auditoría básica sobre las entidades.
 - Autenticar usuarios mediante correo, contraseña BCrypt y JWT.
 
-La autorización por roles ya forma parte del código ejecutable de forma inicial para el módulo Rol. La autorización granular del resto de módulos continúa como trabajo pendiente.
+La autorización por roles ya forma parte del código ejecutable para Rol, Usuario, Estacionamiento y Cajón. Las reglas actuales distinguen operaciones administrativas, consultas permitidas y operaciones sobre el propio usuario según los roles `ADMIN`, `OPERADOR` y `USER`.
 
 ## Tecnologías Utilizadas
 
@@ -528,7 +528,9 @@ La URL del repositorio remoto y un procedimiento oficial para aprovisionar Postg
    ./mvnw clean package
    ```
 
-El proyecto contiene una prueba de carga del contexto de Spring, pruebas unitarias para mapper, servicio y controlador de Rol, Estacionamiento, Cajón y Usuario, una prueba de integración para el flujo Usuario/Auth/JWT y pruebas de integración para los módulos Rol, Estacionamiento y Cajón contra PostgreSQL.
+El proyecto contiene una prueba de carga del contexto de Spring, pruebas unitarias para mapper, servicio y controlador de Rol, Estacionamiento, Cajón y Usuario, pruebas de Auth/JWT/seguridad y pruebas de integración contra PostgreSQL para Auth/Usuario/JWT, Rol, Estacionamiento, Cajón y Usuario.
+
+La prueba `UsuarioIntegrationTest` valida el flujo de Usuario con Spring Boot completo, PostgreSQL y perfil `test`: creación pública con rol base `USER`, rechazo de correos duplicados, permisos de usuario propio, bloqueo sobre usuarios ajenos, cambio de contraseña, administración de roles y estacionamientos por `ADMIN`, borrado lógico y bloqueo de login para usuarios inactivos.
 
 ## Ejecución Local
 
