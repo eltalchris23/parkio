@@ -55,37 +55,80 @@ public class RolController {
     }
 
     /**
-     * Consulta un rol activo por su identificador.
+     * Consulta un rol activo por su identificador y devuelve una respuesta estandarizada.
+     *
+     * @param rolId identificador del rol consultado
+     * @param request solicitud HTTP usada para obtener o generar el transactionId
+     * @return respuesta estandarizada con los datos del rol encontrado
      */
     @GetMapping("/{rolId}")
-    public RolResponse getRol(@PathVariable Long rolId) {
-        return rolService.getRol(rolId);
+    public ResponseEntity<ApiResponse<RolResponse>> getRol(
+            @PathVariable Long rolId,
+            HttpServletRequest request
+    ) {
+        RolResponse response = rolService.getRol(rolId);
+
+        return ResponseEntity.ok(
+                ApiResponse.of(
+                        request,
+                        HttpStatus.OK.value(),
+                        "Rol consultado correctamente",
+                        response
+                )
+        );
     }
 
     /**
-     * Crea un nuevo rol validando los datos recibidos en la solicitud.
+     * Crea un nuevo rol validando los datos recibidos y devuelve una respuesta estandarizada.
+     *
+     * @param request datos necesarios para crear el rol
+     * @param httpRequest solicitud HTTP usada para obtener o generar el transactionId
+     * @return respuesta estandarizada con el rol creado y estado HTTP 201
      */
     @PostMapping
-    public ResponseEntity<RolResponse> addRol(
-            @Valid @RequestBody RolRequest request
+    public ResponseEntity<ApiResponse<RolResponse>> addRol(
+            @Valid @RequestBody RolRequest request,
+            HttpServletRequest httpRequest
     ) {
         RolResponse response = rolService.addRol(request);
 
         return ResponseEntity
                 .status(HttpStatus.CREATED)
-                .body(response);
+                .body(
+                        ApiResponse.of(
+                                httpRequest,
+                                HttpStatus.CREATED.value(),
+                                "Rol creado correctamente",
+                                response
+                        )
+                );
     }
 
     /**
      * Actualiza un rol activo existente usando el identificador de la ruta y los
-     * datos validados del cuerpo de la solicitud.
+     * datos validados del cuerpo de la solicitud, devolviendo una respuesta estandarizada.
+     *
+     * @param rolId identificador del rol que se actualizara
+     * @param request datos actualizados del rol
+     * @param httpRequest solicitud HTTP usada para obtener o generar el transactionId
+     * @return respuesta estandarizada con el rol actualizado
      */
     @PutMapping("/{rolId}")
-    public RolResponse updateRol(
+    public ResponseEntity<ApiResponse<RolResponse>> updateRol(
             @PathVariable Long rolId,
-            @Valid @RequestBody RolRequest request
+            @Valid @RequestBody RolRequest request,
+            HttpServletRequest httpRequest
     ) {
-        return rolService.updateRol(rolId, request);
+        RolResponse response = rolService.updateRol(rolId, request);
+
+        return ResponseEntity.ok(
+                ApiResponse.of(
+                        httpRequest,
+                        HttpStatus.OK.value(),
+                        "Rol actualizado correctamente",
+                        response
+                )
+        );
     }
 
     /**

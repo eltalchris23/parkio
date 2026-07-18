@@ -152,7 +152,7 @@ Query params soportados por Spring Data:
 
 ### Response 200
 
-El cuerpo completo usa `ApiResponse<PageResponse<EstacionamientoResponse>>`.
+El cuerpo completo usa `ApiResponse<PageResponse<RolResponse>>`.
 El arreglo mostrado a continuaciÃ³n corresponde al contenido de `data.content`.
 
 ```json
@@ -191,10 +191,16 @@ GET /api/roles/{rolId}
 
 ```json
 {
-  "id": 1,
-  "nombre": "ADMIN",
-  "activo": true,
-  "fechaCreacion": "2026-06-20T12:00:00"
+  "timestamp": "2026-07-17T12:00:00",
+  "status": 200,
+  "message": "Rol consultado correctamente",
+  "transactionId": "0f5d5c9b-8dc1-4bd1-a173-08f16eb4f96e",
+  "data": {
+    "id": 1,
+    "nombre": "ADMIN",
+    "activo": true,
+    "fechaCreacion": "2026-06-20T12:00:00"
+  }
 }
 ```
 
@@ -227,10 +233,16 @@ Validaciones:
 
 ```json
 {
-  "id": 1,
-  "nombre": "ADMIN",
-  "activo": true,
-  "fechaCreacion": "2026-06-20T12:00:00"
+  "timestamp": "2026-07-17T12:00:00",
+  "status": 201,
+  "message": "Rol creado correctamente",
+  "transactionId": "0f5d5c9b-8dc1-4bd1-a173-08f16eb4f96e",
+  "data": {
+    "id": 1,
+    "nombre": "ADMIN",
+    "activo": true,
+    "fechaCreacion": "2026-06-20T12:00:00"
+  }
 }
 ```
 
@@ -244,7 +256,20 @@ Utiliza el mismo cuerpo y las mismas validaciones de la creación.
 
 ### Response 200
 
-Devuelve el rol actualizado.
+```json
+{
+  "timestamp": "2026-07-17T12:00:00",
+  "status": 200,
+  "message": "Rol actualizado correctamente",
+  "transactionId": "0f5d5c9b-8dc1-4bd1-a173-08f16eb4f96e",
+  "data": {
+    "id": 1,
+    "nombre": "SUPERVISOR",
+    "activo": true,
+    "fechaCreacion": "2026-06-20T12:00:00"
+  }
+}
+```
 
 ## Eliminar Rol
 
@@ -346,16 +371,22 @@ POST /api/usuarios
 
 ```json
 {
-  "id": 1,
-  "nombre": "Juan",
-  "apellido": "Pérez",
-  "email": "juan@parkio.com",
-  "activo": true,
-  "fechaCreacion": "2026-06-28T12:00:00",
-  "roles": [
-    "USER"
-  ],
-  "estacionamientoIds": []
+  "timestamp": "2026-07-17T12:00:00",
+  "status": 201,
+  "message": "Usuario creado correctamente",
+  "transactionId": "0f5d5c9b-8dc1-4bd1-a173-08f16eb4f96e",
+  "data": {
+    "id": 1,
+    "nombre": "Juan",
+    "apellido": "Pérez",
+    "email": "juan@parkio.com",
+    "activo": true,
+    "fechaCreacion": "2026-06-28T12:00:00",
+    "roles": [
+      "USER"
+    ],
+    "estacionamientoIds": []
+  }
 }
 ```
 
@@ -381,14 +412,20 @@ GET /api/usuarios/{id}
 
 ```json
 {
-  "id": 1,
-  "nombre": "Juan",
-  "apellido": "Pérez",
-  "email": "juan@parkio.com",
-  "activo": true,
-  "fechaCreacion": "2026-06-28T12:00:00",
-  "roles": [],
-  "estacionamientoIds": []
+  "timestamp": "2026-07-17T12:00:00",
+  "status": 200,
+  "message": "Usuario consultado correctamente",
+  "transactionId": "0f5d5c9b-8dc1-4bd1-a173-08f16eb4f96e",
+  "data": {
+    "id": 1,
+    "nombre": "Juan",
+    "apellido": "Pérez",
+    "email": "juan@parkio.com",
+    "activo": true,
+    "fechaCreacion": "2026-06-28T12:00:00",
+    "roles": [],
+    "estacionamientoIds": []
+  }
 }
 ```
 
@@ -418,7 +455,24 @@ PUT /api/usuarios/{id}
 
 ### Response 200
 
-Devuelve un `UsuarioResponse` con la misma estructura documentada en la consulta.
+```json
+{
+  "timestamp": "2026-07-17T12:00:00",
+  "status": 200,
+  "message": "Usuario actualizado correctamente",
+  "transactionId": "0f5d5c9b-8dc1-4bd1-a173-08f16eb4f96e",
+  "data": {
+    "id": 1,
+    "nombre": "Juan",
+    "apellido": "Pérez",
+    "email": "juan@parkio.com",
+    "activo": true,
+    "fechaCreacion": "2026-06-28T12:00:00",
+    "roles": [],
+    "estacionamientoIds": []
+  }
+}
+```
 
 ### Respuestas de error
 
@@ -491,7 +545,26 @@ POST /api/usuarios/{usuarioId}/roles
 
 ### Response 200
 
-Devuelve el `UsuarioResponse` actualizado, incluyendo el nombre del rol dentro de `roles`.
+```json
+{
+  "timestamp": "2026-07-17T12:00:00",
+  "status": 200,
+  "message": "Rol asignado correctamente al usuario",
+  "transactionId": "0f5d5c9b-8dc1-4bd1-a173-08f16eb4f96e",
+  "data": {
+    "id": 1,
+    "nombre": "Juan",
+    "apellido": "Pérez",
+    "email": "juan@parkio.com",
+    "activo": true,
+    "fechaCreacion": "2026-06-28T12:00:00",
+    "roles": [
+      "USER"
+    ],
+    "estacionamientoIds": []
+  }
+}
+```
 
 ### Respuestas de error
 
@@ -538,7 +611,28 @@ POST /api/usuarios/{usuarioId}/estacionamientos
 
 ### Response 200
 
-Devuelve el `UsuarioResponse` actualizado, incluyendo el identificador dentro de `estacionamientoIds`.
+```json
+{
+  "timestamp": "2026-07-17T12:00:00",
+  "status": 200,
+  "message": "Estacionamiento asignado correctamente al usuario",
+  "transactionId": "0f5d5c9b-8dc1-4bd1-a173-08f16eb4f96e",
+  "data": {
+    "id": 1,
+    "nombre": "Juan",
+    "apellido": "Pérez",
+    "email": "juan@parkio.com",
+    "activo": true,
+    "fechaCreacion": "2026-06-28T12:00:00",
+    "roles": [
+      "USER"
+    ],
+    "estacionamientoIds": [
+      1
+    ]
+  }
+}
+```
 
 ### Respuestas de error
 
@@ -622,13 +716,19 @@ GET /api/estacionamientos/{estacionamientoId}
 
 ```json
 {
-  "id": 1,
-  "nombre": "Parkio Centro",
-  "descripcion": "Sucursal Centro Histórico",
-  "latitud": 19.432608,
-  "longitud": -99.133209,
-  "activo": true,
-  "fechaCreacion": "2026-06-21T12:00:00"
+  "timestamp": "2026-07-17T12:00:00",
+  "status": 200,
+  "message": "Estacionamiento consultado correctamente",
+  "transactionId": "0f5d5c9b-8dc1-4bd1-a173-08f16eb4f96e",
+  "data": {
+    "id": 1,
+    "nombre": "Parkio Centro",
+    "descripcion": "Sucursal Centro Histórico",
+    "latitud": 19.432608,
+    "longitud": -99.133209,
+    "activo": true,
+    "fechaCreacion": "2026-06-21T12:00:00"
+  }
 }
 ```
 
@@ -664,7 +764,23 @@ Validaciones:
 
 ### Response 201
 
-Devuelve el estacionamiento creado con el mismo formato de la consulta individual.
+```json
+{
+  "timestamp": "2026-07-17T12:00:00",
+  "status": 201,
+  "message": "Estacionamiento creado correctamente",
+  "transactionId": "0f5d5c9b-8dc1-4bd1-a173-08f16eb4f96e",
+  "data": {
+    "id": 1,
+    "nombre": "Parkio Centro",
+    "descripcion": "Sucursal Centro Histórico",
+    "latitud": 19.432608,
+    "longitud": -99.133209,
+    "activo": true,
+    "fechaCreacion": "2026-06-21T12:00:00"
+  }
+}
+```
 
 ## Actualizar Estacionamiento
 
@@ -678,7 +794,23 @@ Utiliza el mismo cuerpo y las mismas validaciones de la creación.
 
 ### Response 200
 
-Devuelve el estacionamiento actualizado.
+```json
+{
+  "timestamp": "2026-07-17T12:00:00",
+  "status": 200,
+  "message": "Estacionamiento actualizado correctamente",
+  "transactionId": "0f5d5c9b-8dc1-4bd1-a173-08f16eb4f96e",
+  "data": {
+    "id": 1,
+    "nombre": "Parkio Reforma",
+    "descripcion": "Sucursal Reforma",
+    "latitud": 19.427000,
+    "longitud": -99.167700,
+    "activo": true,
+    "fechaCreacion": "2026-06-21T12:00:00"
+  }
+}
+```
 
 ### Response 404
 
@@ -792,7 +924,23 @@ GET /api/cajones/{cajonId}
 
 ### Response 200
 
-Devuelve el cajón solicitado con el formato anterior.
+```json
+{
+  "timestamp": "2026-07-17T12:00:00",
+  "status": 200,
+  "message": "Cajon consultado correctamente",
+  "transactionId": "0f5d5c9b-8dc1-4bd1-a173-08f16eb4f96e",
+  "data": {
+    "id": 1,
+    "numero": "A-001",
+    "tipo": "AUTO",
+    "estado": "LIBRE",
+    "estacionamientoId": 1,
+    "activo": true,
+    "fechaCreacion": "2026-06-27T12:00:00"
+  }
+}
+```
 
 ### Response 404
 
@@ -824,13 +972,19 @@ El estado inicial se asigna automáticamente como `LIBRE`. El número y tipo son
 
 ```json
 {
-  "id": 1,
-  "estacionamientoId": 1,
-  "numero": "A-001",
-  "tipo": "AUTO",
-  "estado": "LIBRE",
-  "activo": true,
-  "fechaCreacion": "2026-06-27T12:00:00"
+  "timestamp": "2026-07-17T12:00:00",
+  "status": 201,
+  "message": "Cajon creado correctamente",
+  "transactionId": "0f5d5c9b-8dc1-4bd1-a173-08f16eb4f96e",
+  "data": {
+    "id": 1,
+    "numero": "A-001",
+    "tipo": "AUTO",
+    "estado": "LIBRE",
+    "estacionamientoId": 1,
+    "activo": true,
+    "fechaCreacion": "2026-06-27T12:00:00"
+  }
 }
 ```
 
@@ -852,7 +1006,23 @@ Utiliza el mismo cuerpo de la creación. La actualización conserva el estado ac
 
 ### Response 200
 
-Devuelve el cajón actualizado.
+```json
+{
+  "timestamp": "2026-07-17T12:00:00",
+  "status": 200,
+  "message": "Cajon actualizado correctamente",
+  "transactionId": "0f5d5c9b-8dc1-4bd1-a173-08f16eb4f96e",
+  "data": {
+    "id": 1,
+    "numero": "B-002",
+    "tipo": "ELECTRICO",
+    "estado": "LIBRE",
+    "estacionamientoId": 1,
+    "activo": true,
+    "fechaCreacion": "2026-06-27T12:00:00"
+  }
+}
+```
 
 ### Response 404
 
@@ -880,7 +1050,23 @@ Estados permitidos: `LIBRE`, `OCUPADO` y `FUERA_SERVICIO`.
 
 ### Response 200
 
-Devuelve el cajón con el estado actualizado.
+```json
+{
+  "timestamp": "2026-07-17T12:00:00",
+  "status": 200,
+  "message": "Estado del cajon actualizado correctamente",
+  "transactionId": "0f5d5c9b-8dc1-4bd1-a173-08f16eb4f96e",
+  "data": {
+    "id": 1,
+    "numero": "A-001",
+    "tipo": "AUTO",
+    "estado": "OCUPADO",
+    "estacionamientoId": 1,
+    "activo": true,
+    "fechaCreacion": "2026-06-27T12:00:00"
+  }
+}
+```
 
 ### Response 400
 

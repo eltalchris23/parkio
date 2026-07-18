@@ -141,8 +141,10 @@ class SecurityConfigTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isCreated())
-                .andExpect(jsonPath("$.id").value(1L))
-                .andExpect(jsonPath("$.email").value("christian@parkio.com"));
+                .andExpect(jsonPath("$.status").value(201))
+                .andExpect(jsonPath("$.transactionId").isNotEmpty())
+                .andExpect(jsonPath("$.data.id").value(1L))
+                .andExpect(jsonPath("$.data.email").value("christian@parkio.com"));
     }
 
     /**
@@ -274,8 +276,10 @@ class SecurityConfigTest {
                                 .jwt(jwt -> jwt.claim("usuarioId", 1L))
                                 .authorities(() -> "ROLE_USER")))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.id").value(1L))
-                .andExpect(jsonPath("$.email").value("christian@parkio.com"));
+                .andExpect(jsonPath("$.status").value(200))
+                .andExpect(jsonPath("$.transactionId").isNotEmpty())
+                .andExpect(jsonPath("$.data.id").value(1L))
+                .andExpect(jsonPath("$.data.email").value("christian@parkio.com"));
 
         verify(usuarioService).getUserById(1L);
     }
@@ -317,8 +321,10 @@ class SecurityConfigTest {
                                 .jwt(jwt -> jwt.claim("usuarioId", 1L))
                                 .authorities(() -> "ROLE_OPERADOR")))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.id").value(1L))
-                .andExpect(jsonPath("$.roles[0]").value("OPERADOR"));
+                .andExpect(jsonPath("$.status").value(200))
+                .andExpect(jsonPath("$.transactionId").isNotEmpty())
+                .andExpect(jsonPath("$.data.id").value(1L))
+                .andExpect(jsonPath("$.data.roles[0]").value("OPERADOR"));
 
         verify(usuarioService).getUserById(1L);
     }
@@ -430,8 +436,10 @@ class SecurityConfigTest {
         mockMvc.perform(get("/api/estacionamientos/1")
                         .with(jwt().authorities(() -> "ROLE_ADMIN")))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.id").value(1L))
-                .andExpect(jsonPath("$.nombre").value("Estacionamiento Centro"));
+                .andExpect(jsonPath("$.status").value(200))
+                .andExpect(jsonPath("$.transactionId").isNotEmpty())
+                .andExpect(jsonPath("$.data.id").value(1L))
+                .andExpect(jsonPath("$.data.nombre").value("Estacionamiento Centro"));
 
         verify(estacionamientoService).getEstacionamientoById(1L);
     }
@@ -485,8 +493,10 @@ class SecurityConfigTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isCreated())
-                .andExpect(jsonPath("$.id").value(1L))
-                .andExpect(jsonPath("$.nombre").value("Estacionamiento Centro"));
+                .andExpect(jsonPath("$.status").value(201))
+                .andExpect(jsonPath("$.transactionId").isNotEmpty())
+                .andExpect(jsonPath("$.data.id").value(1L))
+                .andExpect(jsonPath("$.data.nombre").value("Estacionamiento Centro"));
 
         verify(estacionamientoService).addEstacionamiento(request);
     }
@@ -624,8 +634,10 @@ class SecurityConfigTest {
         mockMvc.perform(get("/api/cajones/1")
                         .with(jwt().authorities(() -> "ROLE_USER")))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.id").value(1L))
-                .andExpect(jsonPath("$.numero").value("A-001"));
+                .andExpect(jsonPath("$.status").value(200))
+                .andExpect(jsonPath("$.transactionId").isNotEmpty())
+                .andExpect(jsonPath("$.data.id").value(1L))
+                .andExpect(jsonPath("$.data.numero").value("A-001"));
 
         verify(cajonService).getCajon(1L);
     }
@@ -661,8 +673,10 @@ class SecurityConfigTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isCreated())
-                .andExpect(jsonPath("$.id").value(1L))
-                .andExpect(jsonPath("$.numero").value("A-001"));
+                .andExpect(jsonPath("$.status").value(201))
+                .andExpect(jsonPath("$.transactionId").isNotEmpty())
+                .andExpect(jsonPath("$.data.id").value(1L))
+                .andExpect(jsonPath("$.data.numero").value("A-001"));
 
         verify(cajonService).addCajon(request);
     }
@@ -698,8 +712,10 @@ class SecurityConfigTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.id").value(1L))
-                .andExpect(jsonPath("$.estado").value("OCUPADO"));
+                .andExpect(jsonPath("$.status").value(200))
+                .andExpect(jsonPath("$.transactionId").isNotEmpty())
+                .andExpect(jsonPath("$.data.id").value(1L))
+                .andExpect(jsonPath("$.data.estado").value("OCUPADO"));
 
         verify(cajonService).updateEstado(1L, request);
     }

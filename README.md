@@ -294,7 +294,7 @@ Incluye:
 
 El repositorio utiliza `Long` como tipo de identificador, en concordancia con `BaseEntity`.
 
-El módulo implementa operaciones para listar de forma paginada, consultar, crear, actualizar y eliminar usuarios, además de asignar y retirar roles y estacionamientos. El listado devuelve una respuesta estandarizada con `ApiResponse<PageResponse<UsuarioResponse>>`, incluyendo código HTTP, mensaje y `transactionId`. Al crear un usuario mediante el registro público se asigna automáticamente el rol base `USER`. La eliminación es lógica mediante `activo=false`. Valida correos duplicados y asociaciones, utiliza transacciones y nunca incluye `passwordHash` en las respuestas. `UsuarioResponse` expone los nombres de roles y los identificadores de estacionamientos asociados.
+El módulo implementa operaciones para listar de forma paginada, consultar, crear, actualizar y eliminar usuarios, además de asignar y retirar roles y estacionamientos. El listado devuelve una respuesta estandarizada con `ApiResponse<PageResponse<UsuarioResponse>>`, mientras que consultar, crear, actualizar, asignar rol y asignar estacionamiento devuelven `ApiResponse<UsuarioResponse>`, incluyendo código HTTP, mensaje y `transactionId`. Al crear un usuario mediante el registro público se asigna automáticamente el rol base `USER`. La eliminación es lógica mediante `activo=false`. Valida correos duplicados y asociaciones, utiliza transacciones y nunca incluye `passwordHash` en las respuestas. `UsuarioResponse` expone los nombres de roles y los identificadores de estacionamientos asociados.
 
 La autorización de Usuario usa `@PreAuthorize` y el helper `UsuarioSecurity` para comparar el `usuarioId` de la ruta contra el claim `usuarioId` del JWT. `ADMIN` puede administrar usuarios; `USER` y `OPERADOR` solo pueden consultar, actualizar y cambiar la contraseña de su propio usuario. Las operaciones de asignación y retiro de roles o estacionamientos son exclusivas de `ADMIN`.
 
@@ -314,7 +314,7 @@ Incluye:
 - Validaciones de entrada.
 - Pruebas unitarias de mapper, servicio y controlador.
 
-El módulo implementa operaciones para listar de forma paginada, consultar, crear, actualizar y eliminar roles. El listado devuelve una respuesta estandarizada con `ApiResponse<PageResponse<RolResponse>>`, incluyendo código HTTP, mensaje y `transactionId`. La eliminación es lógica mediante `activo=false`. Utiliza DTOs, mapper, transacciones, validación de nombres duplicados y las excepciones compartidas `ResourceNotFoundException` y `ConflictException`.
+El módulo implementa operaciones para listar de forma paginada, consultar, crear, actualizar y eliminar roles. El listado devuelve una respuesta estandarizada con `ApiResponse<PageResponse<RolResponse>>`, mientras que consultar, crear y actualizar devuelven `ApiResponse<RolResponse>`, incluyendo código HTTP, mensaje y `transactionId`. La eliminación es lógica mediante `activo=false`. Utiliza DTOs, mapper, transacciones, validación de nombres duplicados y las excepciones compartidas `ResourceNotFoundException` y `ConflictException`.
 
 ### Estacionamiento
 
@@ -330,7 +330,7 @@ Incluye:
 - Validaciones de entrada.
 - Pruebas unitarias de mapper, servicio y controlador.
 
-El módulo implementa operaciones para listar de forma paginada, consultar, crear, actualizar y eliminar estacionamientos. El listado devuelve una respuesta estandarizada con `ApiResponse<PageResponse<EstacionamientoResponse>>`, incluyendo código HTTP, mensaje y `transactionId`. Utiliza DTOs, mapper, transacciones y `ResourceNotFoundException` para recursos inexistentes. La eliminación es lógica mediante `activo=false` y también desactiva lógicamente los cajones activos asociados. La autorización permite listar y consultar a `ADMIN`, `OPERADOR` y `USER`; crear, actualizar y eliminar son operaciones exclusivas de `ADMIN`.
+El módulo implementa operaciones para listar de forma paginada, consultar, crear, actualizar y eliminar estacionamientos. El listado devuelve una respuesta estandarizada con `ApiResponse<PageResponse<EstacionamientoResponse>>`, mientras que consultar, crear y actualizar devuelven `ApiResponse<EstacionamientoResponse>`, incluyendo código HTTP, mensaje y `transactionId`. Utiliza DTOs, mapper, transacciones y `ResourceNotFoundException` para recursos inexistentes. La eliminación es lógica mediante `activo=false` y también desactiva lógicamente los cajones activos asociados. La autorización permite listar y consultar a `ADMIN`, `OPERADOR` y `USER`; crear, actualizar y eliminar son operaciones exclusivas de `ADMIN`.
 
 ### Cajón
 
@@ -347,7 +347,7 @@ Incluye:
 - `CajonEstadoRequest` para cambios de estado.
 - Pruebas unitarias de mapper, servicio y controlador.
 
-El módulo implementa operaciones para listar de forma paginada, filtrar por estacionamiento de forma paginada, consultar, crear, actualizar, cambiar el estado y eliminar cajones. Los listados devuelven una respuesta estandarizada con `ApiResponse<PageResponse<CajonResponse>>`, incluyendo código HTTP, mensaje y `transactionId`. La eliminación es lógica mediante `activo=false`. Valida la existencia del cajón y del estacionamiento, evita números duplicados dentro del mismo estacionamiento y aplica Jakarta Validation en `CajonRequest` y `CajonEstadoRequest`. La autorización permite listar y consultar a `ADMIN`, `OPERADOR` y `USER`; cambiar estado a `ADMIN` y `OPERADOR`; crear, actualizar y eliminar son operaciones exclusivas de `ADMIN`.
+El módulo implementa operaciones para listar de forma paginada, filtrar por estacionamiento de forma paginada, consultar, crear, actualizar, cambiar el estado y eliminar cajones. Los listados devuelven una respuesta estandarizada con `ApiResponse<PageResponse<CajonResponse>>`, mientras que consultar, crear, actualizar y cambiar estado devuelven `ApiResponse<CajonResponse>`, incluyendo código HTTP, mensaje y `transactionId`. La eliminación es lógica mediante `activo=false`. Valida la existencia del cajón y del estacionamiento, evita números duplicados dentro del mismo estacionamiento y aplica Jakarta Validation en `CajonRequest` y `CajonEstadoRequest`. La autorización permite listar y consultar a `ADMIN`, `OPERADOR` y `USER`; cambiar estado a `ADMIN` y `OPERADOR`; crear, actualizar y eliminar son operaciones exclusivas de `ADMIN`.
 
 ### Auditoría
 

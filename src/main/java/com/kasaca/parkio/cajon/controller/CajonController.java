@@ -72,31 +72,55 @@ public class CajonController {
     }
 
     /**
-     * Consulta un cajón por su identificador.
+     * Consulta un cajón activo por su identificador.
      *
      * @param cajonId identificador del cajón
-     * @return datos del cajón encontrado
+     * @param request solicitud HTTP usada para obtener el transactionId
+     * @return respuesta estandarizada con los datos del cajón encontrado
      */
     @PreAuthorize("hasAnyRole('ADMIN', 'OPERADOR', 'USER')")
     @GetMapping("/{cajonId}")
-    public CajonResponse getCajon(@PathVariable Long cajonId) {
-        return cajonService.getCajon(cajonId);
+    public ResponseEntity<ApiResponse<CajonResponse>> getCajon(
+            @PathVariable Long cajonId,
+            HttpServletRequest request
+    ) {
+        CajonResponse response = cajonService.getCajon(cajonId);
+
+        return ResponseEntity.ok(
+                ApiResponse.of(
+                        request,
+                        HttpStatus.OK.value(),
+                        "Cajon consultado correctamente",
+                        response
+                )
+        );
     }
 
     /**
      * Crea un cajón dentro de un estacionamiento existente.
      *
      * @param request datos necesarios para crear el cajón
-     * @return cajón creado con estado HTTP 201
+     * @param httpRequest solicitud HTTP usada para obtener el transactionId
+     * @return respuesta estandarizada con el cajón creado y estado HTTP 201
      */
     @PreAuthorize("hasRole('ADMIN')")
     @PostMapping
-    public ResponseEntity<CajonResponse> addCajon(@Valid @RequestBody CajonRequest request) {
+    public ResponseEntity<ApiResponse<CajonResponse>> addCajon(
+            @Valid @RequestBody CajonRequest request,
+            HttpServletRequest httpRequest
+    ) {
         CajonResponse response = cajonService.addCajon(request);
 
         return ResponseEntity
                 .status(HttpStatus.CREATED)
-                .body(response);
+                .body(
+                        ApiResponse.of(
+                                httpRequest,
+                                HttpStatus.CREATED.value(),
+                                "Cajon creado correctamente",
+                                response
+                        )
+                );
     }
 
     /**
@@ -104,12 +128,26 @@ public class CajonController {
      *
      * @param cajonId identificador del cajón
      * @param request datos actualizados del cajón
-     * @return cajón actualizado
+     * @param httpRequest solicitud HTTP usada para obtener el transactionId
+     * @return respuesta estandarizada con el cajón actualizado
      */
     @PreAuthorize("hasRole('ADMIN')")
     @PutMapping("/{cajonId}")
-    public CajonResponse updateCajon(@PathVariable Long cajonId,@Valid @RequestBody CajonRequest request) {
-        return cajonService.updateCajon(cajonId, request);
+    public ResponseEntity<ApiResponse<CajonResponse>> updateCajon(
+            @PathVariable Long cajonId,
+            @Valid @RequestBody CajonRequest request,
+            HttpServletRequest httpRequest
+    ) {
+        CajonResponse response = cajonService.updateCajon(cajonId, request);
+
+        return ResponseEntity.ok(
+                ApiResponse.of(
+                        httpRequest,
+                        HttpStatus.OK.value(),
+                        "Cajon actualizado correctamente",
+                        response
+                )
+        );
     }
 
     /**
@@ -117,12 +155,26 @@ public class CajonController {
      *
      * @param cajonId identificador del cajón
      * @param request nuevo estado que se asignará al cajón
-     * @return cajón con el estado actualizado
+     * @param httpRequest solicitud HTTP usada para obtener el transactionId
+     * @return respuesta estandarizada con el cajón con estado actualizado
      */
     @PreAuthorize("hasAnyRole('ADMIN', 'OPERADOR')")
     @PatchMapping("/{cajonId}/estado")
-    public CajonResponse updateEstado(@PathVariable Long cajonId, @Valid @RequestBody CajonEstadoRequest request) {
-        return cajonService.updateEstado(cajonId, request);
+    public ResponseEntity<ApiResponse<CajonResponse>> updateEstado(
+            @PathVariable Long cajonId,
+            @Valid @RequestBody CajonEstadoRequest request,
+            HttpServletRequest httpRequest
+    ) {
+        CajonResponse response = cajonService.updateEstado(cajonId, request);
+
+        return ResponseEntity.ok(
+                ApiResponse.of(
+                        httpRequest,
+                        HttpStatus.OK.value(),
+                        "Estado del cajon actualizado correctamente",
+                        response
+                )
+        );
     }
 
     /**

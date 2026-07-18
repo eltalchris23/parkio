@@ -96,9 +96,12 @@ class RolControllerTest {
 
         mockMvc.perform(get("/api/roles/1"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.id").value(1L))
-                .andExpect(jsonPath("$.nombre").value("ADMIN"))
-                .andExpect(jsonPath("$.activo").value(true));
+                .andExpect(jsonPath("$.status").value(200))
+                .andExpect(jsonPath("$.message").value("Rol consultado correctamente"))
+                .andExpect(jsonPath("$.transactionId").isNotEmpty())
+                .andExpect(jsonPath("$.data.id").value(1L))
+                .andExpect(jsonPath("$.data.nombre").value("ADMIN"))
+                .andExpect(jsonPath("$.data.activo").value(true));
 
         verify(rolService).getRol(1L);
     }
@@ -128,9 +131,12 @@ class RolControllerTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isCreated())
-                .andExpect(jsonPath("$.id").value(1L))
-                .andExpect(jsonPath("$.nombre").value("ADMIN"))
-                .andExpect(jsonPath("$.activo").value(true));
+                .andExpect(jsonPath("$.status").value(201))
+                .andExpect(jsonPath("$.message").value("Rol creado correctamente"))
+                .andExpect(jsonPath("$.transactionId").isNotEmpty())
+                .andExpect(jsonPath("$.data.id").value(1L))
+                .andExpect(jsonPath("$.data.nombre").value("ADMIN"))
+                .andExpect(jsonPath("$.data.activo").value(true));
 
         verify(rolService).addRol(request);
     }
@@ -211,9 +217,12 @@ class RolControllerTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.id").value(1L))
-                .andExpect(jsonPath("$.nombre").value("SUPERVISOR"))
-                .andExpect(jsonPath("$.activo").value(false));
+                .andExpect(jsonPath("$.status").value(200))
+                .andExpect(jsonPath("$.message").value("Rol actualizado correctamente"))
+                .andExpect(jsonPath("$.transactionId").isNotEmpty())
+                .andExpect(jsonPath("$.data.id").value(1L))
+                .andExpect(jsonPath("$.data.nombre").value("SUPERVISOR"))
+                .andExpect(jsonPath("$.data.activo").value(false));
 
         verify(rolService).updateRol(1L, request);
     }

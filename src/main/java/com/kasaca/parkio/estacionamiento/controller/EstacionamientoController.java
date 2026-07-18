@@ -58,36 +58,86 @@ public class EstacionamientoController {
 
     /**
      * Consulta un estacionamiento activo por identificador para usuarios
-     * autenticados con rol ADMIN, OPERADOR o USER.
+     * autenticados con rol ADMIN, OPERADOR o USER y devuelve una respuesta estandarizada.
+     *
+     * @param estacionamientoId identificador del estacionamiento consultado
+     * @param request solicitud HTTP usada para obtener o generar el transactionId
+     * @return respuesta estandarizada con los datos del estacionamiento encontrado
      */
     @PreAuthorize("hasAnyRole('ADMIN', 'OPERADOR', 'USER')")
     @GetMapping("/{estacionamientoId}")
-    public EstacionamientoResponse getEstacionamientoById(@PathVariable Long estacionamientoId) {
-        return estacionamientoService.getEstacionamientoById(estacionamientoId);
+    public ResponseEntity<ApiResponse<EstacionamientoResponse>> getEstacionamientoById(
+            @PathVariable Long estacionamientoId,
+            HttpServletRequest request
+    ) {
+        EstacionamientoResponse response =
+                estacionamientoService.getEstacionamientoById(estacionamientoId);
+
+        return ResponseEntity.ok(
+                ApiResponse.of(
+                        request,
+                        HttpStatus.OK.value(),
+                        "Estacionamiento consultado correctamente",
+                        response
+                )
+        );
     }
 
     /**
-     * Crea un nuevo estacionamiento con datos validados. Esta operación solo está
-     * permitida para usuarios con rol ADMIN.
+     * Crea un nuevo estacionamiento con datos validados. Esta operacion solo esta
+     * permitida para usuarios con rol ADMIN y devuelve una respuesta estandarizada.
+     *
+     * @param request datos necesarios para crear el estacionamiento
+     * @param httpRequest solicitud HTTP usada para obtener o generar el transactionId
+     * @return respuesta estandarizada con el estacionamiento creado y estado HTTP 201
      */
     @PreAuthorize("hasRole('ADMIN')")
     @PostMapping
-    public ResponseEntity<EstacionamientoResponse> addEstacionamiento(@Valid @RequestBody EstacionamientoRequest request) {
+    public ResponseEntity<ApiResponse<EstacionamientoResponse>> addEstacionamiento(
+            @Valid @RequestBody EstacionamientoRequest request,
+            HttpServletRequest httpRequest
+    ) {
         EstacionamientoResponse response = estacionamientoService.addEstacionamiento(request);
 
         return ResponseEntity
                 .status(HttpStatus.CREATED)
-                .body(response);
+                .body(
+                        ApiResponse.of(
+                                httpRequest,
+                                HttpStatus.CREATED.value(),
+                                "Estacionamiento creado correctamente",
+                                response
+                        )
+                );
     }
 
     /**
-     * Actualiza un estacionamiento activo existente. Esta operación solo está
-     * permitida para usuarios con rol ADMIN.
+     * Actualiza un estacionamiento activo existente. Esta operacion solo esta
+     * permitida para usuarios con rol ADMIN y devuelve una respuesta estandarizada.
+     *
+     * @param estacionamientoId identificador del estacionamiento que se actualizara
+     * @param request datos actualizados del estacionamiento
+     * @param httpRequest solicitud HTTP usada para obtener o generar el transactionId
+     * @return respuesta estandarizada con el estacionamiento actualizado
      */
     @PreAuthorize("hasRole('ADMIN')")
     @PutMapping("/{estacionamientoId}")
-    public EstacionamientoResponse updateEstacionamiento(@PathVariable Long estacionamientoId,@Valid @RequestBody EstacionamientoRequest request) {
-        return estacionamientoService.updateEstacionamiento(estacionamientoId, request);
+    public ResponseEntity<ApiResponse<EstacionamientoResponse>> updateEstacionamiento(
+            @PathVariable Long estacionamientoId,
+            @Valid @RequestBody EstacionamientoRequest request,
+            HttpServletRequest httpRequest
+    ) {
+        EstacionamientoResponse response =
+                estacionamientoService.updateEstacionamiento(estacionamientoId, request);
+
+        return ResponseEntity.ok(
+                ApiResponse.of(
+                        httpRequest,
+                        HttpStatus.OK.value(),
+                        "Estacionamiento actualizado correctamente",
+                        response
+                )
+        );
     }
 
     /**

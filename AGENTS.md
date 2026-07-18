@@ -45,9 +45,13 @@ Antes de realizar cambios, considerar lo siguiente:
 - Las operaciones `DELETE` de Rol, Usuario, Estacionamiento y Cajón realizan borrado lógico mediante `activo=false`.
 - Las consultas normales trabajan solo con registros activos. Un registro inactivo debe tratarse como no encontrado para la API.
 - El listado de roles `GET /api/roles` devuelve una respuesta estandarizada mediante `ApiResponse<PageResponse<RolResponse>>` y acepta `page`, `size` y `sort`.
+- Las operaciones no paginadas de Rol para consultar, crear y actualizar devuelven una respuesta estandarizada mediante `ApiResponse<RolResponse>`.
 - El listado de estacionamientos `GET /api/estacionamientos` devuelve una respuesta estandarizada mediante `ApiResponse<PageResponse<EstacionamientoResponse>>` y acepta `page`, `size` y `sort`.
+- Las operaciones no paginadas de Estacionamiento para consultar, crear y actualizar devuelven una respuesta estandarizada mediante `ApiResponse<EstacionamientoResponse>`.
 - Los listados de cajones `GET /api/cajones` y `GET /api/cajones?estacionamientoId={id}` devuelven una respuesta estandarizada mediante `ApiResponse<PageResponse<CajonResponse>>` y aceptan `page`, `size` y `sort`.
+- Las operaciones no paginadas de Cajón para consultar, crear, actualizar y cambiar estado devuelven una respuesta estandarizada mediante `ApiResponse<CajonResponse>`.
 - El listado de usuarios `GET /api/usuarios` devuelve una respuesta estandarizada mediante `ApiResponse<PageResponse<UsuarioResponse>>` y acepta `page`, `size` y `sort`.
+- Las operaciones no paginadas de Usuario para consultar, crear, actualizar, asignar rol y asignar estacionamiento devuelven una respuesta estandarizada mediante `ApiResponse<UsuarioResponse>`.
 - Existe `TransactionIdFilter`, que genera o reutiliza el header `X-Transaction-Id`, lo agrega al response, lo deja disponible para logs mediante MDC y lo incluye en respuestas exitosas estandarizadas y errores.
 - Al desactivar un estacionamiento, también se desactivan lógicamente sus cajones activos.
 - Los usuarios inactivos no pueden iniciar sesión.

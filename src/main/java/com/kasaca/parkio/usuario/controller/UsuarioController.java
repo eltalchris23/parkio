@@ -64,30 +64,54 @@ public class UsuarioController {
     }
 
     /**
-     * Obtiene un usuario mediante su identificador.
+     * Obtiene un usuario activo mediante su identificador.
      *
      * @param usuarioId identificador del usuario
-     * @return datos públicos del usuario encontrado
+     * @param request solicitud HTTP usada para obtener el transactionId
+     * @return respuesta estandarizada con los datos publicos del usuario encontrado
      */
     @PreAuthorize("hasRole('ADMIN') or (hasAnyRole('USER', 'OPERADOR') and @usuarioSecurity.isSelf(authentication, #usuarioId))")
     @GetMapping("/{usuarioId}")
-    public UsuarioResponse getUserById(@PathVariable Long usuarioId) {
-        return usuarioService.getUserById(usuarioId);
+    public ResponseEntity<ApiResponse<UsuarioResponse>> getUserById(
+            @PathVariable Long usuarioId,
+            HttpServletRequest request
+    ) {
+        UsuarioResponse response = usuarioService.getUserById(usuarioId);
+
+        return ResponseEntity.ok(
+                ApiResponse.of(
+                        request,
+                        HttpStatus.OK.value(),
+                        "Usuario consultado correctamente",
+                        response
+                )
+        );
     }
 
     /**
      * Crea un usuario validando los datos recibidos.
      *
      * @param request datos del usuario nuevo
-     * @return usuario creado con estado HTTP 201
+     * @param httpRequest solicitud HTTP usada para obtener el transactionId
+     * @return respuesta estandarizada con el usuario creado y estado HTTP 201
      */
     @PostMapping
-    public ResponseEntity<UsuarioResponse> addUser(@Valid @RequestBody UsuarioCreateRequest request) {
+    public ResponseEntity<ApiResponse<UsuarioResponse>> addUser(
+            @Valid @RequestBody UsuarioCreateRequest request,
+            HttpServletRequest httpRequest
+    ) {
         UsuarioResponse response = usuarioService.addUser(request);
 
         return ResponseEntity
                 .status(HttpStatus.CREATED)
-                .body(response);
+                .body(
+                        ApiResponse.of(
+                                httpRequest,
+                                HttpStatus.CREATED.value(),
+                                "Usuario creado correctamente",
+                                response
+                        )
+                );
     }
 
     /**
@@ -95,12 +119,26 @@ public class UsuarioController {
      *
      * @param usuarioId identificador del usuario
      * @param request datos actualizados
-     * @return usuario actualizado
+     * @param httpRequest solicitud HTTP usada para obtener el transactionId
+     * @return respuesta estandarizada con el usuario actualizado
      */
     @PreAuthorize("hasRole('ADMIN') or (hasAnyRole('USER', 'OPERADOR') and @usuarioSecurity.isSelf(authentication, #usuarioId))")
     @PutMapping("/{usuarioId}")
-    public UsuarioResponse updateUser(@PathVariable Long usuarioId, @Valid @RequestBody UsuarioUpdateRequest request) {
-        return usuarioService.updateUser(usuarioId, request);
+    public ResponseEntity<ApiResponse<UsuarioResponse>> updateUser(
+            @PathVariable Long usuarioId,
+            @Valid @RequestBody UsuarioUpdateRequest request,
+            HttpServletRequest httpRequest
+    ) {
+        UsuarioResponse response = usuarioService.updateUser(usuarioId, request);
+
+        return ResponseEntity.ok(
+                ApiResponse.of(
+                        httpRequest,
+                        HttpStatus.OK.value(),
+                        "Usuario actualizado correctamente",
+                        response
+                )
+        );
     }
 
     /**
@@ -133,12 +171,26 @@ public class UsuarioController {
      *
      * @param usuarioId identificador del usuario que recibirá el rol
      * @param request solicitud que contiene el identificador del rol
-     * @return usuario con su lista de roles actualizada
+     * @param httpRequest solicitud HTTP usada para obtener el transactionId
+     * @return respuesta estandarizada con el usuario y su lista de roles actualizada
      */
     @PreAuthorize("hasRole('ADMIN')")
     @PostMapping("/{usuarioId}/roles")
-    public UsuarioResponse assignRole(@PathVariable Long usuarioId, @Valid @RequestBody UsuarioRolRequest request) {
-        return usuarioService.assignRole(usuarioId, request);
+    public ResponseEntity<ApiResponse<UsuarioResponse>> assignRole(
+            @PathVariable Long usuarioId,
+            @Valid @RequestBody UsuarioRolRequest request,
+            HttpServletRequest httpRequest
+    ) {
+        UsuarioResponse response = usuarioService.assignRole(usuarioId, request);
+
+        return ResponseEntity.ok(
+                ApiResponse.of(
+                        httpRequest,
+                        HttpStatus.OK.value(),
+                        "Rol asignado correctamente al usuario",
+                        response
+                )
+        );
     }
 
     /**
@@ -159,12 +211,26 @@ public class UsuarioController {
      *
      * @param usuarioId identificador del usuario
      * @param request solicitud que contiene el identificador del estacionamiento
-     * @return usuario con sus estacionamientos actualizados
+     * @param httpRequest solicitud HTTP usada para obtener el transactionId
+     * @return respuesta estandarizada con el usuario y sus estacionamientos actualizados
      */
     @PreAuthorize("hasRole('ADMIN')")
     @PostMapping("/{usuarioId}/estacionamientos")
-    public UsuarioResponse assignEstacionamiento(@PathVariable Long usuarioId, @Valid @RequestBody UsuarioEstacionamientoRequest request) {
-        return usuarioService.assignEstacionamiento(usuarioId, request);
+    public ResponseEntity<ApiResponse<UsuarioResponse>> assignEstacionamiento(
+            @PathVariable Long usuarioId,
+            @Valid @RequestBody UsuarioEstacionamientoRequest request,
+            HttpServletRequest httpRequest
+    ) {
+        UsuarioResponse response = usuarioService.assignEstacionamiento(usuarioId, request);
+
+        return ResponseEntity.ok(
+                ApiResponse.of(
+                        httpRequest,
+                        HttpStatus.OK.value(),
+                        "Estacionamiento asignado correctamente al usuario",
+                        response
+                )
+        );
     }
 
     /**

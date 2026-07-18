@@ -120,8 +120,11 @@ class CajonControllerTest {
 
         mockMvc.perform(get("/api/cajones/1"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.id").value(1L))
-                .andExpect(jsonPath("$.numero").value("A-001"));
+                .andExpect(jsonPath("$.status").value(200))
+                .andExpect(jsonPath("$.message").value("Cajon consultado correctamente"))
+                .andExpect(jsonPath("$.transactionId").isNotEmpty())
+                .andExpect(jsonPath("$.data.id").value(1L))
+                .andExpect(jsonPath("$.data.numero").value("A-001"));
 
         verify(cajonService).getCajon(1L);
     }
@@ -150,8 +153,11 @@ class CajonControllerTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isCreated())
-                .andExpect(jsonPath("$.id").value(1L))
-                .andExpect(jsonPath("$.estado").value("LIBRE"));
+                .andExpect(jsonPath("$.status").value(201))
+                .andExpect(jsonPath("$.message").value("Cajon creado correctamente"))
+                .andExpect(jsonPath("$.transactionId").isNotEmpty())
+                .andExpect(jsonPath("$.data.id").value(1L))
+                .andExpect(jsonPath("$.data.estado").value("LIBRE"));
 
         verify(cajonService).addCajon(any(CajonRequest.class));
     }
@@ -251,9 +257,12 @@ class CajonControllerTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.id").value(1L))
-                .andExpect(jsonPath("$.numero").value("B-002"))
-                .andExpect(jsonPath("$.tipo").value("ELECTRICO"));
+                .andExpect(jsonPath("$.status").value(200))
+                .andExpect(jsonPath("$.message").value("Cajon actualizado correctamente"))
+                .andExpect(jsonPath("$.transactionId").isNotEmpty())
+                .andExpect(jsonPath("$.data.id").value(1L))
+                .andExpect(jsonPath("$.data.numero").value("B-002"))
+                .andExpect(jsonPath("$.data.tipo").value("ELECTRICO"));
 
         verify(cajonService).updateCajon(
                 any(Long.class),
@@ -285,8 +294,11 @@ class CajonControllerTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.id").value(1L))
-                .andExpect(jsonPath("$.estado").value("OCUPADO"));
+                .andExpect(jsonPath("$.status").value(200))
+                .andExpect(jsonPath("$.message").value("Estado del cajon actualizado correctamente"))
+                .andExpect(jsonPath("$.transactionId").isNotEmpty())
+                .andExpect(jsonPath("$.data.id").value(1L))
+                .andExpect(jsonPath("$.data.estado").value("OCUPADO"));
 
         verify(cajonService).updateEstado(
                 any(Long.class),

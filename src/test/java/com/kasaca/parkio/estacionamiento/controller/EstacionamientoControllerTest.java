@@ -100,12 +100,16 @@ class EstacionamientoControllerTest {
 
         mockMvc.perform(get("/api/estacionamientos/1"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.id").value(1L))
-                .andExpect(jsonPath("$.nombre")
+                .andExpect(jsonPath("$.status").value(200))
+                .andExpect(jsonPath("$.message")
+                        .value("Estacionamiento consultado correctamente"))
+                .andExpect(jsonPath("$.transactionId").isNotEmpty())
+                .andExpect(jsonPath("$.data.id").value(1L))
+                .andExpect(jsonPath("$.data.nombre")
                         .value("Parkio Centro"))
-                .andExpect(jsonPath("$.latitud")
+                .andExpect(jsonPath("$.data.latitud")
                         .value(19.432608))
-                .andExpect(jsonPath("$.longitud")
+                .andExpect(jsonPath("$.data.longitud")
                         .value(-99.133209));
 
         verify(estacionamientoService)
@@ -145,10 +149,14 @@ class EstacionamientoControllerTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isCreated())
-                .andExpect(jsonPath("$.id").value(1L))
-                .andExpect(jsonPath("$.nombre")
+                .andExpect(jsonPath("$.status").value(201))
+                .andExpect(jsonPath("$.message")
+                        .value("Estacionamiento creado correctamente"))
+                .andExpect(jsonPath("$.transactionId").isNotEmpty())
+                .andExpect(jsonPath("$.data.id").value(1L))
+                .andExpect(jsonPath("$.data.nombre")
                         .value("Parkio Centro"))
-                .andExpect(jsonPath("$.activo").value(true));
+                .andExpect(jsonPath("$.data.activo").value(true));
 
         verify(estacionamientoService)
                 .addEstacionamiento(any(EstacionamientoRequest.class));
@@ -233,10 +241,14 @@ class EstacionamientoControllerTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.id").value(1L))
-                .andExpect(jsonPath("$.nombre")
+                .andExpect(jsonPath("$.status").value(200))
+                .andExpect(jsonPath("$.message")
+                        .value("Estacionamiento actualizado correctamente"))
+                .andExpect(jsonPath("$.transactionId").isNotEmpty())
+                .andExpect(jsonPath("$.data.id").value(1L))
+                .andExpect(jsonPath("$.data.nombre")
                         .value("Parkio Reforma"))
-                .andExpect(jsonPath("$.activo").value(true));
+                .andExpect(jsonPath("$.data.activo").value(true));
 
         verify(estacionamientoService)
                 .updateEstacionamiento(

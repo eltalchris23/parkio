@@ -111,9 +111,12 @@ class UsuarioControllerTest {
 
         mockMvc.perform(get("/api/usuarios/1"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.id").value(1L))
-                .andExpect(jsonPath("$.nombre").value("Christian"))
-                .andExpect(jsonPath("$.roles[0]").value("ADMIN"));
+                .andExpect(jsonPath("$.status").value(200))
+                .andExpect(jsonPath("$.message").value("Usuario consultado correctamente"))
+                .andExpect(jsonPath("$.transactionId").isNotEmpty())
+                .andExpect(jsonPath("$.data.id").value(1L))
+                .andExpect(jsonPath("$.data.nombre").value("Christian"))
+                .andExpect(jsonPath("$.data.roles[0]").value("ADMIN"));
 
         verify(usuarioService).getUserById(1L);
     }
@@ -145,10 +148,13 @@ class UsuarioControllerTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isCreated())
-                .andExpect(jsonPath("$.id").value(1L))
-                .andExpect(jsonPath("$.email").value("christian@parkio.com"))
-                .andExpect(jsonPath("$.passwordHash").doesNotExist())
-                .andExpect(jsonPath("$.password").doesNotExist());
+                .andExpect(jsonPath("$.status").value(201))
+                .andExpect(jsonPath("$.message").value("Usuario creado correctamente"))
+                .andExpect(jsonPath("$.transactionId").isNotEmpty())
+                .andExpect(jsonPath("$.data.id").value(1L))
+                .andExpect(jsonPath("$.data.email").value("christian@parkio.com"))
+                .andExpect(jsonPath("$.data.passwordHash").doesNotExist())
+                .andExpect(jsonPath("$.data.password").doesNotExist());
 
         verify(usuarioService).addUser(request);
     }
@@ -228,8 +234,11 @@ class UsuarioControllerTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.id").value(1L))
-                .andExpect(jsonPath("$.email").value("christian@parkio.com"));
+                .andExpect(jsonPath("$.status").value(200))
+                .andExpect(jsonPath("$.message").value("Usuario actualizado correctamente"))
+                .andExpect(jsonPath("$.transactionId").isNotEmpty())
+                .andExpect(jsonPath("$.data.id").value(1L))
+                .andExpect(jsonPath("$.data.email").value("christian@parkio.com"));
 
         verify(usuarioService).updateUser(1L, request);
     }
@@ -260,8 +269,11 @@ class UsuarioControllerTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.id").value(1L))
-                .andExpect(jsonPath("$.roles[0]").value("ADMIN"));
+                .andExpect(jsonPath("$.status").value(200))
+                .andExpect(jsonPath("$.message").value("Rol asignado correctamente al usuario"))
+                .andExpect(jsonPath("$.transactionId").isNotEmpty())
+                .andExpect(jsonPath("$.data.id").value(1L))
+                .andExpect(jsonPath("$.data.roles[0]").value("ADMIN"));
 
         verify(usuarioService).assignRole(1L, request);
     }
@@ -355,8 +367,11 @@ class UsuarioControllerTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.id").value(1L))
-                .andExpect(jsonPath("$.estacionamientoIds[0]").value(3L));
+                .andExpect(jsonPath("$.status").value(200))
+                .andExpect(jsonPath("$.message").value("Estacionamiento asignado correctamente al usuario"))
+                .andExpect(jsonPath("$.transactionId").isNotEmpty())
+                .andExpect(jsonPath("$.data.id").value(1L))
+                .andExpect(jsonPath("$.data.estacionamientoIds[0]").value(3L));
 
         verify(usuarioService).assignEstacionamiento(1L, request);
     }
