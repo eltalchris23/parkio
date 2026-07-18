@@ -36,6 +36,9 @@ Antes de realizar cambios, considerar lo siguiente:
 - Existe Spring Security HTTP con OAuth2 Resource Server para proteger endpoints mediante JWT.
 - Existen `AuthController`, `AuthService`, `AuthServiceImpl`, `JwtService`, `JwtProperties` y `SecurityConfig`.
 - Existe configuración CORS mediante `CorsConfig` y `CorsProperties`, usando propiedades bajo `parkio.cors`.
+- Existe Spring Boot Actuator para Health Check operativo.
+- Solo se expone `health` bajo `/actuator`; no se deben exponer endpoints sensibles sin autorización explícita.
+- `/actuator/health`, `/actuator/health/liveness` y `/actuator/health/readiness` son públicos y no requieren JWT.
 - En el perfil `prod`, `PARKIO_JWT_ISSUER` y `PARKIO_JWT_SECRET` son obligatorios y no deben tener fallback local.
 - No existe `JwtFilter` propio; la validación del token se delega a Spring Security OAuth2 Resource Server.
 - La autorización granular por roles está implementada inicialmente en `RolController` mediante `@PreAuthorize("hasRole('ADMIN')")`.
@@ -63,7 +66,7 @@ Antes de realizar cambios, considerar lo siguiente:
 - `RolRequest`, `EstacionamientoRequest`, `CajonRequest`, `CajonEstadoRequest`, `UsuarioCreateRequest`, `UsuarioUpdateRequest`, `UsuarioPasswordRequest`, `UsuarioRolRequest` y `UsuarioEstacionamientoRequest` tienen validaciones Jakarta Validation.
 - `RolServiceImpl`, `EstacionamientoServiceImpl`, `CajonServiceImpl` y `UsuarioServiceImpl` están registrados como beans y usan transacciones.
 - `UsuarioServiceImpl` valida correos duplicados y genera hashes BCrypt mediante `PasswordEncoder`.
-- Existen pruebas unitarias para mapper, servicio y controlador de Rol, Estacionamiento, Cajón y Usuario, pruebas de Auth/JWT/seguridad, pruebas específicas de CORS en `SecurityConfigTest`, además de la prueba de carga del contexto.
+- Existen pruebas unitarias para mapper, servicio y controlador de Rol, Estacionamiento, Cajón y Usuario, pruebas de Auth/JWT/seguridad, pruebas específicas de CORS en `SecurityConfigTest`, pruebas de Health Check en `HealthCheckSecurityIntegrationTest`, además de la prueba de carga del contexto.
 - `SecurityConfigTest` valida CORS con preflight `OPTIONS` desde un origen permitido, rechazo de un origen no configurado y exposición de `X-Transaction-Id` en respuestas reales.
 - Existe una prueba de integración inicial `AuthUsuarioIntegrationTest` que levanta Spring Boot completo, usa PostgreSQL con perfil `test`, valida Flyway, registra un usuario, inicia sesión y consulta un endpoint protegido con JWT.
 - Existe `RolIntegrationTest`, que levanta Spring Boot completo, usa PostgreSQL con perfil `test`, valida seguridad JWT/ADMIN y prueba el flujo de listar, crear, consultar, actualizar, detectar duplicados y eliminar lógicamente roles.
@@ -133,9 +136,12 @@ No se deben saltar capas sin una justificación explícita.
 - Maven.
 - Maven Wrapper 3.9.16.
 - JUnit 5 y Spring Boot Test.
+- Spring Boot Actuator.
 - PlantUML para documentación técnica.
 
-Existen dependencias de Spring Security, Spring Security OAuth2 Resource Server, Spring Security Test y `spring-security-crypto`. BCrypt se usa para contraseñas y OAuth2 Resource Server valida tokens JWT.
+Existen dependencias de Spring Security, Spring Security OAuth2 Resource Server, Spring Security Test, Spring Boot Actuator y `spring-security-crypto`. BCrypt se usa para contraseñas, OAuth2 Resource Server valida tokens JWT y Actuator expone Health Check operativo.
+
+El `pom.xml` configura `maven-surefire-plugin` con Mockito como `javaagent` para ejecutar pruebas sin depender del auto-attach dinámico de Mockito. Esta configuración no debe eliminarse sin validar nuevamente la suite completa en Java 21.
 
 ## Estructura de Paquetes
 
@@ -499,6 +505,7 @@ Estado actual:
 - Existe `spring-security-crypto` para BCrypt.
 - Existe `spring-boot-starter-security` para seguridad HTTP.
 - Existe `spring-boot-starter-oauth2-resource-server` para validar JWT.
+- Existe `spring-boot-starter-actuator` para Health Check.
 - Existe `SecurityConfig`.
 - Existe `CorsConfig` para permitir consumo desde frontend usando una lista configurable de orígenes, métodos y headers.
 - Existe `JwtService`.
@@ -507,7 +514,8 @@ Estado actual:
 - Existe un bean `PasswordEncoder` basado en BCrypt para almacenar hashes de contraseñas.
 - Existe endpoint de login en `POST /api/auth/login`.
 - No existe `JwtFilter` propio; Spring Security valida el token mediante OAuth2 Resource Server.
-- Los endpoints distintos al login y `POST /api/usuarios` requieren JWT válido. `POST /api/usuarios` queda público para permitir registro inicial y asigna automáticamente el rol base `USER`.
+- Los endpoints distintos al login, `POST /api/usuarios` y Health Check requieren JWT válido. `POST /api/usuarios` queda público para permitir registro inicial y asigna automáticamente el rol base `USER`.
+- Los endpoints `/actuator/health`, `/actuator/health/liveness` y `/actuator/health/readiness` son públicos para monitoreo y no deben devolver detalles internos.
 - Existe autorización granular inicial por roles: `RolController` requiere `ADMIN`, `UsuarioController` protege operaciones con `ADMIN`, `USER` y `OPERADOR`, `EstacionamientoController` permite lectura a `ADMIN`/`OPERADOR`/`USER` y escritura a `ADMIN`, y `CajonController` permite lectura a `ADMIN`/`OPERADOR`/`USER`, cambio de estado a `ADMIN`/`OPERADOR` y escritura administrativa a `ADMIN`.
 - `SecurityConfig` habilita `@EnableMethodSecurity`.
 - `SecurityConfig` convierte el claim `roles` del JWT en authorities `ROLE_*`.
@@ -516,6 +524,7 @@ Estado actual:
 Reglas obligatorias:
 
 - No declarar autorización por roles como completa mientras solo existan reglas explícitas para una parte de los módulos.
+- No exponer endpoints sensibles de Actuator como `env`, `beans`, `configprops`, `metrics` o similares sin una revisión explícita de seguridad.
 - No confundir CORS con autenticación o autorización; CORS solo controla qué orígenes de navegador pueden consumir la API.
 - No implementar criptografía propia.
 - No guardar ni registrar contraseñas en texto plano.
@@ -574,6 +583,7 @@ Toda IA que modifique este repositorio debe:
 - Mantener entidades y migraciones sincronizadas.
 - Crear pruebas para nueva lógica cuando el alcance lo permita.
 - Ejecutar las verificaciones relevantes después de modificar código.
+- Mantener la configuración de `maven-surefire-plugin` que carga Mockito como `javaagent`, salvo que se reemplace por una alternativa validada.
 - Informar si una prueba requiere PostgreSQL u otra condición externa.
 - Informar claramente cualquier limitación o funcionalidad pendiente.
 - Mantener la documentación consistente con el código.

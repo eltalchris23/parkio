@@ -16,6 +16,22 @@ spring:
   flyway:
     enabled: ${PARKIO_FLYWAY_ENABLED:true}
 
+management:
+  endpoints:
+    web:
+      exposure:
+        # Expone solamente health por HTTP para evitar publicar endpoints sensibles de Actuator.
+        include: health
+
+  endpoint:
+    health:
+      # Oculta detalles internos del health check y devuelve solo el estado general de la aplicacion.
+      show-details: never
+
+      probes:
+        # Habilita liveness y readiness para monitoreo futuro en contenedores o ambientes productivos.
+        enabled: true
+
 parkio:
   cors:
     allowed-origins: ${PARKIO_CORS_ALLOWED_ORIGINS:http://localhost:4200,http://localhost:5173}

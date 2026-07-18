@@ -58,6 +58,13 @@ public class SecurityConfig {
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 // Define las reglas de autorizacion para los endpoints de la API.
                 .authorizeHttpRequests(auth -> auth
+                        // Permite consultar el estado general de la aplicacion sin JWT.
+                        // Este endpoint es usado por monitoreo, balanceadores o contenedores.
+                        .requestMatchers(HttpMethod.GET, "/actuator/health").permitAll()
+                        // Permite consultar si el proceso de la aplicacion sigue vivo.
+                        .requestMatchers(HttpMethod.GET, "/actuator/health/liveness").permitAll()
+                        // Permite consultar si la aplicacion esta lista para recibir trafico.
+                        .requestMatchers(HttpMethod.GET, "/actuator/health/readiness").permitAll()
                         // Permite acceder al login sin token, porque este endpoint genera el JWT.
                         .requestMatchers("/api/auth/login").permitAll()
                         // Permite crear usuarios sin token para facilitar el registro inicial del sistema.

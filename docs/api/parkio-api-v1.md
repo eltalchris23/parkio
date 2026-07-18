@@ -29,9 +29,12 @@ Endpoints públicos:
 ```http
 POST /api/auth/login
 POST /api/usuarios
+GET /actuator/health
+GET /actuator/health/liveness
+GET /actuator/health/readiness
 ```
 
-Todos los demás endpoints requieren JWT válido:
+Todos los demás endpoints de negocio requieren JWT válido:
 
 ```http
 Authorization: Bearer <token>
@@ -44,6 +47,28 @@ El JWT incluye, entre otros datos:
 - `roles`: roles asignados al usuario.
 
 Los roles del claim `roles` se convierten a authorities de Spring Security con prefijo `ROLE_`. Por ejemplo, `ADMIN` se interpreta internamente como `ROLE_ADMIN`.
+
+### Health Check
+
+Los endpoints de Health Check están implementados con Spring Boot Actuator y se exponen fuera de la base `/api`:
+
+```http
+GET /actuator/health
+GET /actuator/health/liveness
+GET /actuator/health/readiness
+```
+
+No requieren JWT porque están pensados para monitoreo, balanceadores, contenedores, despliegues o frontends que necesiten verificar disponibilidad básica del backend.
+
+Respuesta esperada:
+
+```json
+{
+  "status": "UP"
+}
+```
+
+La configuración actual expone únicamente `health` y mantiene ocultos los detalles internos mediante `show-details: never`. No están documentados como públicos endpoints sensibles de Actuator como `env`, `beans`, `configprops` o `metrics`.
 
 ### Autorización por roles
 
@@ -1056,6 +1081,8 @@ Sin cuerpo. Realiza borrado lógico.
 El backend cuenta con pruebas unitarias de mapper, servicio y controlador para Rol, Estacionamiento, Cajón y Usuario.
 
 `SecurityConfigTest` cubre reglas de seguridad HTTP, autorización por roles, autenticación JWT simulada y validaciones CORS. Las pruebas CORS validan preflight `OPTIONS` desde orígenes permitidos, rechazo de orígenes no configurados y exposición de `X-Transaction-Id` para consumo desde frontend.
+
+`HealthCheckSecurityIntegrationTest` valida que `/actuator/health`, `/actuator/health/liveness` y `/actuator/health/readiness` puedan consultarse sin JWT y respondan estado `UP`.
 
 También existen pruebas de integración con Spring Boot completo, PostgreSQL y perfil `test`:
 

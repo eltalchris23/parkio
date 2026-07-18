@@ -15,6 +15,7 @@ Actualmente, el proyecto contiene:
 - CRUD REST completo para los módulos Rol, Estacionamiento, Cajón y Usuario.
 - Login mediante `/api/auth/login`.
 - Seguridad HTTP con Spring Security y JWT.
+- Health Check operativo mediante Spring Boot Actuator.
 - Manejo global de excepciones y validación para las operaciones implementadas.
 - Pruebas unitarias de mapper, servicio y controlador para Rol, Estacionamiento, Cajón y Usuario.
 - Hash seguro de contraseñas de Usuario mediante BCrypt.
@@ -54,6 +55,7 @@ La autorización por roles ya forma parte del código ejecutable para Rol, Usuar
 | Jakarta Validation | Validación declarativa implementada en los DTOs de entrada de Rol, Estacionamiento, Cajón y Usuario |
 | Spring Security | Seguridad HTTP, protección de endpoints y soporte OAuth2 Resource Server para JWT |
 | Spring Security Crypto | Generación de hashes BCrypt para contraseñas |
+| Spring Boot Actuator | Health Check operativo mediante `/actuator/health` |
 | Lombok | Generación de getters, setters, constructores y builders |
 | Maven | Gestión de dependencias y construcción |
 | Maven Wrapper | Maven 3.9.16 |
@@ -83,6 +85,7 @@ Estado actual de las capas:
 | Controladores | `RolController`, `EstacionamientoController`, `CajonController` y `UsuarioController` implementados |
 | Mappers | `RolMapper`, `EstacionamientoMapper`, `CajonMapper` y `UsuarioMapper` implementados |
 | Seguridad | Autenticación JWT implementada; autorización por rol implementada en `/api/roles`, `/api/usuarios`, `/api/estacionamientos` y `/api/cajones` |
+| Observabilidad | Health Check público implementado mediante Spring Boot Actuator |
 | Manejo global de errores | Implementado mediante `GlobalExceptionHandler` y `ApiError`, incluyendo `transactionId` |
 | Auditoría JPA | Habilitada |
 | Migraciones | Implementadas de V1 a V7 |
@@ -361,6 +364,25 @@ La auditoría se habilita en `ParkioApplication` mediante:
 
 Existe además una clase `AuditConfig`, aunque actualmente no contiene configuración adicional.
 
+### Health Check
+
+Incluye:
+
+- Dependencia `spring-boot-starter-actuator`.
+- Configuración `management.endpoints.web.exposure.include=health`.
+- Acceso público sin JWT para endpoints de salud.
+- Pruebas de integración en `HealthCheckSecurityIntegrationTest`.
+
+El proyecto expone endpoints operativos de salud fuera de la base `/api`:
+
+```http
+GET /actuator/health
+GET /actuator/health/liveness
+GET /actuator/health/readiness
+```
+
+Estos endpoints permiten validar si la aplicación está disponible y preparada para recibir tráfico. Solo se expone `health`; no se publican endpoints sensibles de Actuator como configuración, variables, beans o métricas.
+
 ## Configuración del Entorno
 
 La configuración se encuentra en:
@@ -389,6 +411,19 @@ spring:
 
   flyway:
     enabled: ${PARKIO_FLYWAY_ENABLED:true}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health
+
+  endpoint:
+    health:
+      show-details: never
+
+      probes:
+        enabled: true
 
 parkio:
   cors:
@@ -509,6 +544,8 @@ $env:PARKIO_JWT_SECRET="clave-segura-local"
 
 La configuración CORS permite que frontends locales como Angular (`http://localhost:4200`) o Vite/React/Vue (`http://localhost:5173`) consuman la API desde navegador. CORS no reemplaza JWT ni autorización por roles; únicamente define qué orígenes, métodos y headers puede usar el frontend. El header `X-Transaction-Id` queda expuesto para que el frontend pueda mostrarlo o registrarlo en trazabilidad.
 
+Spring Boot Actuator expone únicamente el endpoint operativo `health`. Los detalles internos permanecen ocultos mediante `management.endpoint.health.show-details=never`, por lo que las respuestas públicas solo reportan el estado general. Los endpoints `/actuator/health`, `/actuator/health/liveness` y `/actuator/health/readiness` no requieren JWT para permitir consumo desde herramientas de monitoreo, balanceadores, contenedores o frontends que necesiten verificar disponibilidad del backend.
+
 Hibernate utiliza `ddl-auto: validate`, por lo que valida el esquema, pero no crea ni actualiza las tablas. Flyway es responsable de ejecutar las migraciones.
 
 La configuración global también establece `spring.jpa.open-in-view=false`. Esto significa que Hibernate no mantiene abierta la sesión de persistencia durante la construcción de la respuesta HTTP. Las relaciones JPA necesarias para un DTO deben resolverse dentro de la capa service, bajo los límites transaccionales correspondientes. Si aparece un problema de carga diferida, no debe corregirse reactivando `open-in-view`; debe resolverse ajustando la consulta, el service o el mapper.
@@ -555,11 +592,15 @@ La URL del repositorio remoto y un procedimiento oficial para aprovisionar Postg
    ./mvnw clean package
    ```
 
-El proyecto contiene una prueba de carga del contexto de Spring, pruebas unitarias para mapper, servicio y controlador de Rol, Estacionamiento, Cajón y Usuario, pruebas de Auth/JWT/seguridad, pruebas específicas de CORS en `SecurityConfigTest` y pruebas de integración contra PostgreSQL para Auth/Usuario/JWT, Rol, Estacionamiento, Cajón y Usuario.
+El proyecto contiene una prueba de carga del contexto de Spring, pruebas unitarias para mapper, servicio y controlador de Rol, Estacionamiento, Cajón y Usuario, pruebas de Auth/JWT/seguridad, pruebas específicas de CORS en `SecurityConfigTest`, pruebas de Health Check en `HealthCheckSecurityIntegrationTest` y pruebas de integración contra PostgreSQL para Auth/Usuario/JWT, Rol, Estacionamiento, Cajón y Usuario.
+
+El `pom.xml` configura `maven-surefire-plugin` para cargar Mockito como `javaagent` durante la ejecución de pruebas. Esta configuración evita que Mockito se auto-adjunte dinámicamente al JVM, comportamiento que Java advierte que podría bloquearse en versiones futuras.
 
 La prueba `UsuarioIntegrationTest` valida el flujo de Usuario con Spring Boot completo, PostgreSQL y perfil `test`: creación pública con rol base `USER`, rechazo de correos duplicados, permisos de usuario propio, bloqueo sobre usuarios ajenos, cambio de contraseña, administración de roles y estacionamientos por `ADMIN`, borrado lógico y bloqueo de login para usuarios inactivos.
 
 Las pruebas CORS en `SecurityConfigTest` validan peticiones preflight `OPTIONS` desde orígenes permitidos, rechazo de orígenes no configurados y exposición del header `X-Transaction-Id` para que el frontend pueda leerlo desde JavaScript.
+
+`HealthCheckSecurityIntegrationTest` valida que `/actuator/health`, `/actuator/health/liveness` y `/actuator/health/readiness` puedan consultarse sin JWT y respondan estado `UP`.
 
 ## Ejecución Local
 
@@ -588,6 +629,22 @@ http://localhost:8023
 ```
 
 Actualmente está disponible el login bajo `/api/auth/login` y la creación de usuarios mediante `POST /api/usuarios` sin token. La creación pública asigna automáticamente el rol base `USER`. Los endpoints CRUD de roles bajo `/api/roles` requieren un token JWT válido con rol `ADMIN`. En `/api/usuarios`, las operaciones administrativas requieren `ADMIN` y las operaciones sobre el propio usuario permiten `USER` u `OPERADOR` cuando el `usuarioId` de la ruta coincide con el claim del JWT. En `/api/estacionamientos`, las consultas permiten `ADMIN`, `OPERADOR` y `USER`, mientras que las modificaciones requieren `ADMIN`. En `/api/cajones`, las consultas permiten `ADMIN`, `OPERADOR` y `USER`, el cambio de estado permite `ADMIN` y `OPERADOR`, y las operaciones de creación, actualización y eliminación requieren `ADMIN`.
+
+Los endpoints de Health Check están disponibles sin JWT:
+
+```http
+GET http://localhost:8023/actuator/health
+GET http://localhost:8023/actuator/health/liveness
+GET http://localhost:8023/actuator/health/readiness
+```
+
+Respuesta esperada:
+
+```json
+{
+  "status": "UP"
+}
+```
 
 Las operaciones `DELETE` implementan borrado lógico. Los registros se conservan en base de datos con `activo=false`, no se devuelven en consultas normales y no pueden consultarse por identificador desde la API. Un usuario desactivado tampoco puede iniciar sesión.
 

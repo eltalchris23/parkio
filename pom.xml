@@ -40,6 +40,12 @@
 			<artifactId>spring-boot-starter-web</artifactId>
 		</dependency>
 
+        <!-- Spring Boot Actuator expone endpoints operativos como /actuator/health para monitoreo de la aplicacion -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-actuator</artifactId>
+        </dependency>
+
 		<dependency>
 			<groupId>org.springframework.boot</groupId>
 			<artifactId>spring-boot-devtools</artifactId>
@@ -162,6 +168,21 @@
 					</execution>
 				</executions>
 			</plugin>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-surefire-plugin</artifactId>
+                <configuration>
+                    <!--
+                        Carga Mockito como javaagent durante la ejecucion de pruebas.
+
+                        Esto evita que Mockito se auto-adjunte dinamicamente al JVM,
+                        comportamiento que Java advierte que podria bloquearse en versiones futuras.
+                    -->
+                    <argLine>
+                        -javaagent:${settings.localRepository}/org/mockito/mockito-core/${mockito.version}/mockito-core-${mockito.version}.jar
+                    </argLine>
+                </configuration>
+            </plugin>
 		</plugins>
 	</build>
 
