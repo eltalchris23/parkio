@@ -24,7 +24,7 @@ import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
 @RestController
-@RequestMapping("/api/estacionamientos")
+@RequestMapping("/estacionamientos")
 @RequiredArgsConstructor
 @Slf4j
 public class EstacionamientoController {

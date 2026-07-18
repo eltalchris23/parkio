@@ -1,4 +1,4 @@
-# Parkio
+﻿# Parkio
 
 ## Descripción General
 
@@ -13,18 +13,19 @@ Actualmente, el proyecto contiene:
 - Repositorios Spring Data JPA.
 - Contratos de servicio.
 - CRUD REST completo para los módulos Rol, Estacionamiento, Cajón y Usuario.
-- Login mediante `/api/auth/login`.
+- Login mediante `/api/v1/auth/login`.
 - Seguridad HTTP con Spring Security y JWT.
 - Health Check operativo mediante Spring Boot Actuator.
+- Documentación interactiva OpenAPI/Swagger UI para desarrollo.
 - Manejo global de excepciones y validación para las operaciones implementadas.
 - Pruebas unitarias de mapper, servicio y controlador para Rol, Estacionamiento, Cajón y Usuario.
 - Hash seguro de contraseñas de Usuario mediante BCrypt.
 - Migraciones iniciales de base de datos.
 - Documentación de arquitectura, dominio, API implementada y funcionalidades propuestas.
 
-El proyecto expone APIs REST funcionales para autenticar usuarios en `/api/auth/login` y administrar roles en `/api/roles`, estacionamientos en `/api/estacionamientos`, cajones en `/api/cajones` y usuarios en `/api/usuarios`.
+El proyecto expone APIs REST funcionales para autenticar usuarios en `/api/v1/auth/login` y administrar roles en `/api/v1/roles`, estacionamientos en `/api/v1/estacionamientos`, cajones en `/api/v1/cajones` y usuarios en `/api/v1/usuarios`.
 
-La autenticación JWT ya está implementada. La autorización granular por rol está aplicada en Rol, Usuario, Estacionamiento y Cajón. `/api/roles` requiere `ADMIN`; `/api/usuarios` distingue entre operaciones administrativas de `ADMIN` y operaciones propias de `USER` u `OPERADOR`; `/api/estacionamientos` permite consultas a `ADMIN`, `OPERADOR` y `USER`, dejando la escritura únicamente a `ADMIN`; y `/api/cajones` permite consulta a `ADMIN`, `OPERADOR` y `USER`, cambios de estado a `ADMIN` y `OPERADOR`, y administración completa solo a `ADMIN`.
+La autenticación JWT ya está implementada. La autorización granular por rol está aplicada en Rol, Usuario, Estacionamiento y Cajón. `/api/v1/roles` requiere `ADMIN`; `/api/v1/usuarios` distingue entre operaciones administrativas de `ADMIN` y operaciones propias de `USER` u `OPERADOR`; `/api/v1/estacionamientos` permite consultas a `ADMIN`, `OPERADOR` y `USER`, dejando la escritura únicamente a `ADMIN`; y `/api/v1/cajones` permite consulta a `ADMIN`, `OPERADOR` y `USER`, cambios de estado a `ADMIN` y `OPERADOR`, y administración completa solo a `ADMIN`.
 
 ## Objetivos del Sistema
 
@@ -56,6 +57,7 @@ La autorización por roles ya forma parte del código ejecutable para Rol, Usuar
 | Spring Security | Seguridad HTTP, protección de endpoints y soporte OAuth2 Resource Server para JWT |
 | Spring Security Crypto | Generación de hashes BCrypt para contraseñas |
 | Spring Boot Actuator | Health Check operativo mediante `/actuator/health` |
+| Springdoc OpenAPI | Generación del contrato OpenAPI y Swagger UI en ambiente de desarrollo |
 | Lombok | Generación de getters, setters, constructores y builders |
 | Maven | Gestión de dependencias y construcción |
 | Maven Wrapper | Maven 3.9.16 |
@@ -84,8 +86,9 @@ Estado actual de las capas:
 | Servicios | Rol, Estacionamiento, Cajón y Usuario implementados |
 | Controladores | `RolController`, `EstacionamientoController`, `CajonController` y `UsuarioController` implementados |
 | Mappers | `RolMapper`, `EstacionamientoMapper`, `CajonMapper` y `UsuarioMapper` implementados |
-| Seguridad | Autenticación JWT implementada; autorización por rol implementada en `/api/roles`, `/api/usuarios`, `/api/estacionamientos` y `/api/cajones` |
+| Seguridad | Autenticación JWT implementada; autorización por rol implementada en `/api/v1/roles`, `/api/v1/usuarios`, `/api/v1/estacionamientos` y `/api/v1/cajones` |
 | Observabilidad | Health Check público implementado mediante Spring Boot Actuator |
+| Documentación interactiva | OpenAPI y Swagger UI habilitados en `dev` y deshabilitados por defecto/prod |
 | Manejo global de errores | Implementado mediante `GlobalExceptionHandler` y `ApiError`, incluyendo `transactionId` |
 | Auditoría JPA | Habilitada |
 | Migraciones | Implementadas de V1 a V7 |
@@ -276,7 +279,7 @@ Incluye:
 - `UnauthorizedException`.
 - Pruebas unitarias y de configuración de seguridad.
 
-El módulo implementa inicio de sesión mediante correo y contraseña. Las credenciales se validan contra `Usuario.passwordHash` usando `PasswordEncoder` y BCrypt. Cuando son válidas, se emite un JWT con el correo del usuario, su identificador y sus roles como claims. El login está disponible en `/api/auth/login`.
+El módulo implementa inicio de sesión mediante correo y contraseña. Las credenciales se validan contra `Usuario.passwordHash` usando `PasswordEncoder` y BCrypt. Cuando son válidas, se emite un JWT con el correo del usuario, su identificador y sus roles como claims. El login está disponible en `/api/v1/auth/login`.
 
 Los endpoints distintos al login y la creación de usuarios requieren encabezado `Authorization: Bearer <token>`. La creación de usuarios permanece pública para permitir el registro inicial y asigna automáticamente el rol base `USER`. El módulo Rol requiere rol `ADMIN`. En Usuario, `ADMIN` puede administrar usuarios, mientras que `USER` y `OPERADOR` pueden consultar, actualizar y cambiar la contraseña únicamente de su propio usuario. En Estacionamiento, `ADMIN`, `OPERADOR` y `USER` pueden consultar, pero solo `ADMIN` puede crear, actualizar o eliminar. En Cajón, `ADMIN`, `OPERADOR` y `USER` pueden consultar; `ADMIN` y `OPERADOR` pueden cambiar estado; y solo `ADMIN` puede crear, actualizar o eliminar.
 
@@ -373,7 +376,7 @@ Incluye:
 - Acceso público sin JWT para endpoints de salud.
 - Pruebas de integración en `HealthCheckSecurityIntegrationTest`.
 
-El proyecto expone endpoints operativos de salud fuera de la base `/api`:
+El proyecto expone endpoints operativos de salud fuera de la base `/api/v1`:
 
 ```http
 GET /actuator/health
@@ -382,6 +385,42 @@ GET /actuator/health/readiness
 ```
 
 Estos endpoints permiten validar si la aplicación está disponible y preparada para recibir tráfico. Solo se expone `health`; no se publican endpoints sensibles de Actuator como configuración, variables, beans o métricas.
+
+### OpenAPI y Swagger UI
+
+Incluye:
+
+- Dependencia `springdoc-openapi-starter-webmvc-ui`.
+- Configuración `OpenApiConfig`.
+- Esquema de seguridad Bearer JWT para probar endpoints protegidos.
+- Prueba de integración `OpenApiSecurityIntegrationTest`.
+
+La base de los controllers se define globalmente con:
+
+```yaml
+spring:
+  mvc:
+    servlet:
+      path: /api/v1
+```
+
+Por eso los controladores usan rutas relativas al recurso, por ejemplo `@RequestMapping("/roles")`, y Spring Boot expone el endpoint como `/api/v1/roles`.
+
+En desarrollo, Swagger UI está disponible en:
+
+```text
+http://localhost:8023/api/v1/swagger-ui.html
+```
+
+El contrato OpenAPI JSON está disponible en:
+
+```text
+http://localhost:8023/api/v1/v3/api-docs
+```
+
+Swagger UI se genera a partir de los controladores reales y permite probar los endpoints documentados. Para endpoints protegidos, se debe usar el botón `Authorize` e ingresar un token JWT con formato Bearer.
+
+Por seguridad, Springdoc está deshabilitado por defecto y también en el perfil `prod`. Actualmente se habilita únicamente en el perfil `dev`.
 
 ## Configuración del Entorno
 
@@ -404,6 +443,10 @@ spring:
   profiles:
     default: dev
 
+  mvc:
+    servlet:
+      path: /api/v1
+
   jpa:
     open-in-view: false
     hibernate:
@@ -424,6 +467,13 @@ management:
 
       probes:
         enabled: true
+
+springdoc:
+  api-docs:
+    enabled: false
+
+  swagger-ui:
+    enabled: false
 
 parkio:
   cors:
@@ -459,6 +509,14 @@ spring:
 
   jpa:
     show-sql: ${PARKIO_JPA_SHOW_SQL:true}
+
+springdoc:
+  api-docs:
+    enabled: true
+
+  swagger-ui:
+    enabled: true
+    path: /swagger-ui.html
 ```
 
 Configuración de pruebas:
@@ -485,6 +543,13 @@ spring:
 
   jpa:
     show-sql: false
+
+springdoc:
+  api-docs:
+    enabled: false
+
+  swagger-ui:
+    enabled: false
 
 parkio:
   security:
@@ -546,6 +611,8 @@ La configuración CORS permite que frontends locales como Angular (`http://local
 
 Spring Boot Actuator expone únicamente el endpoint operativo `health`. Los detalles internos permanecen ocultos mediante `management.endpoint.health.show-details=never`, por lo que las respuestas públicas solo reportan el estado general. Los endpoints `/actuator/health`, `/actuator/health/liveness` y `/actuator/health/readiness` no requieren JWT para permitir consumo desde herramientas de monitoreo, balanceadores, contenedores o frontends que necesiten verificar disponibilidad del backend.
 
+Springdoc OpenAPI se encuentra deshabilitado por defecto mediante `application.yaml` y también queda deshabilitado en `application-prod.yaml`. En desarrollo se habilita desde `application-dev.yaml`, exponiendo Swagger UI en `/api/v1/swagger-ui.html` y el contrato JSON en `/api/v1/v3/api-docs`. Esto ocurre porque la aplicación usa el prefijo global `spring.mvc.servlet.path=/api/v1`.
+
 Hibernate utiliza `ddl-auto: validate`, por lo que valida el esquema, pero no crea ni actualiza las tablas. Flyway es responsable de ejecutar las migraciones.
 
 La configuración global también establece `spring.jpa.open-in-view=false`. Esto significa que Hibernate no mantiene abierta la sesión de persistencia durante la construcción de la respuesta HTTP. Las relaciones JPA necesarias para un DTO deben resolverse dentro de la capa service, bajo los límites transaccionales correspondientes. Si aparece un problema de carga diferida, no debe corregirse reactivando `open-in-view`; debe resolverse ajustando la consulta, el service o el mapper.
@@ -594,6 +661,8 @@ La URL del repositorio remoto y un procedimiento oficial para aprovisionar Postg
 
 El proyecto contiene una prueba de carga del contexto de Spring, pruebas unitarias para mapper, servicio y controlador de Rol, Estacionamiento, Cajón y Usuario, pruebas de Auth/JWT/seguridad, pruebas específicas de CORS en `SecurityConfigTest`, pruebas de Health Check en `HealthCheckSecurityIntegrationTest` y pruebas de integración contra PostgreSQL para Auth/Usuario/JWT, Rol, Estacionamiento, Cajón y Usuario.
 
+También existe `OpenApiSecurityIntegrationTest`, que valida que el contrato OpenAPI y Swagger UI puedan consultarse sin JWT cuando Springdoc está habilitado para el entorno de prueba.
+
 El `pom.xml` configura `maven-surefire-plugin` para cargar Mockito como `javaagent` durante la ejecución de pruebas. Esta configuración evita que Mockito se auto-adjunte dinámicamente al JVM, comportamiento que Java advierte que podría bloquearse en versiones futuras.
 
 La prueba `UsuarioIntegrationTest` valida el flujo de Usuario con Spring Boot completo, PostgreSQL y perfil `test`: creación pública con rol base `USER`, rechazo de correos duplicados, permisos de usuario propio, bloqueo sobre usuarios ajenos, cambio de contraseña, administración de roles y estacionamientos por `ADMIN`, borrado lógico y bloqueo de login para usuarios inactivos.
@@ -628,7 +697,7 @@ Si la conexión con PostgreSQL y las migraciones son correctas, la aplicación i
 http://localhost:8023
 ```
 
-Actualmente está disponible el login bajo `/api/auth/login` y la creación de usuarios mediante `POST /api/usuarios` sin token. La creación pública asigna automáticamente el rol base `USER`. Los endpoints CRUD de roles bajo `/api/roles` requieren un token JWT válido con rol `ADMIN`. En `/api/usuarios`, las operaciones administrativas requieren `ADMIN` y las operaciones sobre el propio usuario permiten `USER` u `OPERADOR` cuando el `usuarioId` de la ruta coincide con el claim del JWT. En `/api/estacionamientos`, las consultas permiten `ADMIN`, `OPERADOR` y `USER`, mientras que las modificaciones requieren `ADMIN`. En `/api/cajones`, las consultas permiten `ADMIN`, `OPERADOR` y `USER`, el cambio de estado permite `ADMIN` y `OPERADOR`, y las operaciones de creación, actualización y eliminación requieren `ADMIN`.
+Actualmente está disponible el login bajo `/api/v1/auth/login` y la creación de usuarios mediante `POST /api/v1/usuarios` sin token. La creación pública asigna automáticamente el rol base `USER`. Los endpoints CRUD de roles bajo `/api/v1/roles` requieren un token JWT válido con rol `ADMIN`. En `/api/v1/usuarios`, las operaciones administrativas requieren `ADMIN` y las operaciones sobre el propio usuario permiten `USER` u `OPERADOR` cuando el `usuarioId` de la ruta coincide con el claim del JWT. En `/api/v1/estacionamientos`, las consultas permiten `ADMIN`, `OPERADOR` y `USER`, mientras que las modificaciones requieren `ADMIN`. En `/api/v1/cajones`, las consultas permiten `ADMIN`, `OPERADOR` y `USER`, el cambio de estado permite `ADMIN` y `OPERADOR`, y las operaciones de creación, actualización y eliminación requieren `ADMIN`.
 
 Los endpoints de Health Check están disponibles sin JWT:
 
@@ -645,6 +714,20 @@ Respuesta esperada:
   "status": "UP"
 }
 ```
+
+En desarrollo, la documentación interactiva está disponible en:
+
+```text
+http://localhost:8023/api/v1/swagger-ui.html
+```
+
+Y el contrato OpenAPI JSON en:
+
+```text
+http://localhost:8023/api/v1/v3/api-docs
+```
+
+Swagger UI muestra los endpoints reales bajo la base `/api/v1`. Para probar endpoints protegidos desde Swagger, primero se debe iniciar sesión en `/api/v1/auth/login`, copiar el token y configurarlo en `Authorize` como Bearer JWT.
 
 Las operaciones `DELETE` implementan borrado lógico. Los registros se conservan en base de datos con `activo=false`, no se devuelven en consultas normales y no pueden consultarse por identificador desde la API. Un usuario desactivado tampoco puede iniciar sesión.
 
@@ -670,14 +753,14 @@ Las pruebas de integración validan que la conexión apunte a `parkio_test` ante
 
 ## Bootstrap del Primer Administrador
 
-El registro público mediante `POST /api/usuarios` crea usuarios con el rol base `USER`. Por seguridad, el sistema no convierte automáticamente usuarios en `ADMIN`.
+El registro público mediante `POST /api/v1/usuarios` crea usuarios con el rol base `USER`. Por seguridad, el sistema no convierte automáticamente usuarios en `ADMIN`.
 
 Para habilitar el primer administrador en un entorno local o controlado:
 
 1. Crear el usuario mediante el endpoint público:
 
    ```http
-   POST /api/usuarios
+   POST /api/v1/usuarios
    ```
 
 2. Identificar el usuario creado y el rol `ADMIN` en PostgreSQL:
@@ -706,7 +789,7 @@ Para habilitar el primer administrador en un entorno local o controlado:
 4. Iniciar sesión nuevamente en:
 
    ```http
-   POST /api/auth/login
+   POST /api/v1/auth/login
    ```
 
 El JWT generado después de este proceso debe incluir `ADMIN` dentro del claim `roles`.
@@ -814,3 +897,4 @@ com.kasaca
 ```
 
 El proyecto se encuentra asociado técnicamente con Kasaca.
+

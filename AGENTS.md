@@ -1,4 +1,4 @@
-# AGENTS.md
+﻿# AGENTS.md
 
 ## Propósito
 
@@ -26,19 +26,23 @@ Parkio es un backend en desarrollo para administrar:
 
 El proyecto contiene actualmente el modelo persistente, DTOs, repositorios, contratos de servicio, migraciones y documentación de arquitectura. Los módulos Rol, Estacionamiento, Cajón y Usuario cuentan además con mapper, servicio transaccional, controlador REST y pruebas unitarias. El módulo Auth implementa login y emisión de JWT.
 
-La API REST está implementada para Auth, Rol, Estacionamiento, Cajón y Usuario. Usuario permite asignar y retirar roles y estacionamientos. La autenticación JWT está implementada. La autorización granular por roles ya inició en Rol, Usuario, Estacionamiento y Cajón: `/api/roles` requiere rol `ADMIN`; `/api/usuarios` distingue entre operaciones administrativas de `ADMIN` y operaciones propias de `USER` u `OPERADOR`; `/api/estacionamientos` permite consulta a `ADMIN`, `OPERADOR` y `USER`, y escritura solo a `ADMIN`; `/api/cajones` permite consulta a `ADMIN`, `OPERADOR` y `USER`, cambios de estado a `ADMIN` y `OPERADOR`, y escritura administrativa solo a `ADMIN`.
+La API REST está implementada para Auth, Rol, Estacionamiento, Cajón y Usuario. Usuario permite asignar y retirar roles y estacionamientos. La autenticación JWT está implementada. La autorización granular por roles ya inició en Rol, Usuario, Estacionamiento y Cajón: `/api/v1/roles` requiere rol `ADMIN`; `/api/v1/usuarios` distingue entre operaciones administrativas de `ADMIN` y operaciones propias de `USER` u `OPERADOR`; `/api/v1/estacionamientos` permite consulta a `ADMIN`, `OPERADOR` y `USER`, y escritura solo a `ADMIN`; `/api/v1/cajones` permite consulta a `ADMIN`, `OPERADOR` y `USER`, cambios de estado a `ADMIN` y `OPERADOR`, y escritura administrativa solo a `ADMIN`.
 
 ## Estado Actual
 
 Antes de realizar cambios, considerar lo siguiente:
 
-- `RolController`, `EstacionamientoController`, `CajonController` y `UsuarioController` exponen los recursos `/api/roles`, `/api/estacionamientos`, `/api/cajones` y `/api/usuarios`.
+- `RolController`, `EstacionamientoController`, `CajonController` y `UsuarioController` exponen los recursos `/api/v1/roles`, `/api/v1/estacionamientos`, `/api/v1/cajones` y `/api/v1/usuarios`.
 - Existe Spring Security HTTP con OAuth2 Resource Server para proteger endpoints mediante JWT.
 - Existen `AuthController`, `AuthService`, `AuthServiceImpl`, `JwtService`, `JwtProperties` y `SecurityConfig`.
 - Existe configuración CORS mediante `CorsConfig` y `CorsProperties`, usando propiedades bajo `parkio.cors`.
 - Existe Spring Boot Actuator para Health Check operativo.
+- Existe Springdoc OpenAPI para generar contrato OpenAPI y Swagger UI en ambiente de desarrollo.
 - Solo se expone `health` bajo `/actuator`; no se deben exponer endpoints sensibles sin autorización explícita.
 - `/actuator/health`, `/actuator/health/liveness` y `/actuator/health/readiness` son públicos y no requieren JWT.
+- La base global de los controllers se configura mediante `spring.mvc.servlet.path=/api/v1`.
+- Los controllers deben declarar rutas relativas al recurso, por ejemplo `@RequestMapping("/roles")`, no `@RequestMapping("/api/v1/roles")`.
+- Springdoc está deshabilitado por defecto y en `prod`; en `dev` expone Swagger UI en `/api/v1/swagger-ui.html` y OpenAPI JSON en `/api/v1/v3/api-docs`, debido al `spring.mvc.servlet.path=/api/v1`.
 - En el perfil `prod`, `PARKIO_JWT_ISSUER` y `PARKIO_JWT_SECRET` son obligatorios y no deben tener fallback local.
 - No existe `JwtFilter` propio; la validación del token se delega a Spring Security OAuth2 Resource Server.
 - La autorización granular por roles está implementada inicialmente en `RolController` mediante `@PreAuthorize("hasRole('ADMIN')")`.
@@ -49,13 +53,13 @@ Antes de realizar cambios, considerar lo siguiente:
 - Los roles del claim `roles` del JWT se convierten a authorities de Spring Security con prefijo `ROLE_`.
 - Las operaciones `DELETE` de Rol, Usuario, Estacionamiento y Cajón realizan borrado lógico mediante `activo=false`.
 - Las consultas normales trabajan solo con registros activos. Un registro inactivo debe tratarse como no encontrado para la API.
-- El listado de roles `GET /api/roles` devuelve una respuesta estandarizada mediante `ApiResponse<PageResponse<RolResponse>>` y acepta `page`, `size` y `sort`.
+- El listado de roles `GET /api/v1/roles` devuelve una respuesta estandarizada mediante `ApiResponse<PageResponse<RolResponse>>` y acepta `page`, `size` y `sort`.
 - Las operaciones no paginadas de Rol para consultar, crear y actualizar devuelven una respuesta estandarizada mediante `ApiResponse<RolResponse>`.
-- El listado de estacionamientos `GET /api/estacionamientos` devuelve una respuesta estandarizada mediante `ApiResponse<PageResponse<EstacionamientoResponse>>` y acepta `page`, `size` y `sort`.
+- El listado de estacionamientos `GET /api/v1/estacionamientos` devuelve una respuesta estandarizada mediante `ApiResponse<PageResponse<EstacionamientoResponse>>` y acepta `page`, `size` y `sort`.
 - Las operaciones no paginadas de Estacionamiento para consultar, crear y actualizar devuelven una respuesta estandarizada mediante `ApiResponse<EstacionamientoResponse>`.
-- Los listados de cajones `GET /api/cajones` y `GET /api/cajones?estacionamientoId={id}` devuelven una respuesta estandarizada mediante `ApiResponse<PageResponse<CajonResponse>>` y aceptan `page`, `size` y `sort`.
+- Los listados de cajones `GET /api/v1/cajones` y `GET /api/v1/cajones?estacionamientoId={id}` devuelven una respuesta estandarizada mediante `ApiResponse<PageResponse<CajonResponse>>` y aceptan `page`, `size` y `sort`.
 - Las operaciones no paginadas de Cajón para consultar, crear, actualizar y cambiar estado devuelven una respuesta estandarizada mediante `ApiResponse<CajonResponse>`.
-- El listado de usuarios `GET /api/usuarios` devuelve una respuesta estandarizada mediante `ApiResponse<PageResponse<UsuarioResponse>>` y acepta `page`, `size` y `sort`.
+- El listado de usuarios `GET /api/v1/usuarios` devuelve una respuesta estandarizada mediante `ApiResponse<PageResponse<UsuarioResponse>>` y acepta `page`, `size` y `sort`.
 - Las operaciones no paginadas de Usuario para consultar, crear, actualizar, asignar rol y asignar estacionamiento devuelven una respuesta estandarizada mediante `ApiResponse<UsuarioResponse>`.
 - Existe `TransactionIdFilter`, que genera o reutiliza el header `X-Transaction-Id`, lo agrega al response, lo deja disponible para logs mediante MDC y lo incluye en respuestas exitosas estandarizadas y errores.
 - Al desactivar un estacionamiento, también se desactivan lógicamente sus cajones activos.
@@ -137,9 +141,10 @@ No se deben saltar capas sin una justificación explícita.
 - Maven Wrapper 3.9.16.
 - JUnit 5 y Spring Boot Test.
 - Spring Boot Actuator.
+- Springdoc OpenAPI.
 - PlantUML para documentación técnica.
 
-Existen dependencias de Spring Security, Spring Security OAuth2 Resource Server, Spring Security Test, Spring Boot Actuator y `spring-security-crypto`. BCrypt se usa para contraseñas, OAuth2 Resource Server valida tokens JWT y Actuator expone Health Check operativo.
+Existen dependencias de Spring Security, Spring Security OAuth2 Resource Server, Spring Security Test, Spring Boot Actuator, Springdoc OpenAPI y `spring-security-crypto`. BCrypt se usa para contraseñas, OAuth2 Resource Server valida tokens JWT, Actuator expone Health Check operativo y Springdoc genera documentación interactiva en desarrollo.
 
 El `pom.xml` configura `maven-surefire-plugin` con Mockito como `javaagent` para ejecutar pruebas sin depender del auto-attach dinámico de Mockito. Esta configuración no debe eliminarse sin validar nuevamente la suite completa en Java 21.
 
@@ -166,7 +171,7 @@ Los componentes compartidos deben colocarse en `shared` únicamente cuando sean 
 
 No se debe crear un paquete genérico para código que pertenece claramente a un dominio.
 
-Los paquetes `auth` y `security` existen actualmente. El paquete `config` contiene `PasswordEncoderConfig`; los paquetes `controller` y `mapper` existen dentro de Rol, Estacionamiento, Cajón y Usuario, y las excepciones compartidas se encuentran en `shared.exception`. El paquete `common` aparece como propuesta, pero no existe actualmente. Las capacidades pendientes solo deben crearse cuando una tarea autorizada requiera implementarlas.
+Los paquetes `auth` y `security` existen actualmente. El paquete `config` contiene `PasswordEncoderConfig` y `OpenApiConfig`; los paquetes `controller` y `mapper` existen dentro de Rol, Estacionamiento, Cajón y Usuario, y las excepciones compartidas se encuentran en `shared.exception`. El paquete `common` aparece como propuesta, pero no existe actualmente. Las capacidades pendientes solo deben crearse cuando una tarea autorizada requiera implementarlas.
 
 ## Convenciones de Nomenclatura
 
@@ -356,17 +361,34 @@ Actualmente existen `RolController`, `EstacionamientoController`, `CajonControll
 La documentación propone una API con base:
 
 ```text
-/api
+/api/v1
 ```
+
+La base `/api/v1` se aplica mediante la propiedad global:
+
+```yaml
+spring:
+  mvc:
+    servlet:
+      path: /api/v1
+```
+
+Por esta razón, los controladores nuevos deben declarar únicamente la ruta relativa del recurso:
+
+```java
+@RequestMapping("/nombre-recurso")
+```
+
+No se debe duplicar el prefijo en los controllers. Por ejemplo, usar `@RequestMapping("/roles")`, no `@RequestMapping("/api/v1/roles")`.
 
 y recursos como:
 
 ```text
-/api/auth
-/api/roles
-/api/usuarios
-/api/estacionamientos
-/api/cajones
+/api/v1/auth
+/api/v1/roles
+/api/v1/usuarios
+/api/v1/estacionamientos
+/api/v1/cajones
 ```
 
 Cuando una tarea solicite implementar controladores:
@@ -506,16 +528,18 @@ Estado actual:
 - Existe `spring-boot-starter-security` para seguridad HTTP.
 - Existe `spring-boot-starter-oauth2-resource-server` para validar JWT.
 - Existe `spring-boot-starter-actuator` para Health Check.
+- Existe `springdoc-openapi-starter-webmvc-ui` para documentación OpenAPI y Swagger UI.
 - Existe `SecurityConfig`.
 - Existe `CorsConfig` para permitir consumo desde frontend usando una lista configurable de orígenes, métodos y headers.
 - Existe `JwtService`.
 - Existe `AuthController`.
 - Existe `AuthService` y `AuthServiceImpl`.
 - Existe un bean `PasswordEncoder` basado en BCrypt para almacenar hashes de contraseñas.
-- Existe endpoint de login en `POST /api/auth/login`.
+- Existe endpoint de login en `POST /api/v1/auth/login`.
 - No existe `JwtFilter` propio; Spring Security valida el token mediante OAuth2 Resource Server.
-- Los endpoints distintos al login, `POST /api/usuarios` y Health Check requieren JWT válido. `POST /api/usuarios` queda público para permitir registro inicial y asigna automáticamente el rol base `USER`.
+- Los endpoints distintos al login, `POST /api/v1/usuarios` y Health Check requieren JWT válido. `POST /api/v1/usuarios` queda público para permitir registro inicial y asigna automáticamente el rol base `USER`.
 - Los endpoints `/actuator/health`, `/actuator/health/liveness` y `/actuator/health/readiness` son públicos para monitoreo y no deben devolver detalles internos.
+- Swagger UI y OpenAPI JSON son públicos únicamente cuando Springdoc está habilitado por perfil. En la configuración actual se habilitan en `dev` y se deshabilitan por defecto/prod.
 - Existe autorización granular inicial por roles: `RolController` requiere `ADMIN`, `UsuarioController` protege operaciones con `ADMIN`, `USER` y `OPERADOR`, `EstacionamientoController` permite lectura a `ADMIN`/`OPERADOR`/`USER` y escritura a `ADMIN`, y `CajonController` permite lectura a `ADMIN`/`OPERADOR`/`USER`, cambio de estado a `ADMIN`/`OPERADOR` y escritura administrativa a `ADMIN`.
 - `SecurityConfig` habilita `@EnableMethodSecurity`.
 - `SecurityConfig` convierte el claim `roles` del JWT en authorities `ROLE_*`.
@@ -525,6 +549,7 @@ Reglas obligatorias:
 
 - No declarar autorización por roles como completa mientras solo existan reglas explícitas para una parte de los módulos.
 - No exponer endpoints sensibles de Actuator como `env`, `beans`, `configprops`, `metrics` o similares sin una revisión explícita de seguridad.
+- No habilitar Swagger UI ni OpenAPI JSON en producción sin autorización explícita y revisión de seguridad.
 - No confundir CORS con autenticación o autorización; CORS solo controla qué orígenes de navegador pueden consumir la API.
 - No implementar criptografía propia.
 - No guardar ni registrar contraseñas en texto plano.
@@ -559,6 +584,7 @@ Reglas obligatorias:
 
 - Mantener el `README.md` alineado con el estado real.
 - Actualizar la documentación API cuando cambien DTOs, endpoints o códigos HTTP.
+- Actualizar la documentación API cuando cambie la base global `/api/v1`, la configuración OpenAPI o la exposición de Swagger UI.
 - Actualizar diagramas cuando cambien relaciones o componentes.
 - Marcar claramente lo que sea propuesta, roadmap o funcionalidad futura.
 - No describir como implementado algo que solo exista en PlantUML o Markdown.
@@ -721,3 +747,4 @@ El código fuente es la referencia principal del estado implementado.
 Las migraciones son la referencia principal del esquema de base de datos.
 
 La documentación describe tanto elementos reales como objetivos futuros. Ante cualquier discrepancia, la IA debe señalarla explícitamente y no completar los vacíos mediante suposiciones.
+

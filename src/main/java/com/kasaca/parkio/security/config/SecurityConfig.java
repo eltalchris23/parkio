@@ -65,10 +65,26 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.GET, "/actuator/health/liveness").permitAll()
                         // Permite consultar si la aplicacion esta lista para recibir trafico.
                         .requestMatchers(HttpMethod.GET, "/actuator/health/readiness").permitAll()
+                        // Permite consultar el contrato OpenAPI en ambientes donde Springdoc este habilitado.
+                        .requestMatchers(HttpMethod.GET, "/v3/api-docs").permitAll()
+                        // Permite consultar recursos complementarios del contrato OpenAPI.
+                        .requestMatchers(HttpMethod.GET, "/v3/api-docs/**").permitAll()
+                        // Permite consultar OpenAPI cuando Springdoc queda expuesto bajo el servlet path /api/v1.
+                        .requestMatchers(HttpMethod.GET, "/api/v1/v3/api-docs").permitAll()
+                        // Permite consultar recursos OpenAPI bajo /api/v1 cuando aplica el prefijo global MVC.
+                        .requestMatchers(HttpMethod.GET, "/api/v1/v3/api-docs/**").permitAll()
+                        // Permite abrir Swagger UI desde navegador cuando este habilitado por perfil.
+                        .requestMatchers(HttpMethod.GET, "/swagger-ui.html").permitAll()
+                        // Permite cargar los recursos internos de Swagger UI como JavaScript y CSS.
+                        .requestMatchers(HttpMethod.GET, "/swagger-ui/**").permitAll()
+                        // Permite abrir Swagger UI cuando Springdoc queda expuesto bajo el servlet path /api/v1.
+                        .requestMatchers(HttpMethod.GET, "/api/v1/swagger-ui.html").permitAll()
+                        // Permite cargar recursos internos de Swagger UI bajo /api/v1.
+                        .requestMatchers(HttpMethod.GET, "/api/v1/swagger-ui/**").permitAll()
                         // Permite acceder al login sin token, porque este endpoint genera el JWT.
-                        .requestMatchers("/api/auth/login").permitAll()
+                        .requestMatchers("/auth/login").permitAll()
                         // Permite crear usuarios sin token para facilitar el registro inicial del sistema.
-                        .requestMatchers(HttpMethod.POST, "/api/usuarios").permitAll()
+                        .requestMatchers(HttpMethod.POST, "/usuarios").permitAll()
                         // Exige autenticacion JWT valida para cualquier otro endpoint no declarado como publico.
                         .anyRequest().authenticated()
                 )

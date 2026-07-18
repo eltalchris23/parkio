@@ -71,7 +71,7 @@ class EstacionamientoControllerTest {
         when(estacionamientoService.getEstacionamientos(any()))
                 .thenReturn(pageResponse);
 
-        mockMvc.perform(get("/api/estacionamientos")
+        mockMvc.perform(get("/estacionamientos")
                         .param("page", "0")
                         .param("size", "10")
                         .param("sort", "nombre,asc"))
@@ -98,7 +98,7 @@ class EstacionamientoControllerTest {
         when(estacionamientoService.getEstacionamientoById(1L))
                 .thenReturn(response);
 
-        mockMvc.perform(get("/api/estacionamientos/1"))
+        mockMvc.perform(get("/estacionamientos/1"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.status").value(200))
                 .andExpect(jsonPath("$.message")
@@ -126,7 +126,7 @@ class EstacionamientoControllerTest {
                         )
                 );
 
-        mockMvc.perform(get("/api/estacionamientos/99"))
+        mockMvc.perform(get("/estacionamientos/99"))
                 .andExpect(status().isNotFound())
                 .andExpect(jsonPath("$.status").value(404))
                 .andExpect(jsonPath("$.error").value("Not Found"))
@@ -134,7 +134,7 @@ class EstacionamientoControllerTest {
                         "Estacionamiento con identificador '99' no fue encontrado"
                 ))
                 .andExpect(jsonPath("$.path")
-                        .value("/api/estacionamientos/99"));
+                        .value("/estacionamientos/99"));
     }
 
     @Test
@@ -145,7 +145,7 @@ class EstacionamientoControllerTest {
         when(estacionamientoService.addEstacionamiento(any()))
                 .thenReturn(response);
 
-        mockMvc.perform(post("/api/estacionamientos")
+        mockMvc.perform(post("/estacionamientos")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isCreated())
@@ -164,7 +164,7 @@ class EstacionamientoControllerTest {
 
     @Test
     void debeRechazarSolicitudInvalida() throws Exception {
-        mockMvc.perform(post("/api/estacionamientos")
+        mockMvc.perform(post("/estacionamientos")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {
@@ -195,7 +195,7 @@ class EstacionamientoControllerTest {
 
     @Test
     void debeRechazarJsonMalFormado() throws Exception {
-        mockMvc.perform(post("/api/estacionamientos")
+        mockMvc.perform(post("/estacionamientos")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {
@@ -237,7 +237,7 @@ class EstacionamientoControllerTest {
                 any(EstacionamientoRequest.class)
         )).thenReturn(response);
 
-        mockMvc.perform(put("/api/estacionamientos/1")
+        mockMvc.perform(put("/estacionamientos/1")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isOk())
@@ -259,7 +259,7 @@ class EstacionamientoControllerTest {
 
     @Test
     void debeEliminarEstacionamiento() throws Exception {
-        mockMvc.perform(delete("/api/estacionamientos/1"))
+        mockMvc.perform(delete("/estacionamientos/1"))
                 .andExpect(status().isNoContent())
                 .andExpect(content().string(""));
 
@@ -288,3 +288,4 @@ class EstacionamientoControllerTest {
         );
     }
 }
+

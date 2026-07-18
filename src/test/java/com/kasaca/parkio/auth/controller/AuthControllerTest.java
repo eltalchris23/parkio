@@ -59,7 +59,7 @@ class AuthControllerTest {
 
         when(authService.login(request)).thenReturn(response);
 
-        mockMvc.perform(post("/api/auth/login")
+        mockMvc.perform(post("/auth/login")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isOk())
@@ -78,7 +78,7 @@ class AuthControllerTest {
         AuthLoginRequest request = new AuthLoginRequest("christian@parkio.com", "incorrecta");
         when(authService.login(request)).thenThrow(new UnauthorizedException("Credenciales invalidas"));
 
-        mockMvc.perform(post("/api/auth/login")
+        mockMvc.perform(post("/auth/login")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isUnauthorized())
@@ -91,7 +91,7 @@ class AuthControllerTest {
      */
     @Test
     void debeRechazarLoginInvalido() throws Exception {
-        mockMvc.perform(post("/api/auth/login")
+        mockMvc.perform(post("/auth/login")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {
@@ -107,3 +107,4 @@ class AuthControllerTest {
         verifyNoInteractions(authService);
     }
 }
+

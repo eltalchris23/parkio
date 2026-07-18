@@ -6,3 +6,14 @@ spring:
 
   jpa:
     show-sql: ${PARKIO_JPA_SHOW_SQL:true}
+
+springdoc:
+  api-docs:
+    # Habilita el contrato OpenAPI en desarrollo para que Swagger UI pueda leer los endpoints reales.
+    enabled: true
+
+  swagger-ui:
+    # Habilita la interfaz Swagger UI solo en desarrollo.
+    enabled: true
+    # Ruta corta para abrir la documentacion interactiva desde navegador.
+    path: /swagger-ui.html

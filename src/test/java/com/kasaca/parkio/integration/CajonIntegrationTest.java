@@ -86,7 +86,7 @@ class CajonIntegrationTest {
     @Test
     void debeRechazarConsultaDeCajonesSinToken() {
         ResponseEntity<String> response = restTemplate.getForEntity(
-                "/api/cajones",
+                "/api/v1/cajones",
                 String.class
         );
 
@@ -211,7 +211,7 @@ class CajonIntegrationTest {
         headers.setContentType(MediaType.APPLICATION_JSON);
 
         ResponseEntity<String> response = restTemplate.postForEntity(
-                "/api/usuarios",
+                "/api/v1/usuarios",
                 new HttpEntity<>(request, headers),
                 String.class
         );
@@ -248,7 +248,7 @@ class CajonIntegrationTest {
         headers.setContentType(MediaType.APPLICATION_JSON);
 
         ResponseEntity<String> response = restTemplate.postForEntity(
-                "/api/auth/login",
+                "/api/v1/auth/login",
                 new HttpEntity<>(request, headers),
                 String.class
         );
@@ -264,7 +264,7 @@ class CajonIntegrationTest {
      */
     private ResponseEntity<String> listarCajones(String accessToken) {
         return restTemplate.exchange(
-                "/api/cajones?page=0&size=10&sort=numero,asc",
+                "/api/v1/cajones?page=0&size=10&sort=numero,asc",
                 HttpMethod.GET,
                 new HttpEntity<>(crearHeadersConJwt(accessToken)),
                 String.class
@@ -276,7 +276,7 @@ class CajonIntegrationTest {
      */
     private ResponseEntity<String> listarCajonesPorEstacionamiento(String accessToken, Long estacionamientoId) {
         return restTemplate.exchange(
-                "/api/cajones?estacionamientoId=" + estacionamientoId + "&page=0&size=10&sort=numero,asc",
+                "/api/v1/cajones?estacionamientoId=" + estacionamientoId + "&page=0&size=10&sort=numero,asc",
                 HttpMethod.GET,
                 new HttpEntity<>(crearHeadersConJwt(accessToken)),
                 String.class
@@ -294,7 +294,7 @@ class CajonIntegrationTest {
         );
 
         return restTemplate.postForEntity(
-                "/api/cajones",
+                "/api/v1/cajones",
                 new HttpEntity<>(request, crearHeadersConJwt(accessToken)),
                 String.class
         );
@@ -305,7 +305,7 @@ class CajonIntegrationTest {
      */
     private ResponseEntity<String> consultarCajon(String accessToken, Long cajonId) {
         return restTemplate.exchange(
-                "/api/cajones/" + cajonId,
+                "/api/v1/cajones/" + cajonId,
                 HttpMethod.GET,
                 new HttpEntity<>(crearHeadersConJwt(accessToken)),
                 String.class
@@ -328,7 +328,7 @@ class CajonIntegrationTest {
         );
 
         return restTemplate.exchange(
-                "/api/cajones/" + cajonId,
+                "/api/v1/cajones/" + cajonId,
                 HttpMethod.PUT,
                 new HttpEntity<>(request, crearHeadersConJwt(accessToken)),
                 String.class
@@ -346,7 +346,7 @@ class CajonIntegrationTest {
         CajonEstadoRequest request = new CajonEstadoRequest(estado);
 
         return restTemplate.exchange(
-                "/api/cajones/" + cajonId + "/estado",
+                "/api/v1/cajones/" + cajonId + "/estado",
                 HttpMethod.PATCH,
                 new HttpEntity<>(request, crearHeadersConJwt(accessToken)),
                 String.class
@@ -358,7 +358,7 @@ class CajonIntegrationTest {
      */
     private ResponseEntity<String> eliminarCajon(String accessToken, Long cajonId) {
         return restTemplate.exchange(
-                "/api/cajones/" + cajonId,
+                "/api/v1/cajones/" + cajonId,
                 HttpMethod.DELETE,
                 new HttpEntity<>(crearHeadersConJwt(accessToken)),
                 String.class
@@ -428,3 +428,4 @@ class CajonIntegrationTest {
         assertThat(databaseName).isEqualTo(TEST_DATABASE_NAME);
     }
 }
+

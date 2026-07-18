@@ -24,7 +24,7 @@ public class CorsConfig {
     /**
      * Construye la configuracion CORS usada por Spring Security.
      *
-     * <p>Se registra para todas las rutas porque la API completa vive bajo /api
+     * <p>Se registra para todas las rutas porque la API completa vive bajo /api/v1
      * y las peticiones preflight OPTIONS deben poder resolverse antes de llegar
      * a la logica de autenticacion.</p>
      */

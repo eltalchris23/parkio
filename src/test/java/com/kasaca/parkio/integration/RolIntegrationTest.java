@@ -87,7 +87,7 @@ class RolIntegrationTest {
     @Test
     void debeRechazarConsultaDeRolesSinToken() {
         ResponseEntity<String> response = restTemplate.getForEntity(
-                "/api/roles",
+                "/api/v1/roles",
                 String.class
         );
 
@@ -103,7 +103,7 @@ class RolIntegrationTest {
         String accessToken = iniciarSesion(USER_EMAIL);
 
         ResponseEntity<String> response = restTemplate.exchange(
-                "/api/roles",
+                "/api/v1/roles",
                 HttpMethod.GET,
                 new HttpEntity<>(crearHeadersConJwt(accessToken)),
                 String.class
@@ -179,7 +179,7 @@ class RolIntegrationTest {
         headers.setContentType(MediaType.APPLICATION_JSON);
 
         ResponseEntity<String> response = restTemplate.postForEntity(
-                "/api/usuarios",
+                "/api/v1/usuarios",
                 new HttpEntity<>(request, headers),
                 String.class
         );
@@ -215,7 +215,7 @@ class RolIntegrationTest {
         headers.setContentType(MediaType.APPLICATION_JSON);
 
         ResponseEntity<String> response = restTemplate.postForEntity(
-                "/api/auth/login",
+                "/api/v1/auth/login",
                 new HttpEntity<>(request, headers),
                 String.class
         );
@@ -231,7 +231,7 @@ class RolIntegrationTest {
      */
     private ResponseEntity<String> listarRoles(String accessToken) {
         return restTemplate.exchange(
-                "/api/roles?page=0&size=10&sort=nombre,asc",
+                "/api/v1/roles?page=0&size=10&sort=nombre,asc",
                 HttpMethod.GET,
                 new HttpEntity<>(crearHeadersConJwt(accessToken)),
                 String.class
@@ -245,7 +245,7 @@ class RolIntegrationTest {
         RolRequest request = new RolRequest(nombre, true);
 
         return restTemplate.postForEntity(
-                "/api/roles",
+                "/api/v1/roles",
                 new HttpEntity<>(request, crearHeadersConJwt(accessToken)),
                 String.class
         );
@@ -256,7 +256,7 @@ class RolIntegrationTest {
      */
     private ResponseEntity<String> consultarRol(String accessToken, Long rolId) {
         return restTemplate.exchange(
-                "/api/roles/" + rolId,
+                "/api/v1/roles/" + rolId,
                 HttpMethod.GET,
                 new HttpEntity<>(crearHeadersConJwt(accessToken)),
                 String.class
@@ -270,7 +270,7 @@ class RolIntegrationTest {
         RolRequest request = new RolRequest(nombre, true);
 
         return restTemplate.exchange(
-                "/api/roles/" + rolId,
+                "/api/v1/roles/" + rolId,
                 HttpMethod.PUT,
                 new HttpEntity<>(request, crearHeadersConJwt(accessToken)),
                 String.class
@@ -282,7 +282,7 @@ class RolIntegrationTest {
      */
     private ResponseEntity<String> eliminarRol(String accessToken, Long rolId) {
         return restTemplate.exchange(
-                "/api/roles/" + rolId,
+                "/api/v1/roles/" + rolId,
                 HttpMethod.DELETE,
                 new HttpEntity<>(crearHeadersConJwt(accessToken)),
                 String.class
@@ -322,3 +322,4 @@ class RolIntegrationTest {
         assertThat(databaseName).isEqualTo(TEST_DATABASE_NAME);
     }
 }
+

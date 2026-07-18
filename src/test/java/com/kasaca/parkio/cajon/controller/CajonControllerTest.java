@@ -73,7 +73,7 @@ class CajonControllerTest {
         when(cajonService.getCajones(any()))
                 .thenReturn(pageResponse);
 
-        mockMvc.perform(get("/api/cajones")
+        mockMvc.perform(get("/cajones")
                         .param("page", "0")
                         .param("size", "10")
                         .param("sort", "numero,asc"))
@@ -101,7 +101,7 @@ class CajonControllerTest {
         when(cajonService.getCajonesByEstacionamientoId(any(Long.class), any()))
                 .thenReturn(pageResponse);
 
-        mockMvc.perform(get("/api/cajones")
+        mockMvc.perform(get("/cajones")
                         .param("estacionamientoId", "10")
                         .param("page", "0")
                         .param("size", "10"))
@@ -118,7 +118,7 @@ class CajonControllerTest {
     void debeObtenerCajonPorId() throws Exception {
         when(cajonService.getCajon(1L)).thenReturn(crearResponse());
 
-        mockMvc.perform(get("/api/cajones/1"))
+        mockMvc.perform(get("/cajones/1"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.status").value(200))
                 .andExpect(jsonPath("$.message").value("Cajon consultado correctamente"))
@@ -134,7 +134,7 @@ class CajonControllerTest {
         when(cajonService.getCajon(99L))
                 .thenThrow(new ResourceNotFoundException("Cajón", 99L));
 
-        mockMvc.perform(get("/api/cajones/99"))
+        mockMvc.perform(get("/cajones/99"))
                 .andExpect(status().isNotFound())
                 .andExpect(jsonPath("$.status").value(404))
                 .andExpect(jsonPath("$.message").value(
@@ -149,7 +149,7 @@ class CajonControllerTest {
         when(cajonService.addCajon(any(CajonRequest.class)))
                 .thenReturn(crearResponse());
 
-        mockMvc.perform(post("/api/cajones")
+        mockMvc.perform(post("/cajones")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isCreated())
@@ -169,7 +169,7 @@ class CajonControllerTest {
                         "Ya existe el cajón 'A-001' en el estacionamiento '10'"
                 ));
 
-        mockMvc.perform(post("/api/cajones")
+        mockMvc.perform(post("/cajones")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(
                                 crearRequest()
@@ -183,7 +183,7 @@ class CajonControllerTest {
 
     @Test
     void debeRechazarSolicitudInvalida() throws Exception {
-        mockMvc.perform(post("/api/cajones")
+        mockMvc.perform(post("/cajones")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {
@@ -213,7 +213,7 @@ class CajonControllerTest {
 
     @Test
     void debeRechazarTipoDeCajonInvalido() throws Exception {
-        mockMvc.perform(post("/api/cajones")
+        mockMvc.perform(post("/cajones")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {
@@ -253,7 +253,7 @@ class CajonControllerTest {
                 any(CajonRequest.class)
         )).thenReturn(response);
 
-        mockMvc.perform(put("/api/cajones/1")
+        mockMvc.perform(put("/cajones/1")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isOk())
@@ -290,7 +290,7 @@ class CajonControllerTest {
                 any(CajonEstadoRequest.class)
         )).thenReturn(response);
 
-        mockMvc.perform(patch("/api/cajones/1/estado")
+        mockMvc.perform(patch("/cajones/1/estado")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isOk())
@@ -308,7 +308,7 @@ class CajonControllerTest {
 
     @Test
     void debeRechazarEstadoNulo() throws Exception {
-        mockMvc.perform(patch("/api/cajones/1/estado")
+        mockMvc.perform(patch("/cajones/1/estado")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {
@@ -326,7 +326,7 @@ class CajonControllerTest {
 
     @Test
     void debeEliminarCajon() throws Exception {
-        mockMvc.perform(delete("/api/cajones/1"))
+        mockMvc.perform(delete("/cajones/1"))
                 .andExpect(status().isNoContent())
                 .andExpect(content().string(""));
 
@@ -353,3 +353,4 @@ class CajonControllerTest {
         );
     }
 }
+

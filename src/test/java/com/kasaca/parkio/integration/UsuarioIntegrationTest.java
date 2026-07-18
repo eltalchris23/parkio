@@ -85,7 +85,7 @@ class UsuarioIntegrationTest {
     @Test
     void debeRechazarListadoDeUsuariosSinToken() {
         ResponseEntity<String> response = restTemplate.getForEntity(
-                "/api/usuarios",
+                "/api/v1/usuarios",
                 String.class
         );
 
@@ -277,7 +277,7 @@ class UsuarioIntegrationTest {
         headers.setContentType(MediaType.APPLICATION_JSON);
 
         return restTemplate.postForEntity(
-                "/api/usuarios",
+                "/api/v1/usuarios",
                 new HttpEntity<>(request, headers),
                 String.class
         );
@@ -320,7 +320,7 @@ class UsuarioIntegrationTest {
         headers.setContentType(MediaType.APPLICATION_JSON);
 
         return restTemplate.postForEntity(
-                "/api/auth/login",
+                "/api/v1/auth/login",
                 new HttpEntity<>(request, headers),
                 String.class
         );
@@ -331,7 +331,7 @@ class UsuarioIntegrationTest {
      */
     private ResponseEntity<String> listarUsuarios(String accessToken) {
         return restTemplate.exchange(
-                "/api/usuarios?page=0&size=10&sort=email,asc",
+                "/api/v1/usuarios?page=0&size=10&sort=email,asc",
                 HttpMethod.GET,
                 new HttpEntity<>(crearHeadersConJwt(accessToken)),
                 String.class
@@ -343,7 +343,7 @@ class UsuarioIntegrationTest {
      */
     private ResponseEntity<String> consultarUsuario(String accessToken, Long usuarioId) {
         return restTemplate.exchange(
-                "/api/usuarios/" + usuarioId,
+                "/api/v1/usuarios/" + usuarioId,
                 HttpMethod.GET,
                 new HttpEntity<>(crearHeadersConJwt(accessToken)),
                 String.class
@@ -366,7 +366,7 @@ class UsuarioIntegrationTest {
         );
 
         return restTemplate.exchange(
-                "/api/usuarios/" + usuarioId,
+                "/api/v1/usuarios/" + usuarioId,
                 HttpMethod.PUT,
                 new HttpEntity<>(request, crearHeadersConJwt(accessToken)),
                 String.class
@@ -380,7 +380,7 @@ class UsuarioIntegrationTest {
         UsuarioPasswordRequest request = new UsuarioPasswordRequest(nuevaPassword);
 
         return restTemplate.exchange(
-                "/api/usuarios/" + usuarioId + "/password",
+                "/api/v1/usuarios/" + usuarioId + "/password",
                 HttpMethod.PATCH,
                 new HttpEntity<>(request, crearHeadersConJwt(accessToken)),
                 String.class
@@ -394,7 +394,7 @@ class UsuarioIntegrationTest {
         UsuarioRolRequest request = new UsuarioRolRequest(rolId);
 
         return restTemplate.postForEntity(
-                "/api/usuarios/" + usuarioId + "/roles",
+                "/api/v1/usuarios/" + usuarioId + "/roles",
                 new HttpEntity<>(request, crearHeadersConJwt(accessToken)),
                 String.class
         );
@@ -405,7 +405,7 @@ class UsuarioIntegrationTest {
      */
     private ResponseEntity<String> retirarRol(String accessToken, Long usuarioId, Long rolId) {
         return restTemplate.exchange(
-                "/api/usuarios/" + usuarioId + "/roles/" + rolId,
+                "/api/v1/usuarios/" + usuarioId + "/roles/" + rolId,
                 HttpMethod.DELETE,
                 new HttpEntity<>(crearHeadersConJwt(accessToken)),
                 String.class
@@ -423,7 +423,7 @@ class UsuarioIntegrationTest {
         UsuarioEstacionamientoRequest request = new UsuarioEstacionamientoRequest(estacionamientoId);
 
         return restTemplate.postForEntity(
-                "/api/usuarios/" + usuarioId + "/estacionamientos",
+                "/api/v1/usuarios/" + usuarioId + "/estacionamientos",
                 new HttpEntity<>(request, crearHeadersConJwt(accessToken)),
                 String.class
         );
@@ -438,7 +438,7 @@ class UsuarioIntegrationTest {
             Long estacionamientoId
     ) {
         return restTemplate.exchange(
-                "/api/usuarios/" + usuarioId + "/estacionamientos/" + estacionamientoId,
+                "/api/v1/usuarios/" + usuarioId + "/estacionamientos/" + estacionamientoId,
                 HttpMethod.DELETE,
                 new HttpEntity<>(crearHeadersConJwt(accessToken)),
                 String.class
@@ -450,7 +450,7 @@ class UsuarioIntegrationTest {
      */
     private ResponseEntity<String> eliminarUsuario(String accessToken, Long usuarioId) {
         return restTemplate.exchange(
-                "/api/usuarios/" + usuarioId,
+                "/api/v1/usuarios/" + usuarioId,
                 HttpMethod.DELETE,
                 new HttpEntity<>(crearHeadersConJwt(accessToken)),
                 String.class
@@ -515,3 +515,4 @@ class UsuarioIntegrationTest {
         assertThat(databaseName).isEqualTo(TEST_DATABASE_NAME);
     }
 }
+

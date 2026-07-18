@@ -27,7 +27,7 @@ import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
 @RestController
-@RequestMapping("/api/cajones")
+@RequestMapping("/cajones")
 @RequiredArgsConstructor
 @Slf4j
 public class CajonController {

@@ -1,11 +1,11 @@
-# Parkio API v1
+﻿# Parkio API v1
 
 ## Información General
 
 ### Base URL
 
 ```text
-/api
+/api/v1
 ```
 
 ### Estado del contrato
@@ -27,8 +27,8 @@ La autenticación JWT está implementada con Spring Security y OAuth2 Resource S
 Endpoints públicos:
 
 ```http
-POST /api/auth/login
-POST /api/usuarios
+POST /api/v1/auth/login
+POST /api/v1/usuarios
 GET /actuator/health
 GET /actuator/health/liveness
 GET /actuator/health/readiness
@@ -50,7 +50,7 @@ Los roles del claim `roles` se convierten a authorities de Spring Security con p
 
 ### Health Check
 
-Los endpoints de Health Check están implementados con Spring Boot Actuator y se exponen fuera de la base `/api`:
+Los endpoints de Health Check están implementados con Spring Boot Actuator y se exponen fuera de la base `/api/v1`:
 
 ```http
 GET /actuator/health
@@ -69,6 +69,39 @@ Respuesta esperada:
 ```
 
 La configuración actual expone únicamente `health` y mantiene ocultos los detalles internos mediante `show-details: never`. No están documentados como públicos endpoints sensibles de Actuator como `env`, `beans`, `configprops` o `metrics`.
+
+### OpenAPI y Swagger UI
+
+La documentación interactiva está implementada con Springdoc OpenAPI.
+
+En ambiente de desarrollo:
+
+```http
+GET /api/v1/swagger-ui.html
+GET /api/v1/v3/api-docs
+```
+
+`/api/v1/swagger-ui.html` abre la interfaz visual para consultar y probar la API. `/api/v1/v3/api-docs` expone el contrato OpenAPI en formato JSON.
+
+Swagger UI se genera a partir de los controladores reales. Los endpoints de negocio conservan la base global:
+
+```text
+/api/v1
+```
+
+Ejemplo:
+
+```http
+POST /api/v1/auth/login
+GET /api/v1/roles
+GET /api/v1/estacionamientos
+GET /api/v1/cajones
+GET /api/v1/usuarios
+```
+
+Para probar endpoints protegidos desde Swagger UI se debe usar el botón `Authorize` y proporcionar un JWT con el esquema Bearer.
+
+Springdoc está deshabilitado por defecto y también en el perfil `prod`. Actualmente se habilita desde el perfil `dev`.
 
 ### Autorización por roles
 
@@ -152,7 +185,7 @@ Las respuestas de error usan `ApiError`:
   "error": "Bad Request",
   "message": "La solicitud contiene datos inválidos",
   "transactionId": "0f5d5c9b-8dc1-4bd1-a173-08f16eb4f96e",
-  "path": "/api/roles",
+  "path": "/api/v1/roles",
   "validationErrors": {
     "nombre": "El nombre del rol es obligatorio"
   }
@@ -185,7 +218,7 @@ Reglas implementadas:
 
 ### Bootstrap del primer ADMIN
 
-`POST /api/usuarios` crea usuarios con rol base `USER`. No existe creación pública de administradores.
+`POST /api/v1/usuarios` crea usuarios con rol base `USER`. No existe creación pública de administradores.
 
 Para habilitar el primer administrador en un ambiente local o controlado:
 
@@ -205,7 +238,7 @@ Después de asignar el rol, el usuario debe iniciar sesión nuevamente para obte
 ### Login
 
 ```http
-POST /api/auth/login
+POST /api/v1/auth/login
 ```
 
 Endpoint público.
@@ -251,7 +284,7 @@ Seguridad:
 ### Listar roles
 
 ```http
-GET /api/roles?page=0&size=10&sort=nombre,asc
+GET /api/v1/roles?page=0&size=10&sort=nombre,asc
 ```
 
 #### Response 200
@@ -285,7 +318,7 @@ GET /api/roles?page=0&size=10&sort=nombre,asc
 ### Consultar rol
 
 ```http
-GET /api/roles/{rolId}
+GET /api/v1/roles/{rolId}
 ```
 
 #### Response 200
@@ -308,7 +341,7 @@ GET /api/roles/{rolId}
 ### Crear rol
 
 ```http
-POST /api/roles
+POST /api/v1/roles
 ```
 
 #### Request
@@ -347,7 +380,7 @@ Validaciones:
 ### Actualizar rol
 
 ```http
-PUT /api/roles/{rolId}
+PUT /api/v1/roles/{rolId}
 ```
 
 Usa el mismo cuerpo de creación.
@@ -372,7 +405,7 @@ Usa el mismo cuerpo de creación.
 ### Eliminar rol
 
 ```http
-DELETE /api/roles/{rolId}
+DELETE /api/v1/roles/{rolId}
 ```
 
 #### Response 204
@@ -393,16 +426,16 @@ Sin cuerpo. Realiza borrado lógico.
 
 Seguridad:
 
-- `POST /api/usuarios` es público y asigna automáticamente rol base `USER`.
-- `GET /api/usuarios`, `DELETE /api/usuarios/{usuarioId}` y asignaciones/retiros requieren `ADMIN`.
-- `GET /api/usuarios/{usuarioId}`, `PUT /api/usuarios/{usuarioId}` y `PATCH /api/usuarios/{usuarioId}/password` permiten `ADMIN`, o `USER`/`OPERADOR` cuando el `usuarioId` de la ruta coincide con el claim `usuarioId`.
+- `POST /api/v1/usuarios` es público y asigna automáticamente rol base `USER`.
+- `GET /api/v1/usuarios`, `DELETE /api/v1/usuarios/{usuarioId}` y asignaciones/retiros requieren `ADMIN`.
+- `GET /api/v1/usuarios/{usuarioId}`, `PUT /api/v1/usuarios/{usuarioId}` y `PATCH /api/v1/usuarios/{usuarioId}/password` permiten `ADMIN`, o `USER`/`OPERADOR` cuando el `usuarioId` de la ruta coincide con el claim `usuarioId`.
 
 Las respuestas nunca incluyen `passwordHash`.
 
 ### Listar usuarios
 
 ```http
-GET /api/usuarios?page=0&size=10&sort=email,asc
+GET /api/v1/usuarios?page=0&size=10&sort=email,asc
 ```
 
 #### Response 200
@@ -442,7 +475,7 @@ GET /api/usuarios?page=0&size=10&sort=email,asc
 ### Crear usuario
 
 ```http
-POST /api/usuarios
+POST /api/v1/usuarios
 ```
 
 Endpoint público.
@@ -493,7 +526,7 @@ Validaciones:
 ### Consultar usuario
 
 ```http
-GET /api/usuarios/{usuarioId}
+GET /api/v1/usuarios/{usuarioId}
 ```
 
 #### Response 200
@@ -522,7 +555,7 @@ GET /api/usuarios/{usuarioId}
 ### Actualizar usuario
 
 ```http
-PUT /api/usuarios/{usuarioId}
+PUT /api/v1/usuarios/{usuarioId}
 ```
 
 #### Request
@@ -563,7 +596,7 @@ La actualización general no exige contraseña.
 ### Cambiar contraseña
 
 ```http
-PATCH /api/usuarios/{usuarioId}/password
+PATCH /api/v1/usuarios/{usuarioId}/password
 ```
 
 #### Request
@@ -581,7 +614,7 @@ Sin cuerpo.
 ### Eliminar usuario
 
 ```http
-DELETE /api/usuarios/{usuarioId}
+DELETE /api/v1/usuarios/{usuarioId}
 ```
 
 #### Response 204
@@ -591,7 +624,7 @@ Sin cuerpo. Realiza borrado lógico.
 ### Asignar rol a usuario
 
 ```http
-POST /api/usuarios/{usuarioId}/roles
+POST /api/v1/usuarios/{usuarioId}/roles
 ```
 
 #### Request
@@ -629,7 +662,7 @@ POST /api/usuarios/{usuarioId}/roles
 ### Retirar rol de usuario
 
 ```http
-DELETE /api/usuarios/{usuarioId}/roles/{rolId}
+DELETE /api/v1/usuarios/{usuarioId}/roles/{rolId}
 ```
 
 #### Response 204
@@ -639,7 +672,7 @@ Sin cuerpo.
 ### Asignar estacionamiento a usuario
 
 ```http
-POST /api/usuarios/{usuarioId}/estacionamientos
+POST /api/v1/usuarios/{usuarioId}/estacionamientos
 ```
 
 #### Request
@@ -678,7 +711,7 @@ POST /api/usuarios/{usuarioId}/estacionamientos
 ### Retirar estacionamiento de usuario
 
 ```http
-DELETE /api/usuarios/{usuarioId}/estacionamientos/{estacionamientoId}
+DELETE /api/v1/usuarios/{usuarioId}/estacionamientos/{estacionamientoId}
 ```
 
 #### Response 204
@@ -700,13 +733,13 @@ Sin cuerpo.
 Seguridad:
 
 - Requiere JWT válido.
-- `GET /api/estacionamientos` y `GET /api/estacionamientos/{estacionamientoId}` permiten `ADMIN`, `OPERADOR` y `USER`.
+- `GET /api/v1/estacionamientos` y `GET /api/v1/estacionamientos/{estacionamientoId}` permiten `ADMIN`, `OPERADOR` y `USER`.
 - `POST`, `PUT` y `DELETE` requieren `ADMIN`.
 
 ### Listar estacionamientos
 
 ```http
-GET /api/estacionamientos?page=0&size=10&sort=nombre,asc
+GET /api/v1/estacionamientos?page=0&size=10&sort=nombre,asc
 ```
 
 #### Response 200
@@ -743,7 +776,7 @@ GET /api/estacionamientos?page=0&size=10&sort=nombre,asc
 ### Consultar estacionamiento
 
 ```http
-GET /api/estacionamientos/{estacionamientoId}
+GET /api/v1/estacionamientos/{estacionamientoId}
 ```
 
 #### Response 200
@@ -769,7 +802,7 @@ GET /api/estacionamientos/{estacionamientoId}
 ### Crear estacionamiento
 
 ```http
-POST /api/estacionamientos
+POST /api/v1/estacionamientos
 ```
 
 #### Request
@@ -813,7 +846,7 @@ Validaciones:
 ### Actualizar estacionamiento
 
 ```http
-PUT /api/estacionamientos/{estacionamientoId}
+PUT /api/v1/estacionamientos/{estacionamientoId}
 ```
 
 Usa el mismo cuerpo de creación.
@@ -841,7 +874,7 @@ Usa el mismo cuerpo de creación.
 ### Eliminar estacionamiento
 
 ```http
-DELETE /api/estacionamientos/{estacionamientoId}
+DELETE /api/v1/estacionamientos/{estacionamientoId}
 ```
 
 #### Response 204
@@ -862,8 +895,8 @@ Sin cuerpo. Realiza borrado lógico del estacionamiento y de sus cajones activos
 Seguridad:
 
 - Requiere JWT válido.
-- `GET /api/cajones`, `GET /api/cajones?estacionamientoId={id}` y `GET /api/cajones/{cajonId}` permiten `ADMIN`, `OPERADOR` y `USER`.
-- `PATCH /api/cajones/{cajonId}/estado` permite `ADMIN` y `OPERADOR`.
+- `GET /api/v1/cajones`, `GET /api/v1/cajones?estacionamientoId={id}` y `GET /api/v1/cajones/{cajonId}` permiten `ADMIN`, `OPERADOR` y `USER`.
+- `PATCH /api/v1/cajones/{cajonId}/estado` permite `ADMIN` y `OPERADOR`.
 - `POST`, `PUT` y `DELETE` requieren `ADMIN`.
 
 Tipos permitidos:
@@ -882,13 +915,13 @@ Estados permitidos:
 ### Listar cajones
 
 ```http
-GET /api/cajones?page=0&size=10&sort=numero,asc
+GET /api/v1/cajones?page=0&size=10&sort=numero,asc
 ```
 
 ### Listar cajones por estacionamiento
 
 ```http
-GET /api/cajones?estacionamientoId=1&page=0&size=10&sort=numero,asc
+GET /api/v1/cajones?estacionamientoId=1&page=0&size=10&sort=numero,asc
 ```
 
 #### Response 200
@@ -925,7 +958,7 @@ GET /api/cajones?estacionamientoId=1&page=0&size=10&sort=numero,asc
 ### Consultar cajón
 
 ```http
-GET /api/cajones/{cajonId}
+GET /api/v1/cajones/{cajonId}
 ```
 
 #### Response 200
@@ -951,7 +984,7 @@ GET /api/cajones/{cajonId}
 ### Crear cajón
 
 ```http
-POST /api/cajones
+POST /api/v1/cajones
 ```
 
 #### Request
@@ -997,7 +1030,7 @@ El estado inicial se asigna automáticamente como `LIBRE`.
 ### Actualizar cajón
 
 ```http
-PUT /api/cajones/{cajonId}
+PUT /api/v1/cajones/{cajonId}
 ```
 
 Usa el mismo cuerpo de creación. La actualización conserva el estado operativo actual del cajón.
@@ -1025,7 +1058,7 @@ Usa el mismo cuerpo de creación. La actualización conserva el estado operativo
 ### Cambiar estado del cajón
 
 ```http
-PATCH /api/cajones/{cajonId}/estado
+PATCH /api/v1/cajones/{cajonId}/estado
 ```
 
 #### Request
@@ -1059,7 +1092,7 @@ PATCH /api/cajones/{cajonId}/estado
 ### Eliminar cajón
 
 ```http
-DELETE /api/cajones/{cajonId}
+DELETE /api/v1/cajones/{cajonId}
 ```
 
 #### Response 204
@@ -1109,3 +1142,4 @@ Estas pruebas validan que la conexión use `parkio_test` antes de limpiar datos 
 | `404` | Recurso no encontrado |
 | `409` | Conflicto |
 | `500` | Error interno |
+

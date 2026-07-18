@@ -129,7 +129,7 @@ class SecurityConfigTest {
      */
     @Test
     void debePermitirPreflightCorsDesdeOrigenConfigurado() throws Exception {
-        mockMvc.perform(options("/api/roles")
+        mockMvc.perform(options("/roles")
                         // Simula el dominio desde donde corre el frontend.
                         .header(HttpHeaders.ORIGIN, "http://localhost:4200")
 
@@ -190,7 +190,7 @@ class SecurityConfigTest {
      */
     @Test
     void debeRechazarPreflightCorsDesdeOrigenNoConfigurado() throws Exception {
-        mockMvc.perform(options("/api/roles")
+        mockMvc.perform(options("/roles")
                         // Simula un sitio externo que no esta dentro de parkio.cors.allowed-origins.
                         .header(HttpHeaders.ORIGIN, "https://sitio-no-permitido.com")
 
@@ -229,7 +229,7 @@ class SecurityConfigTest {
         // Simula la respuesta del service porque esta prueba se enfoca en seguridad/CORS, no en la logica de roles.
         when(rolService.getRoles(any())).thenReturn(pageResponse);
 
-        mockMvc.perform(get("/api/roles")
+        mockMvc.perform(get("/roles")
                         // Simula una peticion real enviada desde el frontend permitido.
                         .header(HttpHeaders.ORIGIN, "http://localhost:4200")
 
@@ -237,7 +237,7 @@ class SecurityConfigTest {
                         .param("page", "0")
                         .param("size", "10")
 
-                        // Simula un JWT con rol ADMIN para que la seguridad por roles permita consultar /api/roles.
+                        // Simula un JWT con rol ADMIN para que la seguridad por roles permita consultar /roles.
                         .with(jwt().authorities(() -> "ROLE_ADMIN")))
 
                 // Confirma que la peticion real fue aceptada.
@@ -272,7 +272,7 @@ class SecurityConfigTest {
 
         when(authService.login(request)).thenReturn(response);
 
-        mockMvc.perform(post("/api/auth/login")
+        mockMvc.perform(post("/auth/login")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isOk())
@@ -304,7 +304,7 @@ class SecurityConfigTest {
 
         when(usuarioService.addUser(request)).thenReturn(response);
 
-        mockMvc.perform(post("/api/usuarios")
+        mockMvc.perform(post("/usuarios")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isCreated())
@@ -319,11 +319,11 @@ class SecurityConfigTest {
      */
     @Test
     void debeProtegerEndpointsSinToken() throws Exception {
-        mockMvc.perform(get("/api/usuarios"))
+        mockMvc.perform(get("/usuarios"))
                 .andExpect(status().isUnauthorized())
                 .andExpect(jsonPath("$.status").value(401))
                 .andExpect(jsonPath("$.message").value("Autenticacion requerida"))
-                .andExpect(jsonPath("$.path").value("/api/usuarios"));
+                .andExpect(jsonPath("$.path").value("/usuarios"));
     }
 
     /**
@@ -331,7 +331,7 @@ class SecurityConfigTest {
      */
     @Test
     void debeRechazarRolesCuandoUsuarioNoTieneRolAdmin() throws Exception {
-        mockMvc.perform(get("/api/roles")
+        mockMvc.perform(get("/roles")
                         .with(jwt().authorities(() -> "ROLE_USUARIO")))
                 .andExpect(status().isForbidden());
 
@@ -357,7 +357,7 @@ class SecurityConfigTest {
         when(rolService.getRoles(any()))
                 .thenReturn(pageResponse);
 
-        mockMvc.perform(get("/api/roles")
+        mockMvc.perform(get("/roles")
                         .param("page", "0")
                         .param("size", "10")
                         .with(jwt().authorities(() -> "ROLE_ADMIN")))
@@ -393,7 +393,7 @@ class SecurityConfigTest {
         when(usuarioService.getAllUsers(any()))
                 .thenReturn(pageResponse);
 
-        mockMvc.perform(get("/api/usuarios")
+        mockMvc.perform(get("/usuarios")
                         .param("page", "0")
                         .param("size", "10")
                         .with(jwt().authorities(() -> "ROLE_ADMIN")))
@@ -411,7 +411,7 @@ class SecurityConfigTest {
      */
     @Test
     void debeRechazarListarUsuariosCuandoTieneRolUser() throws Exception {
-        mockMvc.perform(get("/api/usuarios")
+        mockMvc.perform(get("/usuarios")
                         .with(jwt()
                                 .jwt(jwt -> jwt.claim("usuarioId", 1L))
                                 .authorities(() -> "ROLE_USER")))
@@ -438,7 +438,7 @@ class SecurityConfigTest {
 
         when(usuarioService.getUserById(1L)).thenReturn(response);
 
-        mockMvc.perform(get("/api/usuarios/1")
+        mockMvc.perform(get("/usuarios/1")
                         .with(jwt()
                                 .jwt(jwt -> jwt.claim("usuarioId", 1L))
                                 .authorities(() -> "ROLE_USER")))
@@ -456,7 +456,7 @@ class SecurityConfigTest {
      */
     @Test
     void debeRechazarConsultarUsuarioAjenoCuandoTieneRolUser() throws Exception {
-        mockMvc.perform(get("/api/usuarios/2")
+        mockMvc.perform(get("/usuarios/2")
                         .with(jwt()
                                 .jwt(jwt -> jwt.claim("usuarioId", 1L))
                                 .authorities(() -> "ROLE_USER")))
@@ -483,7 +483,7 @@ class SecurityConfigTest {
 
         when(usuarioService.getUserById(1L)).thenReturn(response);
 
-        mockMvc.perform(get("/api/usuarios/1")
+        mockMvc.perform(get("/usuarios/1")
                         .with(jwt()
                                 .jwt(jwt -> jwt.claim("usuarioId", 1L))
                                 .authorities(() -> "ROLE_OPERADOR")))
@@ -501,7 +501,7 @@ class SecurityConfigTest {
      */
     @Test
     void debeRechazarConsultarUsuarioAjenoCuandoTieneRolOperador() throws Exception {
-        mockMvc.perform(get("/api/usuarios/2")
+        mockMvc.perform(get("/usuarios/2")
                         .with(jwt()
                                 .jwt(jwt -> jwt.claim("usuarioId", 1L))
                                 .authorities(() -> "ROLE_OPERADOR")))
@@ -532,7 +532,7 @@ class SecurityConfigTest {
         when(estacionamientoService.getEstacionamientos(any()))
                 .thenReturn(pageResponse);
 
-        mockMvc.perform(get("/api/estacionamientos")
+        mockMvc.perform(get("/estacionamientos")
                         .param("page", "0")
                         .param("size", "10")
                         .with(jwt().authorities(() -> "ROLE_ADMIN")))
@@ -555,7 +555,7 @@ class SecurityConfigTest {
                         new PageImpl<>(List.of(), PageRequest.of(0, 10), 0)
                 ));
 
-        mockMvc.perform(get("/api/estacionamientos")
+        mockMvc.perform(get("/estacionamientos")
                         .param("page", "0")
                         .param("size", "10")
                         .with(jwt().authorities(() -> "ROLE_OPERADOR")))
@@ -574,7 +574,7 @@ class SecurityConfigTest {
                         new PageImpl<>(List.of(), PageRequest.of(0, 10), 0)
                 ));
 
-        mockMvc.perform(get("/api/estacionamientos")
+        mockMvc.perform(get("/estacionamientos")
                         .param("page", "0")
                         .param("size", "10")
                         .with(jwt().authorities(() -> "ROLE_USER")))
@@ -600,7 +600,7 @@ class SecurityConfigTest {
 
         when(estacionamientoService.getEstacionamientoById(1L)).thenReturn(response);
 
-        mockMvc.perform(get("/api/estacionamientos/1")
+        mockMvc.perform(get("/estacionamientos/1")
                         .with(jwt().authorities(() -> "ROLE_ADMIN")))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.status").value(200))
@@ -623,7 +623,7 @@ class SecurityConfigTest {
                 new BigDecimal("-99.13320000")
         );
 
-        mockMvc.perform(post("/api/estacionamientos")
+        mockMvc.perform(post("/estacionamientos")
                         .with(jwt().authorities(() -> "ROLE_OPERADOR"))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
@@ -655,7 +655,7 @@ class SecurityConfigTest {
 
         when(estacionamientoService.addEstacionamiento(request)).thenReturn(response);
 
-        mockMvc.perform(post("/api/estacionamientos")
+        mockMvc.perform(post("/estacionamientos")
                         .with(jwt().authorities(() -> "ROLE_ADMIN"))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
@@ -680,7 +680,7 @@ class SecurityConfigTest {
                 new BigDecimal("-99.13320000")
         );
 
-        mockMvc.perform(put("/api/estacionamientos/1")
+        mockMvc.perform(put("/estacionamientos/1")
                         .with(jwt().authorities(() -> "ROLE_USER"))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
@@ -694,7 +694,7 @@ class SecurityConfigTest {
      */
     @Test
     void debeRechazarEliminarEstacionamientoCuandoTieneRolOperador() throws Exception {
-        mockMvc.perform(delete("/api/estacionamientos/1")
+        mockMvc.perform(delete("/estacionamientos/1")
                         .with(jwt().authorities(() -> "ROLE_OPERADOR")))
                 .andExpect(status().isForbidden());
 
@@ -714,7 +714,7 @@ class SecurityConfigTest {
         when(cajonService.getCajones(any()))
                 .thenReturn(pageResponse);
 
-        mockMvc.perform(get("/api/cajones")
+        mockMvc.perform(get("/cajones")
                         .param("page", "0")
                         .param("size", "10")
                         .with(jwt().authorities(() -> "ROLE_ADMIN")))
@@ -737,7 +737,7 @@ class SecurityConfigTest {
                         new PageImpl<>(List.of(), PageRequest.of(0, 10), 0)
                 ));
 
-        mockMvc.perform(get("/api/cajones")
+        mockMvc.perform(get("/cajones")
                         .param("page", "0")
                         .param("size", "10")
                         .with(jwt().authorities(() -> "ROLE_OPERADOR")))
@@ -756,7 +756,7 @@ class SecurityConfigTest {
                         new PageImpl<>(List.of(), PageRequest.of(0, 10), 0)
                 ));
 
-        mockMvc.perform(get("/api/cajones")
+        mockMvc.perform(get("/cajones")
                         .param("page", "0")
                         .param("size", "10")
                         .with(jwt().authorities(() -> "ROLE_USER")))
@@ -778,7 +778,7 @@ class SecurityConfigTest {
         when(cajonService.getCajonesByEstacionamientoId(any(Long.class), any()))
                 .thenReturn(pageResponse);
 
-        mockMvc.perform(get("/api/cajones")
+        mockMvc.perform(get("/cajones")
                         .param("estacionamientoId", "10")
                         .param("page", "0")
                         .param("size", "10")
@@ -798,7 +798,7 @@ class SecurityConfigTest {
 
         when(cajonService.getCajon(1L)).thenReturn(response);
 
-        mockMvc.perform(get("/api/cajones/1")
+        mockMvc.perform(get("/cajones/1")
                         .with(jwt().authorities(() -> "ROLE_USER")))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.status").value(200))
@@ -816,7 +816,7 @@ class SecurityConfigTest {
     void debeRechazarCrearCajonCuandoTieneRolOperador() throws Exception {
         CajonRequest request = crearCajonRequest();
 
-        mockMvc.perform(post("/api/cajones")
+        mockMvc.perform(post("/cajones")
                         .with(jwt().authorities(() -> "ROLE_OPERADOR"))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
@@ -835,7 +835,7 @@ class SecurityConfigTest {
 
         when(cajonService.addCajon(request)).thenReturn(response);
 
-        mockMvc.perform(post("/api/cajones")
+        mockMvc.perform(post("/cajones")
                         .with(jwt().authorities(() -> "ROLE_ADMIN"))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
@@ -855,7 +855,7 @@ class SecurityConfigTest {
     void debeRechazarActualizarCajonCuandoTieneRolUser() throws Exception {
         CajonRequest request = crearCajonRequest();
 
-        mockMvc.perform(put("/api/cajones/1")
+        mockMvc.perform(put("/cajones/1")
                         .with(jwt().authorities(() -> "ROLE_USER"))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
@@ -874,7 +874,7 @@ class SecurityConfigTest {
 
         when(cajonService.updateEstado(1L, request)).thenReturn(response);
 
-        mockMvc.perform(patch("/api/cajones/1/estado")
+        mockMvc.perform(patch("/cajones/1/estado")
                         .with(jwt().authorities(() -> "ROLE_OPERADOR"))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
@@ -894,7 +894,7 @@ class SecurityConfigTest {
     void debeRechazarCambiarEstadoCajonCuandoTieneRolUser() throws Exception {
         CajonEstadoRequest request = new CajonEstadoRequest(EstadoCajon.OCUPADO);
 
-        mockMvc.perform(patch("/api/cajones/1/estado")
+        mockMvc.perform(patch("/cajones/1/estado")
                         .with(jwt().authorities(() -> "ROLE_USER"))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
@@ -908,7 +908,7 @@ class SecurityConfigTest {
      */
     @Test
     void debePermitirEliminarCajonCuandoTieneRolAdmin() throws Exception {
-        mockMvc.perform(delete("/api/cajones/1")
+        mockMvc.perform(delete("/cajones/1")
                         .with(jwt().authorities(() -> "ROLE_ADMIN")))
                 .andExpect(status().isNoContent());
 
@@ -920,7 +920,7 @@ class SecurityConfigTest {
      */
     @Test
     void debeRechazarEliminarCajonCuandoTieneRolOperador() throws Exception {
-        mockMvc.perform(delete("/api/cajones/1")
+        mockMvc.perform(delete("/cajones/1")
                         .with(jwt().authorities(() -> "ROLE_OPERADOR")))
                 .andExpect(status().isForbidden());
 
@@ -954,3 +954,4 @@ class SecurityConfigTest {
         );
     }
 }
+

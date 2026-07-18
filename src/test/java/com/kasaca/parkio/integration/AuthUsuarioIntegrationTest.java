@@ -93,7 +93,7 @@ class AuthUsuarioIntegrationTest {
     @Test
     void debeRechazarConsultaDeUsuariosSinToken() {
         ResponseEntity<String> response = restTemplate.getForEntity(
-                "/api/usuarios",
+                "/api/v1/usuarios",
                 String.class
         );
 
@@ -150,7 +150,7 @@ class AuthUsuarioIntegrationTest {
         headers.setContentType(MediaType.APPLICATION_JSON);
 
         return restTemplate.postForEntity(
-                "/api/usuarios",
+                "/api/v1/usuarios",
                 new HttpEntity<>(request, headers),
                 String.class
         );
@@ -166,7 +166,7 @@ class AuthUsuarioIntegrationTest {
         headers.setContentType(MediaType.APPLICATION_JSON);
 
         return restTemplate.postForEntity(
-                "/api/auth/login",
+                "/api/v1/auth/login",
                 new HttpEntity<>(request, headers),
                 String.class
         );
@@ -180,7 +180,7 @@ class AuthUsuarioIntegrationTest {
         headers.setBearerAuth(accessToken);
 
         return restTemplate.exchange(
-                "/api/usuarios/" + usuarioId,
+                "/api/v1/usuarios/" + usuarioId,
                 HttpMethod.GET,
                 new HttpEntity<>(headers),
                 String.class
@@ -199,3 +199,4 @@ class AuthUsuarioIntegrationTest {
         assertThat(databaseName).isEqualTo(TEST_DATABASE_NAME);
     }
 }
+

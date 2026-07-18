@@ -82,7 +82,7 @@ class UsuarioControllerTest {
         when(usuarioService.getAllUsers(any()))
                 .thenReturn(pageResponse);
 
-        mockMvc.perform(get("/api/usuarios")
+        mockMvc.perform(get("/usuarios")
                         .param("page", "0")
                         .param("size", "10")
                         .param("sort", "email,asc"))
@@ -109,7 +109,7 @@ class UsuarioControllerTest {
         UsuarioResponse response = crearResponse();
         when(usuarioService.getUserById(1L)).thenReturn(response);
 
-        mockMvc.perform(get("/api/usuarios/1"))
+        mockMvc.perform(get("/usuarios/1"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.status").value(200))
                 .andExpect(jsonPath("$.message").value("Usuario consultado correctamente"))
@@ -128,11 +128,11 @@ class UsuarioControllerTest {
     void debeResponderNotFoundCuandoUsuarioNoExiste() throws Exception {
         when(usuarioService.getUserById(99L)).thenThrow(new ResourceNotFoundException("Usuario", 99L));
 
-        mockMvc.perform(get("/api/usuarios/99"))
+        mockMvc.perform(get("/usuarios/99"))
                 .andExpect(status().isNotFound())
                 .andExpect(jsonPath("$.status").value(404))
                 .andExpect(jsonPath("$.message").value("Usuario con identificador '99' no fue encontrado"))
-                .andExpect(jsonPath("$.path").value("/api/usuarios/99"));
+                .andExpect(jsonPath("$.path").value("/usuarios/99"));
     }
 
     /**
@@ -144,7 +144,7 @@ class UsuarioControllerTest {
         UsuarioResponse response = crearResponse();
         when(usuarioService.addUser(request)).thenReturn(response);
 
-        mockMvc.perform(post("/api/usuarios")
+        mockMvc.perform(post("/usuarios")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isCreated())
@@ -164,7 +164,7 @@ class UsuarioControllerTest {
      */
     @Test
     void debeRechazarSolicitudInvalida() throws Exception {
-        mockMvc.perform(post("/api/usuarios")
+        mockMvc.perform(post("/usuarios")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {
@@ -193,7 +193,7 @@ class UsuarioControllerTest {
                 new ConflictException("Ya existe un usuario con el correo 'christian@parkio.com'")
         );
 
-        mockMvc.perform(post("/api/usuarios")
+        mockMvc.perform(post("/usuarios")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isConflict())
@@ -207,7 +207,7 @@ class UsuarioControllerTest {
      */
     @Test
     void debeRechazarJsonMalFormado() throws Exception {
-        mockMvc.perform(post("/api/usuarios")
+        mockMvc.perform(post("/usuarios")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {
@@ -230,7 +230,7 @@ class UsuarioControllerTest {
         UsuarioResponse response = crearResponse();
         when(usuarioService.updateUser(1L, request)).thenReturn(response);
 
-        mockMvc.perform(put("/api/usuarios/1")
+        mockMvc.perform(put("/usuarios/1")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isOk())
@@ -248,7 +248,7 @@ class UsuarioControllerTest {
      */
     @Test
     void debeEliminarUsuario() throws Exception {
-        mockMvc.perform(delete("/api/usuarios/1"))
+        mockMvc.perform(delete("/usuarios/1"))
                 .andExpect(status().isNoContent())
                 .andExpect(content().string(""));
 
@@ -265,7 +265,7 @@ class UsuarioControllerTest {
         UsuarioResponse response = crearResponse();
         when(usuarioService.assignRole(1L, request)).thenReturn(response);
 
-        mockMvc.perform(post("/api/usuarios/1/roles")
+        mockMvc.perform(post("/usuarios/1/roles")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isOk())
@@ -284,7 +284,7 @@ class UsuarioControllerTest {
      */
     @Test
     void debeRechazarAsignacionSinRolId() throws Exception {
-        mockMvc.perform(post("/api/usuarios/1/roles")
+        mockMvc.perform(post("/usuarios/1/roles")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {
@@ -305,7 +305,7 @@ class UsuarioControllerTest {
      */
     @Test
     void debeRechazarRolIdNoPositivo() throws Exception {
-        mockMvc.perform(post("/api/usuarios/1/roles")
+        mockMvc.perform(post("/usuarios/1/roles")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {
@@ -332,7 +332,7 @@ class UsuarioControllerTest {
                 )
         );
 
-        mockMvc.perform(post("/api/usuarios/1/roles")
+        mockMvc.perform(post("/usuarios/1/roles")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isConflict())
@@ -346,7 +346,7 @@ class UsuarioControllerTest {
      */
     @Test
     void debeRetirarRolDeUsuario() throws Exception {
-        mockMvc.perform(delete("/api/usuarios/1/roles/2"))
+        mockMvc.perform(delete("/usuarios/1/roles/2"))
                 .andExpect(status().isNoContent())
                 .andExpect(content().string(""));
 
@@ -363,7 +363,7 @@ class UsuarioControllerTest {
         UsuarioResponse response = crearResponse();
         when(usuarioService.assignEstacionamiento(1L, request)).thenReturn(response);
 
-        mockMvc.perform(post("/api/usuarios/1/estacionamientos")
+        mockMvc.perform(post("/usuarios/1/estacionamientos")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isOk())
@@ -382,7 +382,7 @@ class UsuarioControllerTest {
      */
     @Test
     void debeRechazarAsignacionSinEstacionamientoId() throws Exception {
-        mockMvc.perform(post("/api/usuarios/1/estacionamientos")
+        mockMvc.perform(post("/usuarios/1/estacionamientos")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {
@@ -409,7 +409,7 @@ class UsuarioControllerTest {
                 )
         );
 
-        mockMvc.perform(post("/api/usuarios/1/estacionamientos")
+        mockMvc.perform(post("/usuarios/1/estacionamientos")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isConflict())
@@ -421,7 +421,7 @@ class UsuarioControllerTest {
      */
     @Test
     void debeRetirarEstacionamientoDeUsuario() throws Exception {
-        mockMvc.perform(delete("/api/usuarios/1/estacionamientos/3"))
+        mockMvc.perform(delete("/usuarios/1/estacionamientos/3"))
                 .andExpect(status().isNoContent())
                 .andExpect(content().string(""));
 
@@ -436,7 +436,7 @@ class UsuarioControllerTest {
     void debeActualizarPassword() throws Exception {
         UsuarioPasswordRequest request = new UsuarioPasswordRequest("nueva-clave");
 
-        mockMvc.perform(patch("/api/usuarios/1/password")
+        mockMvc.perform(patch("/usuarios/1/password")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isNoContent())
@@ -450,7 +450,7 @@ class UsuarioControllerTest {
      */
     @Test
     void debeRechazarPasswordVacio() throws Exception {
-        mockMvc.perform(patch("/api/usuarios/1/password")
+        mockMvc.perform(patch("/usuarios/1/password")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {
@@ -487,3 +487,4 @@ class UsuarioControllerTest {
                 LocalDateTime.of(2026, 6, 28, 12, 0), Set.of("ADMIN"), Set.of(3L));
     }
 }
+

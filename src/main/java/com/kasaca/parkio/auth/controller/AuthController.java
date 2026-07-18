@@ -16,7 +16,7 @@ import org.springframework.web.bind.annotation.RestController;
  * <p>Expone las operaciones publicas necesarias para obtener un JWT.</p>
  */
 @RestController
-@RequestMapping("/api/auth")
+@RequestMapping("/auth")
 @RequiredArgsConstructor
 public class AuthController {
 

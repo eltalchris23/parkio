@@ -7,6 +7,15 @@ spring:
   jpa:
     show-sql: false
 
+springdoc:
+  api-docs:
+    # Mantiene oculto el contrato OpenAPI en produccion.
+    enabled: false
+
+  swagger-ui:
+    # Mantiene oculta la interfaz Swagger UI en produccion.
+    enabled: false
+
 parkio:
   security:
     jwt:

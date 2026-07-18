@@ -84,7 +84,7 @@ class EstacionamientoIntegrationTest {
     @Test
     void debeRechazarConsultaDeEstacionamientosSinToken() {
         ResponseEntity<String> response = restTemplate.getForEntity(
-                "/api/estacionamientos",
+                "/api/v1/estacionamientos",
                 String.class
         );
 
@@ -191,7 +191,7 @@ class EstacionamientoIntegrationTest {
         headers.setContentType(MediaType.APPLICATION_JSON);
 
         ResponseEntity<String> response = restTemplate.postForEntity(
-                "/api/usuarios",
+                "/api/v1/usuarios",
                 new HttpEntity<>(request, headers),
                 String.class
         );
@@ -227,7 +227,7 @@ class EstacionamientoIntegrationTest {
         headers.setContentType(MediaType.APPLICATION_JSON);
 
         ResponseEntity<String> response = restTemplate.postForEntity(
-                "/api/auth/login",
+                "/api/v1/auth/login",
                 new HttpEntity<>(request, headers),
                 String.class
         );
@@ -243,7 +243,7 @@ class EstacionamientoIntegrationTest {
      */
     private ResponseEntity<String> listarEstacionamientos(String accessToken) {
         return restTemplate.exchange(
-                "/api/estacionamientos?page=0&size=10&sort=nombre,asc",
+                "/api/v1/estacionamientos?page=0&size=10&sort=nombre,asc",
                 HttpMethod.GET,
                 new HttpEntity<>(crearHeadersConJwt(accessToken)),
                 String.class
@@ -257,7 +257,7 @@ class EstacionamientoIntegrationTest {
         EstacionamientoRequest request = crearEstacionamientoRequest(nombre);
 
         return restTemplate.postForEntity(
-                "/api/estacionamientos",
+                "/api/v1/estacionamientos",
                 new HttpEntity<>(request, crearHeadersConJwt(accessToken)),
                 String.class
         );
@@ -268,7 +268,7 @@ class EstacionamientoIntegrationTest {
      */
     private ResponseEntity<String> consultarEstacionamiento(String accessToken, Long estacionamientoId) {
         return restTemplate.exchange(
-                "/api/estacionamientos/" + estacionamientoId,
+                "/api/v1/estacionamientos/" + estacionamientoId,
                 HttpMethod.GET,
                 new HttpEntity<>(crearHeadersConJwt(accessToken)),
                 String.class
@@ -286,7 +286,7 @@ class EstacionamientoIntegrationTest {
         EstacionamientoRequest request = crearEstacionamientoRequest(nombre);
 
         return restTemplate.exchange(
-                "/api/estacionamientos/" + estacionamientoId,
+                "/api/v1/estacionamientos/" + estacionamientoId,
                 HttpMethod.PUT,
                 new HttpEntity<>(request, crearHeadersConJwt(accessToken)),
                 String.class
@@ -298,7 +298,7 @@ class EstacionamientoIntegrationTest {
      */
     private ResponseEntity<String> eliminarEstacionamiento(String accessToken, Long estacionamientoId) {
         return restTemplate.exchange(
-                "/api/estacionamientos/" + estacionamientoId,
+                "/api/v1/estacionamientos/" + estacionamientoId,
                 HttpMethod.DELETE,
                 new HttpEntity<>(crearHeadersConJwt(accessToken)),
                 String.class
@@ -376,3 +376,4 @@ class EstacionamientoIntegrationTest {
         assertThat(databaseName).isEqualTo(TEST_DATABASE_NAME);
     }
 }
+

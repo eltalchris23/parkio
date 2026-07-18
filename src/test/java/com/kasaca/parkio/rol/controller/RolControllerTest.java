@@ -70,7 +70,7 @@ class RolControllerTest {
         when(rolService.getRoles(any()))
                 .thenReturn(pageResponse);
 
-        mockMvc.perform(get("/api/roles")
+        mockMvc.perform(get("/roles")
                         .param("page", "0")
                         .param("size", "10")
                         .param("sort", "nombre,asc"))
@@ -94,7 +94,7 @@ class RolControllerTest {
 
         when(rolService.getRol(1L)).thenReturn(response);
 
-        mockMvc.perform(get("/api/roles/1"))
+        mockMvc.perform(get("/roles/1"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.status").value(200))
                 .andExpect(jsonPath("$.message").value("Rol consultado correctamente"))
@@ -111,13 +111,13 @@ class RolControllerTest {
         when(rolService.getRol(99L))
                 .thenThrow(new ResourceNotFoundException("Rol", 99L));
 
-        mockMvc.perform(get("/api/roles/99"))
+        mockMvc.perform(get("/roles/99"))
                 .andExpect(status().isNotFound())
                 .andExpect(jsonPath("$.status").value(404))
                 .andExpect(jsonPath("$.error").value("Not Found"))
                 .andExpect(jsonPath("$.message")
                         .value("Rol con identificador '99' no fue encontrado"))
-                .andExpect(jsonPath("$.path").value("/api/roles/99"));
+                .andExpect(jsonPath("$.path").value("/roles/99"));
     }
 
     @Test
@@ -127,7 +127,7 @@ class RolControllerTest {
 
         when(rolService.addRol(request)).thenReturn(response);
 
-        mockMvc.perform(post("/api/roles")
+        mockMvc.perform(post("/roles")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isCreated())
@@ -143,7 +143,7 @@ class RolControllerTest {
 
     @Test
     void debeRechazarSolicitudInvalida() throws Exception {
-        mockMvc.perform(post("/api/roles")
+        mockMvc.perform(post("/roles")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {
@@ -172,7 +172,7 @@ class RolControllerTest {
                         "Ya existe un rol con el nombre 'ADMIN'"
                 ));
 
-        mockMvc.perform(post("/api/roles")
+        mockMvc.perform(post("/roles")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isConflict())
@@ -184,7 +184,7 @@ class RolControllerTest {
 
     @Test
     void debeRechazarJsonMalFormado() throws Exception {
-        mockMvc.perform(post("/api/roles")
+        mockMvc.perform(post("/roles")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {
@@ -213,7 +213,7 @@ class RolControllerTest {
 
         when(rolService.updateRol(1L, request)).thenReturn(response);
 
-        mockMvc.perform(put("/api/roles/1")
+        mockMvc.perform(put("/roles/1")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isOk())
@@ -229,7 +229,7 @@ class RolControllerTest {
 
     @Test
     void debeEliminarRol() throws Exception {
-        mockMvc.perform(delete("/api/roles/1"))
+        mockMvc.perform(delete("/roles/1"))
                 .andExpect(status().isNoContent())
                 .andExpect(content().string(""));
 
@@ -245,3 +245,4 @@ class RolControllerTest {
         );
     }
 }
+

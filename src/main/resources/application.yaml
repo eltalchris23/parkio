@@ -8,6 +8,12 @@ spring:
   profiles:
     default: dev
 
+  mvc:
+    servlet:
+      # Prefijo global de version para todos los controllers Spring MVC.
+      # Un controller con @RequestMapping("/roles") queda expuesto como /api/v1/roles.
+      path: /api/v1
+
   jpa:
     open-in-view: false
     hibernate:
@@ -31,6 +37,16 @@ management:
       probes:
         # Habilita liveness y readiness para monitoreo futuro en contenedores o ambientes productivos.
         enabled: true
+
+springdoc:
+  api-docs:
+    # Desactiva la generacion del contrato OpenAPI por defecto.
+    # Cada perfil decide explicitamente si lo habilita.
+    enabled: false
+
+  swagger-ui:
+    # Desactiva Swagger UI por defecto para evitar exposicion accidental en ambientes no controlados.
+    enabled: false
 
 parkio:
   cors:
