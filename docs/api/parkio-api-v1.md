@@ -74,6 +74,14 @@ La configuración actual expone únicamente `health` y mantiene ocultos los deta
 
 La documentación interactiva está implementada con Springdoc OpenAPI.
 
+Los controladores principales ya incluyen anotaciones OpenAPI:
+
+- `AuthController`.
+- `RolController`.
+- `EstacionamientoController`.
+- `CajonController`.
+- `UsuarioController`.
+
 En ambiente de desarrollo:
 
 ```http
@@ -83,7 +91,7 @@ GET /api/v1/v3/api-docs
 
 `/api/v1/swagger-ui.html` abre la interfaz visual para consultar y probar la API. `/api/v1/v3/api-docs` expone el contrato OpenAPI en formato JSON.
 
-Swagger UI se genera a partir de los controladores reales. Los endpoints de negocio conservan la base global:
+Swagger UI se genera a partir de los controladores reales y muestra la documentación declarada con `@Tag`, `@Operation`, respuestas HTTP y parámetros relevantes. Los endpoints de negocio conservan la base global:
 
 ```text
 /api/v1
@@ -100,6 +108,8 @@ GET /api/v1/usuarios
 ```
 
 Para probar endpoints protegidos desde Swagger UI se debe usar el botón `Authorize` y proporcionar un JWT con el esquema Bearer.
+
+`UsuarioController` documenta la seguridad por método porque combina un endpoint público de registro (`POST /api/v1/usuarios`) con endpoints protegidos por JWT.
 
 Springdoc está deshabilitado por defecto y también en el perfil `prod`. Actualmente se habilita desde el perfil `dev`.
 

@@ -38,6 +38,7 @@ Antes de realizar cambios, considerar lo siguiente:
 - Existe configuración CORS mediante `CorsConfig` y `CorsProperties`, usando propiedades bajo `parkio.cors`.
 - Existe Spring Boot Actuator para Health Check operativo.
 - Existe Springdoc OpenAPI para generar contrato OpenAPI y Swagger UI en ambiente de desarrollo.
+- Los controladores principales Auth, Rol, Estacionamiento, Cajón y Usuario ya tienen anotaciones OpenAPI para Swagger UI.
 - Solo se expone `health` bajo `/actuator`; no se deben exponer endpoints sensibles sin autorización explícita.
 - `/actuator/health`, `/actuator/health/liveness` y `/actuator/health/readiness` son públicos y no requieren JWT.
 - La base global de los controllers se configura mediante `spring.mvc.servlet.path=/api/v1`.
@@ -399,6 +400,11 @@ Cuando una tarea solicite implementar controladores:
 - Aplicar validación a las solicitudes.
 - Delegar reglas de negocio al servicio.
 - Utilizar códigos HTTP coherentes con el resultado.
+- Documentar endpoints nuevos o modificados con OpenAPI usando `@Tag`, `@Operation`, respuestas HTTP esperadas y parámetros relevantes.
+- Usar `@ParameterObject` para `Pageable` cuando el endpoint acepte `page`, `size` y `sort`.
+- Ocultar parámetros internos como `HttpServletRequest` en Swagger mediante `@Parameter(hidden = true)`.
+- Documentar seguridad Bearer JWT en OpenAPI cuando el endpoint requiera autenticación.
+- Si un controlador mezcla endpoints públicos y protegidos, documentar la seguridad OpenAPI por método y no a nivel de clase.
 - No acceder directamente a repositorios.
 - No devolver entidades JPA.
 - No incluir lógica de persistencia.

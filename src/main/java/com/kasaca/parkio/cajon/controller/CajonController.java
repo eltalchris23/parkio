@@ -6,18 +6,24 @@ import com.kasaca.parkio.cajon.dto.CajonResponse;
 import com.kasaca.parkio.cajon.service.CajonService;
 import com.kasaca.parkio.shared.dto.ApiResponse;
 import com.kasaca.parkio.shared.dto.PageResponse;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.security.SecurityRequirement;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springdoc.core.annotations.ParameterObject;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PatchMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -30,35 +36,74 @@ import org.springframework.web.bind.annotation.RestController;
 @RequestMapping("/cajones")
 @RequiredArgsConstructor
 @Slf4j
+@Tag(
+        name = "Cajones",
+        description = "Endpoints para consultar y administrar cajones de estacionamiento"
+)
+@SecurityRequirement(name = "bearerAuth")
 public class CajonController {
 
     private final CajonService cajonService;
 
     /**
-     * Lista cajones activos de forma paginada o los filtra por estacionamiento
-     * cuando se recibe estacionamientoId.
+     * Lista cajones activos de forma paginada.
+     * Si se recibe estacionamientoId, filtra los cajones por estacionamiento.
      *
      * @param estacionamientoId identificador opcional del estacionamiento usado para filtrar cajones
-     * @return respuesta estandarizada con cajones paginados
+     * @param pageable datos de paginación y ordenamiento enviados como page, size y sort
+     * @param request solicitud HTTP usada para construir la respuesta estandarizada con transactionId
+     * @return respuesta estandarizada con la página de cajones encontrados
      */
+    @Operation(
+            summary = "Listar cajones activos",
+            description = """
+                    Devuelve cajones activos de forma paginada.
+                    Si se envía estacionamientoId, devuelve únicamente los cajones activos de ese estacionamiento.
+                    Requiere rol ADMIN, OPERADOR o USER.
+                    """
+    )
+    @io.swagger.v3.oas.annotations.responses.ApiResponses({
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                    responseCode = "200",
+                    description = "Cajones consultados correctamente"
+            ),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                    responseCode = "401",
+                    description = "Autenticación requerida o token inválido"
+            ),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                    responseCode = "403",
+                    description = "El usuario autenticado no tiene permisos para consultar cajones"
+            ),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                    responseCode = "404",
+                    description = "Estacionamiento no encontrado cuando se consulta por estacionamientoId"
+            )
+    })
     @PreAuthorize("hasAnyRole('ADMIN', 'OPERADOR', 'USER')")
-    @GetMapping
+    @GetMapping(produces = MediaType.APPLICATION_JSON_VALUE)
     public ResponseEntity<ApiResponse<PageResponse<CajonResponse>>> getCajones(
+            @Parameter(
+                    description = "Identificador opcional del estacionamiento para filtrar cajones",
+                    example = "1"
+            )
             @RequestParam(required = false) Long estacionamientoId,
-            Pageable pageable,
+
+            @ParameterObject Pageable pageable,
+
+            @Parameter(hidden = true)
             HttpServletRequest request
     ) {
         log.info("INICIO - Listado de cajones");
+
         PageResponse<CajonResponse> cajones;
 
         if (estacionamientoId == null) {
             cajones = cajonService.getCajones(pageable);
         } else {
-            cajones = cajonService.getCajonesByEstacionamientoId(
-                    estacionamientoId,
-                    pageable
-            );
+            cajones = cajonService.getCajonesByEstacionamientoId(estacionamientoId, pageable);
         }
+
         log.info("FIN - Listado de cajones");
 
         return ResponseEntity.ok(
@@ -74,14 +119,43 @@ public class CajonController {
     /**
      * Consulta un cajón activo por su identificador.
      *
-     * @param cajonId identificador del cajón
-     * @param request solicitud HTTP usada para obtener el transactionId
+     * @param cajonId identificador del cajón que se desea consultar
+     * @param request solicitud HTTP usada para construir la respuesta estandarizada con transactionId
      * @return respuesta estandarizada con los datos del cajón encontrado
      */
+    @Operation(
+            summary = "Consultar cajón por identificador",
+            description = """
+                    Devuelve la información de un cajón activo.
+                    Si el cajón no existe o está inactivo, la API responde 404.
+                    Requiere rol ADMIN, OPERADOR o USER.
+                    """
+    )
+    @io.swagger.v3.oas.annotations.responses.ApiResponses({
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                    responseCode = "200",
+                    description = "Cajón consultado correctamente"
+            ),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                    responseCode = "401",
+                    description = "Autenticación requerida o token inválido"
+            ),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                    responseCode = "403",
+                    description = "El usuario autenticado no tiene permisos para consultar cajones"
+            ),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                    responseCode = "404",
+                    description = "Cajón no encontrado"
+            )
+    })
     @PreAuthorize("hasAnyRole('ADMIN', 'OPERADOR', 'USER')")
-    @GetMapping("/{cajonId}")
+    @GetMapping(value = "/{cajonId}", produces = MediaType.APPLICATION_JSON_VALUE)
     public ResponseEntity<ApiResponse<CajonResponse>> getCajon(
+            @Parameter(description = "Identificador del cajón", example = "1")
             @PathVariable Long cajonId,
+
+            @Parameter(hidden = true)
             HttpServletRequest request
     ) {
         CajonResponse response = cajonService.getCajon(cajonId);
@@ -100,13 +174,52 @@ public class CajonController {
      * Crea un cajón dentro de un estacionamiento existente.
      *
      * @param request datos necesarios para crear el cajón
-     * @param httpRequest solicitud HTTP usada para obtener el transactionId
+     * @param httpRequest solicitud HTTP usada para construir la respuesta estandarizada con transactionId
      * @return respuesta estandarizada con el cajón creado y estado HTTP 201
      */
+    @Operation(
+            summary = "Crear cajón",
+            description = """
+                    Crea un nuevo cajón asociado a un estacionamiento existente.
+                    El número del cajón no debe duplicarse dentro del mismo estacionamiento.
+                    Requiere rol ADMIN.
+                    """
+    )
+    @io.swagger.v3.oas.annotations.responses.ApiResponses({
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                    responseCode = "201",
+                    description = "Cajón creado correctamente"
+            ),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                    responseCode = "400",
+                    description = "Datos inválidos en la solicitud"
+            ),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                    responseCode = "401",
+                    description = "Autenticación requerida o token inválido"
+            ),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                    responseCode = "403",
+                    description = "El usuario autenticado no tiene permisos para crear cajones"
+            ),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                    responseCode = "404",
+                    description = "Estacionamiento no encontrado"
+            ),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                    responseCode = "409",
+                    description = "Ya existe un cajón con el mismo número en el estacionamiento"
+            )
+    })
     @PreAuthorize("hasRole('ADMIN')")
-    @PostMapping
+    @PostMapping(
+            consumes = MediaType.APPLICATION_JSON_VALUE,
+            produces = MediaType.APPLICATION_JSON_VALUE
+    )
     public ResponseEntity<ApiResponse<CajonResponse>> addCajon(
             @Valid @RequestBody CajonRequest request,
+
+            @Parameter(hidden = true)
             HttpServletRequest httpRequest
     ) {
         CajonResponse response = cajonService.addCajon(request);
@@ -126,16 +239,58 @@ public class CajonController {
     /**
      * Actualiza los datos principales de un cajón existente.
      *
-     * @param cajonId identificador del cajón
+     * @param cajonId identificador del cajón que se desea actualizar
      * @param request datos actualizados del cajón
-     * @param httpRequest solicitud HTTP usada para obtener el transactionId
+     * @param httpRequest solicitud HTTP usada para construir la respuesta estandarizada con transactionId
      * @return respuesta estandarizada con el cajón actualizado
      */
+    @Operation(
+            summary = "Actualizar cajón",
+            description = """
+                    Actualiza los datos principales de un cajón existente.
+                    No se usa para cambiar únicamente el estado operativo; para eso existe PATCH /cajones/{cajonId}/estado.
+                    Requiere rol ADMIN.
+                    """
+    )
+    @io.swagger.v3.oas.annotations.responses.ApiResponses({
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                    responseCode = "200",
+                    description = "Cajón actualizado correctamente"
+            ),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                    responseCode = "400",
+                    description = "Datos inválidos en la solicitud"
+            ),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                    responseCode = "401",
+                    description = "Autenticación requerida o token inválido"
+            ),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                    responseCode = "403",
+                    description = "El usuario autenticado no tiene permisos para actualizar cajones"
+            ),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                    responseCode = "404",
+                    description = "Cajón o estacionamiento no encontrado"
+            ),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                    responseCode = "409",
+                    description = "Ya existe un cajón con el mismo número en el estacionamiento"
+            )
+    })
     @PreAuthorize("hasRole('ADMIN')")
-    @PutMapping("/{cajonId}")
+    @PutMapping(
+            value = "/{cajonId}",
+            consumes = MediaType.APPLICATION_JSON_VALUE,
+            produces = MediaType.APPLICATION_JSON_VALUE
+    )
     public ResponseEntity<ApiResponse<CajonResponse>> updateCajon(
+            @Parameter(description = "Identificador del cajón", example = "1")
             @PathVariable Long cajonId,
+
             @Valid @RequestBody CajonRequest request,
+
+            @Parameter(hidden = true)
             HttpServletRequest httpRequest
     ) {
         CajonResponse response = cajonService.updateCajon(cajonId, request);
@@ -153,16 +308,54 @@ public class CajonController {
     /**
      * Cambia únicamente el estado operativo de un cajón.
      *
-     * @param cajonId identificador del cajón
-     * @param request nuevo estado que se asignará al cajón
-     * @param httpRequest solicitud HTTP usada para obtener el transactionId
+     * @param cajonId identificador del cajón que cambiará de estado
+     * @param request nuevo estado operativo del cajón
+     * @param httpRequest solicitud HTTP usada para construir la respuesta estandarizada con transactionId
      * @return respuesta estandarizada con el cajón con estado actualizado
      */
+    @Operation(
+            summary = "Cambiar estado de cajón",
+            description = """
+                    Cambia únicamente el estado operativo del cajón.
+                    Este endpoint está pensado para operación diaria del estacionamiento.
+                    Requiere rol ADMIN u OPERADOR.
+                    """
+    )
+    @io.swagger.v3.oas.annotations.responses.ApiResponses({
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                    responseCode = "200",
+                    description = "Estado del cajón actualizado correctamente"
+            ),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                    responseCode = "400",
+                    description = "Estado inválido en la solicitud"
+            ),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                    responseCode = "401",
+                    description = "Autenticación requerida o token inválido"
+            ),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                    responseCode = "403",
+                    description = "El usuario autenticado no tiene permisos para cambiar el estado del cajón"
+            ),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                    responseCode = "404",
+                    description = "Cajón no encontrado"
+            )
+    })
     @PreAuthorize("hasAnyRole('ADMIN', 'OPERADOR')")
-    @PatchMapping("/{cajonId}/estado")
+    @PatchMapping(
+            value = "/{cajonId}/estado",
+            consumes = MediaType.APPLICATION_JSON_VALUE,
+            produces = MediaType.APPLICATION_JSON_VALUE
+    )
     public ResponseEntity<ApiResponse<CajonResponse>> updateEstado(
+            @Parameter(description = "Identificador del cajón", example = "1")
             @PathVariable Long cajonId,
+
             @Valid @RequestBody CajonEstadoRequest request,
+
+            @Parameter(hidden = true)
             HttpServletRequest httpRequest
     ) {
         CajonResponse response = cajonService.updateEstado(cajonId, request);
@@ -178,14 +371,43 @@ public class CajonController {
     }
 
     /**
-     * Elimina un cajón mediante su identificador.
+     * Elimina lógicamente un cajón mediante su identificador.
      *
-     * @param cajonId identificador del cajón
+     * @param cajonId identificador del cajón que se desea desactivar
      */
+    @Operation(
+            summary = "Eliminar cajón",
+            description = """
+                    Desactiva lógicamente un cajón cambiando su campo activo a false.
+                    No elimina físicamente el registro de la base de datos.
+                    Requiere rol ADMIN.
+                    """
+    )
+    @io.swagger.v3.oas.annotations.responses.ApiResponses({
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                    responseCode = "204",
+                    description = "Cajón eliminado lógicamente"
+            ),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                    responseCode = "401",
+                    description = "Autenticación requerida o token inválido"
+            ),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                    responseCode = "403",
+                    description = "El usuario autenticado no tiene permisos para eliminar cajones"
+            ),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                    responseCode = "404",
+                    description = "Cajón no encontrado"
+            )
+    })
     @PreAuthorize("hasRole('ADMIN')")
     @DeleteMapping("/{cajonId}")
     @ResponseStatus(HttpStatus.NO_CONTENT)
-    public void deleteCajon(@PathVariable Long cajonId) {
+    public void deleteCajon(
+            @Parameter(description = "Identificador del cajón", example = "1")
+            @PathVariable Long cajonId
+    ) {
         cajonService.deleteCajon(cajonId);
     }
 }

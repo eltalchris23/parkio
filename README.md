@@ -393,6 +393,7 @@ Incluye:
 - Dependencia `springdoc-openapi-starter-webmvc-ui`.
 - Configuración `OpenApiConfig`.
 - Esquema de seguridad Bearer JWT para probar endpoints protegidos.
+- Anotaciones OpenAPI en los controladores de Auth, Rol, Estacionamiento, Cajón y Usuario.
 - Prueba de integración `OpenApiSecurityIntegrationTest`.
 
 La base de los controllers se define globalmente con:
@@ -418,7 +419,9 @@ El contrato OpenAPI JSON está disponible en:
 http://localhost:8023/api/v1/v3/api-docs
 ```
 
-Swagger UI se genera a partir de los controladores reales y permite probar los endpoints documentados. Para endpoints protegidos, se debe usar el botón `Authorize` e ingresar un token JWT con formato Bearer.
+Swagger UI se genera a partir de los controladores reales y permite probar los endpoints documentados. Los controladores principales `AuthController`, `RolController`, `EstacionamientoController`, `CajonController` y `UsuarioController` ya declaran información OpenAPI mediante `@Tag`, `@Operation`, respuestas HTTP documentadas y parámetros relevantes. Para endpoints protegidos, se debe usar el botón `Authorize` e ingresar un token JWT con formato Bearer.
+
+Cuando un controlador combine endpoints públicos y protegidos, la seguridad del contrato OpenAPI debe documentarse por método. Este es el caso de `UsuarioController`, porque `POST /api/v1/usuarios` es público y los demás endpoints requieren JWT según sus reglas de autorización.
 
 Por seguridad, Springdoc está deshabilitado por defecto y también en el perfil `prod`. Actualmente se habilita únicamente en el perfil `dev`.
 
@@ -727,7 +730,7 @@ Y el contrato OpenAPI JSON en:
 http://localhost:8023/api/v1/v3/api-docs
 ```
 
-Swagger UI muestra los endpoints reales bajo la base `/api/v1`. Para probar endpoints protegidos desde Swagger, primero se debe iniciar sesión en `/api/v1/auth/login`, copiar el token y configurarlo en `Authorize` como Bearer JWT.
+Swagger UI muestra los endpoints reales bajo la base `/api/v1` y los agrupa por los módulos Auth, Roles, Estacionamientos, Cajones y Usuarios. Para probar endpoints protegidos desde Swagger, primero se debe iniciar sesión en `/api/v1/auth/login`, copiar el token y configurarlo en `Authorize` como Bearer JWT.
 
 Las operaciones `DELETE` implementan borrado lógico. Los registros se conservan en base de datos con `activo=false`, no se devuelven en consultas normales y no pueden consultarse por identificador desde la API. Un usuario desactivado tampoco puede iniciar sesión.
 
