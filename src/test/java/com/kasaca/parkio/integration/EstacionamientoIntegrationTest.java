@@ -38,6 +38,7 @@ class EstacionamientoIntegrationTest {
     private static final String TEST_DATABASE_NAME = "parkio_test";
     private static final String ADMIN_EMAIL = "integration.admin.estacionamiento@parkio.com";
     private static final String USER_EMAIL = "integration.user.estacionamiento@parkio.com";
+    private static final String OPERADOR_EMAIL = "integration.operador.estacionamiento@parkio.com";
     private static final String OWNER_EMAIL = "integration.owner.estacionamiento@parkio.com";
     private static final String OTRO_OWNER_EMAIL = "integration.otro-owner.estacionamiento@parkio.com";
     private static final String PASSWORD = "clave-integracion";
@@ -256,6 +257,39 @@ class EstacionamientoIntegrationTest {
     }
 
     /**
+     * Valida que OPERADOR consulte únicamente estacionamientos asignados.
+     *
+     * <p>La asignación se hace en usuario_estacionamiento, que es la tabla
+     * existente para relacionar usuarios operativos con estacionamientos.</p>
+     */
+    @Test
+    void debeLimitarConsultaDeEstacionamientosAlOperadorAsignado() throws Exception {
+        Long estacionamientoAsignadoId =
+                crearEstacionamientoActivoEnBaseDeDatos("Estacionamiento Asignado Operador");
+        Long estacionamientoNoAsignadoId =
+                crearEstacionamientoActivoEnBaseDeDatos("Estacionamiento No Asignado Operador");
+
+        Long operadorId = registrarUsuario("Operador", OPERADOR_EMAIL);
+        asignarRol(operadorId, "OPERADOR");
+        asignarEstacionamiento(operadorId, estacionamientoAsignadoId);
+        String operadorToken = iniciarSesion(OPERADOR_EMAIL);
+
+        ResponseEntity<String> listadoResponse = listarEstacionamientos(operadorToken);
+        JsonNode listadoBody = objectMapper.readTree(listadoResponse.getBody());
+        ResponseEntity<String> consultarAsignadoResponse =
+                consultarEstacionamiento(operadorToken, estacionamientoAsignadoId);
+        ResponseEntity<String> consultarNoAsignadoResponse =
+                consultarEstacionamiento(operadorToken, estacionamientoNoAsignadoId);
+
+        assertThat(listadoResponse.getStatusCode()).isEqualTo(HttpStatus.OK);
+        assertThat(listadoBody.path("data").path("content")).hasSize(1);
+        assertThat(listadoBody.path("data").path("content").get(0).path("id").asLong())
+                .isEqualTo(estacionamientoAsignadoId);
+        assertThat(consultarAsignadoResponse.getStatusCode()).isEqualTo(HttpStatus.OK);
+        assertThat(consultarNoAsignadoResponse.getStatusCode()).isEqualTo(HttpStatus.NOT_FOUND);
+    }
+
+    /**
      * Crea un usuario mediante el endpoint publico y devuelve su identificador.
      */
     private Long registrarUsuario(String nombre, String email) throws Exception {
@@ -301,6 +335,20 @@ class EstacionamientoIntegrationTest {
                 """,
                 usuarioId,
                 rolNombre
+        );
+    }
+
+    /**
+     * Asigna un estacionamiento a un usuario usando la tabla intermedia existente.
+     */
+    private void asignarEstacionamiento(Long usuarioId, Long estacionamientoId) {
+        jdbcTemplate.update("""
+                INSERT INTO usuario_estacionamiento (usuario_id, estacionamiento_id)
+                VALUES (?, ?)
+                ON CONFLICT DO NOTHING
+                """,
+                usuarioId,
+                estacionamientoId
         );
     }
 
@@ -446,6 +494,21 @@ class EstacionamientoIntegrationTest {
                 """,
                 Long.class,
                 estacionamientoId
+        );
+    }
+
+    /**
+     * Crea un estacionamiento activo directamente en la base para escenarios de alcance.
+     */
+    private Long crearEstacionamientoActivoEnBaseDeDatos(String nombre) {
+        return jdbcTemplate.queryForObject(
+                """
+                INSERT INTO estacionamiento (nombre, descripcion, latitud, longitud, activo)
+                VALUES (?, 'Dato de apoyo para pruebas de operador', 19.43260800, -99.13320900, TRUE)
+                RETURNING id
+                """,
+                Long.class,
+                nombre
         );
     }
 

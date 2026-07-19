@@ -802,7 +802,8 @@ Seguridad:
 - `GET /api/v1/estacionamientos` y `GET /api/v1/estacionamientos/{estacionamientoId}` permiten `ADMIN`, `OWNER`, `OPERADOR` y `USER`.
 - `ADMIN` consulta y administra todos los estacionamientos.
 - `OWNER` consulta, crea, actualiza y elimina lógicamente solo sus propios estacionamientos.
-- `OPERADOR` y `USER` conservan la consulta permitida actual.
+- `OPERADOR` consulta únicamente estacionamientos asignados mediante `usuario_estacionamiento`.
+- `USER` conserva la consulta permitida actual.
 - `POST`, `PUT` y `DELETE` requieren `ADMIN` u `OWNER`; la capa de servicio limita a `OWNER` a sus propios estacionamientos.
 
 ### Listar estacionamientos
@@ -971,7 +972,8 @@ Seguridad:
 - `GET /api/v1/cajones`, `GET /api/v1/cajones?estacionamientoId={id}` y `GET /api/v1/cajones/{cajonId}` permiten `ADMIN`, `OWNER`, `OPERADOR` y `USER`.
 - `ADMIN` consulta y administra todos los cajones activos.
 - `OWNER` consulta, crea, actualiza, cambia estado y elimina lógicamente solo cajones pertenecientes a sus propios estacionamientos.
-- `OPERADOR` y `USER` conservan la consulta permitida actual.
+- `OPERADOR` consulta y cambia estado únicamente en cajones de estacionamientos asignados mediante `usuario_estacionamiento`.
+- `USER` conserva la consulta permitida actual.
 - `PATCH /api/v1/cajones/{cajonId}/estado` permite `ADMIN`, `OWNER` y `OPERADOR`.
 - `POST`, `PUT` y `DELETE` requieren `ADMIN` u `OWNER`; la capa de servicio limita a `OWNER` a sus propios estacionamientos.
 
@@ -1292,9 +1294,9 @@ Estas pruebas validan que la conexión use `parkio_test` antes de limpiar datos 
 
 `UsuarioIntegrationTest` cubre creación pública con rol base `USER`, conflictos por correo duplicado, permisos sobre usuario propio, bloqueo de acceso a usuarios ajenos, cambio de contraseña, administración de roles y estacionamientos por `ADMIN`, borrado lógico y rechazo de login para usuarios inactivos.
 
-`EstacionamientoIntegrationTest` cubre rechazo sin JWT, consulta con `USER`, administración global con `ADMIN`, borrado lógico con desactivación de cajones asociados y alcance de `OWNER` para crear, listar, consultar, actualizar y eliminar lógicamente únicamente sus propios estacionamientos. También valida que `owner_id` se asigne desde el JWT y que un `OWNER` no afecte estacionamientos ni cajones de otro `OWNER`.
+`EstacionamientoIntegrationTest` cubre rechazo sin JWT, consulta con `USER`, administración global con `ADMIN`, borrado lógico con desactivación de cajones asociados, alcance de `OWNER` para crear, listar, consultar, actualizar y eliminar lógicamente únicamente sus propios estacionamientos, y alcance de `OPERADOR` para consultar solo estacionamientos asignados mediante `usuario_estacionamiento`. También valida que `owner_id` se asigne desde el JWT y que un `OWNER` no afecte estacionamientos ni cajones de otro `OWNER`.
 
-`CajonIntegrationTest` cubre rechazo sin JWT, consulta con `USER`, cambio de estado con `OPERADOR`, administración global con `ADMIN`, conflictos por número duplicado, borrado lógico y alcance de `OWNER` para operar únicamente cajones ubicados en sus propios estacionamientos.
+`CajonIntegrationTest` cubre rechazo sin JWT, consulta con `USER`, cambio de estado con `OPERADOR`, administración global con `ADMIN`, conflictos por número duplicado, borrado lógico, alcance de `OWNER` para operar únicamente cajones ubicados en sus propios estacionamientos y alcance de `OPERADOR` para consultar y cambiar estado solo en cajones de estacionamientos asignados.
 
 `CatalogoIntegrationTest` cubre rechazo sin JWT, acceso con roles `ADMIN`, `OPERADOR` y `USER`, formato `ApiResponse`, presencia de `transactionId` y valores reales de los catálogos de tipos y estados de Cajón derivados de los enums `TipoCajon` y `EstadoCajon`.
 

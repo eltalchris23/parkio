@@ -123,6 +123,7 @@ class CajonIntegrationTest {
 
         Long operadorId = registrarUsuario("Operador", OPERADOR_EMAIL);
         asignarRol(operadorId, "OPERADOR");
+        asignarEstacionamiento(operadorId, estacionamientoId);
         String accessToken = iniciarSesion(OPERADOR_EMAIL);
 
         ResponseEntity<String> estadoResponse = actualizarEstado(accessToken, cajonId, EstadoCajon.OCUPADO);
@@ -134,6 +135,51 @@ class CajonIntegrationTest {
         assertThat(estadoBody.path("data").path("estado").asText()).isEqualTo("OCUPADO");
         assertThat(actualizarResponse.getStatusCode()).isEqualTo(HttpStatus.FORBIDDEN);
         assertThat(eliminarResponse.getStatusCode()).isEqualTo(HttpStatus.FORBIDDEN);
+    }
+
+    /**
+     * Valida que OPERADOR solo consulte y cambie estado de cajones en estacionamientos asignados.
+     *
+     * <p>Si el cajon pertenece a un estacionamiento no asignado, la API responde
+     * 404 para no revelar recursos fuera del alcance del operador.</p>
+     */
+    @Test
+    void debeLimitarOperacionDeCajonesAlOperadorAsignado() throws Exception {
+        Long estacionamientoAsignadoId = crearEstacionamientoActivoEnBaseDeDatos();
+        Long estacionamientoNoAsignadoId = crearEstacionamientoActivoEnBaseDeDatos();
+        Long cajonAsignadoId = crearCajonActivoEnBaseDeDatos(estacionamientoAsignadoId, "OP-01");
+        Long cajonNoAsignadoId = crearCajonActivoEnBaseDeDatos(estacionamientoNoAsignadoId, "OP-02");
+
+        Long operadorId = registrarUsuario("Operador", OPERADOR_EMAIL);
+        asignarRol(operadorId, "OPERADOR");
+        asignarEstacionamiento(operadorId, estacionamientoAsignadoId);
+        String operadorToken = iniciarSesion(OPERADOR_EMAIL);
+
+        ResponseEntity<String> listarResponse = listarCajones(operadorToken);
+        JsonNode listarBody = objectMapper.readTree(listarResponse.getBody());
+        ResponseEntity<String> listarPorAsignadoResponse =
+                listarCajonesPorEstacionamiento(operadorToken, estacionamientoAsignadoId);
+        ResponseEntity<String> listarPorNoAsignadoResponse =
+                listarCajonesPorEstacionamiento(operadorToken, estacionamientoNoAsignadoId);
+        ResponseEntity<String> consultarAsignadoResponse =
+                consultarCajon(operadorToken, cajonAsignadoId);
+        ResponseEntity<String> consultarNoAsignadoResponse =
+                consultarCajon(operadorToken, cajonNoAsignadoId);
+        ResponseEntity<String> estadoAsignadoResponse =
+                actualizarEstado(operadorToken, cajonAsignadoId, EstadoCajon.OCUPADO);
+        ResponseEntity<String> estadoNoAsignadoResponse =
+                actualizarEstado(operadorToken, cajonNoAsignadoId, EstadoCajon.OCUPADO);
+
+        assertThat(listarResponse.getStatusCode()).isEqualTo(HttpStatus.OK);
+        assertThat(listarBody.path("data").path("content")).hasSize(1);
+        assertThat(listarBody.path("data").path("content").get(0).path("id").asLong())
+                .isEqualTo(cajonAsignadoId);
+        assertThat(listarPorAsignadoResponse.getStatusCode()).isEqualTo(HttpStatus.OK);
+        assertThat(listarPorNoAsignadoResponse.getStatusCode()).isEqualTo(HttpStatus.NOT_FOUND);
+        assertThat(consultarAsignadoResponse.getStatusCode()).isEqualTo(HttpStatus.OK);
+        assertThat(consultarNoAsignadoResponse.getStatusCode()).isEqualTo(HttpStatus.NOT_FOUND);
+        assertThat(estadoAsignadoResponse.getStatusCode()).isEqualTo(HttpStatus.OK);
+        assertThat(estadoNoAsignadoResponse.getStatusCode()).isEqualTo(HttpStatus.NOT_FOUND);
     }
 
     /**
@@ -313,6 +359,20 @@ class CajonIntegrationTest {
                 """,
                 usuarioId,
                 rolNombre
+        );
+    }
+
+    /**
+     * Asigna un estacionamiento al usuario para limitar el alcance operativo.
+     */
+    private void asignarEstacionamiento(Long usuarioId, Long estacionamientoId) {
+        jdbcTemplate.update("""
+                INSERT INTO usuario_estacionamiento (usuario_id, estacionamiento_id)
+                VALUES (?, ?)
+                ON CONFLICT DO NOTHING
+                """,
+                usuarioId,
+                estacionamientoId
         );
     }
 

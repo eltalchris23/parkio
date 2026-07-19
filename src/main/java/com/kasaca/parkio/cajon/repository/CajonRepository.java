@@ -43,4 +43,14 @@ public interface CajonRepository extends JpaRepository<Cajon, Long> {
             Long id,
             Long ownerId
     );
+
+    Page<Cajon> findByEstacionamientoUsuariosIdAndActivoTrue(
+            Long usuarioId,
+            Pageable pageable
+    );
+
+    Optional<Cajon> findByIdAndEstacionamientoUsuariosIdAndActivoTrue(
+            Long id,
+            Long usuarioId
+    );
 }

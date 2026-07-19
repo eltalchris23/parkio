@@ -323,8 +323,8 @@ public class CajonController {
      * Cambia únicamente el estado operativo de un cajón.
      *
      * <p>ADMIN y OWNER pueden cambiar estado dentro de su alcance. OPERADOR
-     * conserva la regla actual y más adelante se limitará por asignación a
-     * estacionamientos.</p>
+     * solo puede cambiar estado de cajones ubicados en estacionamientos
+     * asignados a su usuario.</p>
      *
      * @param cajonId identificador del cajón que cambiará de estado
      * @param request nuevo estado operativo del cajón

@@ -32,17 +32,29 @@ public class CajonServiceImpl implements CajonService {
      * Obtiene cajones activos según el alcance del usuario autenticado.
      *
      * <p>ADMIN consulta todos los cajones activos. OWNER consulta solo los
-     * cajones de sus estacionamientos. OPERADOR y USER conservan por ahora la
-     * consulta general hasta implementar el alcance por asignación.</p>
+     * cajones de sus estacionamientos. OPERADOR consulta solo los cajones de
+     * estacionamientos asignados a su usuario. USER conserva por ahora la
+     * consulta general.</p>
      */
     @Override
     public PageResponse<CajonResponse> getCajones(Pageable pageable, Jwt jwt) {
-        Page<Cajon> cajones = isOwner(jwt) && !isAdmin(jwt)
-                ? cajonRepository.findByEstacionamientoOwnerIdAndActivoTrue(
-                        extractUsuarioId(jwt),
-                        pageable
-                )
-                : cajonRepository.findByActivoTrue(pageable);
+        Page<Cajon> cajones;
+
+        if (isAdmin(jwt)) {
+            cajones = cajonRepository.findByActivoTrue(pageable);
+        } else if (isOwner(jwt)) {
+            cajones = cajonRepository.findByEstacionamientoOwnerIdAndActivoTrue(
+                    extractUsuarioId(jwt),
+                    pageable
+            );
+        } else if (isOperador(jwt)) {
+            cajones = cajonRepository.findByEstacionamientoUsuariosIdAndActivoTrue(
+                    extractUsuarioId(jwt),
+                    pageable
+            );
+        } else {
+            cajones = cajonRepository.findByActivoTrue(pageable);
+        }
 
         return PageResponse.from(
                 cajones.map(cajonMapper::toResponseCajon)
@@ -181,12 +193,36 @@ public class CajonServiceImpl implements CajonService {
      * Busca internamente un cajón activo aplicando el alcance del JWT.
      *
      * <p>ADMIN puede resolver cualquier cajón activo. OWNER solo puede resolver
-     * cajones de estacionamientos donde su usuario sea owner. OPERADOR y USER
-     * conservan la consulta general por ahora.</p>
+     * cajones de estacionamientos donde su usuario sea owner. OPERADOR solo
+     * puede resolver cajones de estacionamientos asignados a su usuario. USER
+     * conserva la consulta general por ahora.</p>
      */
     private Cajon findCajonById(Long id, Jwt jwt) {
-        if (isOwner(jwt) && !isAdmin(jwt)) {
+        if (isAdmin(jwt)) {
+            return cajonRepository.findByIdAndActivoTrue(id)
+                    .orElseThrow(() ->
+                            new ResourceNotFoundException(
+                                    "Cajón",
+                                    id
+                            )
+                    );
+        }
+
+        if (isOwner(jwt)) {
             return cajonRepository.findByIdAndEstacionamientoOwnerIdAndActivoTrue(
+                            id,
+                            extractUsuarioId(jwt)
+                    )
+                    .orElseThrow(() ->
+                            new ResourceNotFoundException(
+                                    "Cajón",
+                                    id
+                            )
+                    );
+        }
+
+        if (isOperador(jwt)) {
+            return cajonRepository.findByIdAndEstacionamientoUsuariosIdAndActivoTrue(
                             id,
                             extractUsuarioId(jwt)
                     )
@@ -210,11 +246,35 @@ public class CajonServiceImpl implements CajonService {
     /**
      * Busca internamente un estacionamiento activo aplicando el alcance del JWT.
      *
-     * <p>OWNER solo puede operar cajones dentro de sus propios estacionamientos.</p>
+     * <p>OWNER solo puede operar cajones dentro de sus propios estacionamientos.
+     * OPERADOR solo puede operar sobre estacionamientos asignados.</p>
      */
     private Estacionamiento findEstacionamientoById(Long id, Jwt jwt) {
-        if (isOwner(jwt) && !isAdmin(jwt)) {
+        if (isAdmin(jwt)) {
+            return estacionamientoRepository.findByIdAndActivoTrue(id)
+                    .orElseThrow(() ->
+                            new ResourceNotFoundException(
+                                    "Estacionamiento",
+                                    id
+                            )
+                    );
+        }
+
+        if (isOwner(jwt)) {
             return estacionamientoRepository.findByIdAndOwnerIdAndActivoTrue(
+                            id,
+                            extractUsuarioId(jwt)
+                    )
+                    .orElseThrow(() ->
+                            new ResourceNotFoundException(
+                                    "Estacionamiento",
+                                    id
+                            )
+                    );
+        }
+
+        if (isOperador(jwt)) {
+            return estacionamientoRepository.findByIdAndUsuariosIdAndActivoTrue(
                             id,
                             extractUsuarioId(jwt)
                     )
@@ -259,6 +319,13 @@ public class CajonServiceImpl implements CajonService {
      */
     private boolean isOwner(Jwt jwt) {
         return hasRole(jwt, "OWNER");
+    }
+
+    /**
+     * Indica si el JWT contiene el rol OPERADOR.
+     */
+    private boolean isOperador(Jwt jwt) {
+        return hasRole(jwt, "OPERADOR");
     }
 
     /**

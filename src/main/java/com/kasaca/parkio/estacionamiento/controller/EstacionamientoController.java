@@ -63,7 +63,7 @@ public class EstacionamientoController {
      */
     @Operation(
             summary = "Listar estacionamientos",
-            description = "Consulta de forma paginada los estacionamientos activos. ADMIN ve todo, OWNER ve los suyos, y OPERADOR/USER conservan la consulta permitida actual."
+            description = "Consulta de forma paginada los estacionamientos activos. ADMIN ve todo, OWNER ve los suyos, OPERADOR ve solo estacionamientos asignados y USER conserva la consulta permitida actual."
     )
     @ApiResponses({
             @io.swagger.v3.oas.annotations.responses.ApiResponse(
@@ -148,7 +148,7 @@ public class EstacionamientoController {
      */
     @Operation(
             summary = "Consultar estacionamiento por id",
-            description = "Consulta un estacionamiento activo por su identificador. ADMIN puede consultar cualquiera, OWNER solo los propios, y OPERADOR/USER conservan la consulta permitida actual."
+            description = "Consulta un estacionamiento activo por su identificador. ADMIN puede consultar cualquiera, OWNER solo los propios, OPERADOR solo los asignados y USER conserva la consulta permitida actual."
     )
     @ApiResponses({
             @io.swagger.v3.oas.annotations.responses.ApiResponse(

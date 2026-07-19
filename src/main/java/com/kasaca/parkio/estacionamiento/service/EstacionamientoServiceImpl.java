@@ -36,22 +36,32 @@ public class EstacionamientoServiceImpl
      * Obtiene estacionamientos activos según el alcance del usuario autenticado.
      *
      * <p>ADMIN consulta todos los estacionamientos activos. OWNER consulta solo
-     * los estacionamientos donde es dueño. OPERADOR y USER conservan por ahora
-     * la regla previa de consulta general hasta que se implemente su alcance
-     * específico.</p>
+     * los estacionamientos donde es dueño. OPERADOR consulta solo los
+     * estacionamientos asignados a su usuario. USER conserva por ahora la regla
+     * previa de consulta general.</p>
      */
     @Override
     public PageResponse<EstacionamientoResponse> getEstacionamientos(
             Pageable pageable,
             Jwt jwt
     ) {
-        Page<Estacionamiento> estacionamientos =
-                isOwner(jwt) && !isAdmin(jwt)
-                        ? estacionamientoRepository.findByOwnerIdAndActivoTrue(
-                                extractUsuarioId(jwt),
-                                pageable
-                        )
-                        : estacionamientoRepository.findByActivoTrue(pageable);
+        Page<Estacionamiento> estacionamientos;
+
+        if (isAdmin(jwt)) {
+            estacionamientos = estacionamientoRepository.findByActivoTrue(pageable);
+        } else if (isOwner(jwt)) {
+            estacionamientos = estacionamientoRepository.findByOwnerIdAndActivoTrue(
+                    extractUsuarioId(jwt),
+                    pageable
+            );
+        } else if (isOperador(jwt)) {
+            estacionamientos = estacionamientoRepository.findByUsuariosIdAndActivoTrue(
+                    extractUsuarioId(jwt),
+                    pageable
+            );
+        } else {
+            estacionamientos = estacionamientoRepository.findByActivoTrue(pageable);
+        }
 
         return PageResponse.from(
                 estacionamientos.map(estacionamientoMapper::toResponse)
@@ -149,12 +159,36 @@ public class EstacionamientoServiceImpl
      * Busca internamente un estacionamiento activo aplicando el alcance del JWT.
      *
      * <p>ADMIN puede resolver cualquier estacionamiento activo. OWNER solo puede
-     * resolver estacionamientos donde su usuario sea el owner. OPERADOR y USER
-     * conservan la consulta general por ahora.</p>
+     * resolver estacionamientos donde su usuario sea el owner. OPERADOR solo
+     * puede resolver estacionamientos asignados a su usuario. USER conserva la
+     * consulta general por ahora.</p>
      */
     private Estacionamiento findEstacionamientoById(Long id, Jwt jwt) {
-        if (isOwner(jwt) && !isAdmin(jwt)) {
+        if (isAdmin(jwt)) {
+            return estacionamientoRepository.findByIdAndActivoTrue(id)
+                    .orElseThrow(() ->
+                            new ResourceNotFoundException(
+                                    "Estacionamiento",
+                                    id
+                            )
+                    );
+        }
+
+        if (isOwner(jwt)) {
             return estacionamientoRepository.findByIdAndOwnerIdAndActivoTrue(
+                            id,
+                            extractUsuarioId(jwt)
+                    )
+                    .orElseThrow(() ->
+                            new ResourceNotFoundException(
+                                    "Estacionamiento",
+                                    id
+                            )
+                    );
+        }
+
+        if (isOperador(jwt)) {
+            return estacionamientoRepository.findByIdAndUsuariosIdAndActivoTrue(
                             id,
                             extractUsuarioId(jwt)
                     )
@@ -212,6 +246,13 @@ public class EstacionamientoServiceImpl
      */
     private boolean isOwner(Jwt jwt) {
         return hasRole(jwt, "OWNER");
+    }
+
+    /**
+     * Indica si el JWT contiene el rol OPERADOR.
+     */
+    private boolean isOperador(Jwt jwt) {
+        return hasRole(jwt, "OPERADOR");
     }
 
     /**

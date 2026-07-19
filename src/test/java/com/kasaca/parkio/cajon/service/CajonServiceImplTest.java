@@ -86,6 +86,23 @@ class CajonServiceImplTest {
     }
 
     @Test
+    void debeObtenerSoloCajonesAsignadosAlOperador() {
+        Cajon cajon = crearCajon();
+        CajonResponse response = crearResponse();
+        Pageable pageable = PageRequest.of(0, 10);
+
+        when(cajonRepository.findByEstacionamientoUsuariosIdAndActivoTrue(8L, pageable))
+                .thenReturn(new PageImpl<>(List.of(cajon), pageable, 1));
+        when(cajonMapper.toResponseCajon(cajon)).thenReturn(response);
+
+        PageResponse<CajonResponse> resultado =
+                cajonService.getCajones(pageable, crearJwtOperador());
+
+        assertThat(resultado.content()).containsExactly(response);
+        verify(cajonRepository).findByEstacionamientoUsuariosIdAndActivoTrue(8L, pageable);
+    }
+
+    @Test
     void debeObtenerCajonesPorEstacionamiento() {
         Estacionamiento estacionamiento = crearEstacionamiento();
         Cajon cajon = crearCajon();
@@ -149,6 +166,21 @@ class CajonServiceImplTest {
 
         assertThat(resultado).isEqualTo(response);
         verify(cajonRepository).findByIdAndEstacionamientoOwnerIdAndActivoTrue(1L, 7L);
+    }
+
+    @Test
+    void debeObtenerCajonAsignadoAlOperador() {
+        Cajon cajon = crearCajon();
+        CajonResponse response = crearResponse();
+
+        when(cajonRepository.findByIdAndEstacionamientoUsuariosIdAndActivoTrue(1L, 8L))
+                .thenReturn(Optional.of(cajon));
+        when(cajonMapper.toResponseCajon(cajon)).thenReturn(response);
+
+        CajonResponse resultado = cajonService.getCajon(1L, crearJwtOperador());
+
+        assertThat(resultado).isEqualTo(response);
+        verify(cajonRepository).findByIdAndEstacionamientoUsuariosIdAndActivoTrue(1L, 8L);
     }
 
     @Test
@@ -343,6 +375,36 @@ class CajonServiceImplTest {
     }
 
     @Test
+    void debeActualizarEstadoDelCajonAsignadoAlOperador() {
+        Cajon cajon = crearCajon();
+        CajonEstadoRequest request = new CajonEstadoRequest(
+                EstadoCajon.OCUPADO
+        );
+        CajonResponse response = new CajonResponse(
+                1L,
+                "A-001",
+                TipoCajon.AUTO,
+                EstadoCajon.OCUPADO,
+                10L,
+                true,
+                cajon.getFechaCreacion()
+        );
+
+        when(cajonRepository.findByIdAndEstacionamientoUsuariosIdAndActivoTrue(1L, 8L))
+                .thenReturn(Optional.of(cajon));
+        when(cajonRepository.save(cajon)).thenReturn(cajon);
+        when(cajonMapper.toResponseCajon(cajon)).thenReturn(response);
+
+        CajonResponse resultado =
+                cajonService.updateEstado(1L, request, crearJwtOperador());
+
+        assertThat(cajon.getEstado()).isEqualTo(EstadoCajon.OCUPADO);
+        assertThat(resultado).isEqualTo(response);
+        verify(cajonRepository).findByIdAndEstacionamientoUsuariosIdAndActivoTrue(1L, 8L);
+        verify(cajonRepository).save(cajon);
+    }
+
+    @Test
     void debeRechazarCambioDeEstadoCuandoCajonNoExiste() {
         CajonEstadoRequest request = new CajonEstadoRequest(
                 EstadoCajon.FUERA_SERVICIO
@@ -446,6 +508,10 @@ class CajonServiceImplTest {
 
     private Jwt crearJwtOwner() {
         return crearJwt(7L, List.of("OWNER"));
+    }
+
+    private Jwt crearJwtOperador() {
+        return crearJwt(8L, List.of("OPERADOR"));
     }
 
     private Jwt crearJwt(Long usuarioId, List<String> roles) {

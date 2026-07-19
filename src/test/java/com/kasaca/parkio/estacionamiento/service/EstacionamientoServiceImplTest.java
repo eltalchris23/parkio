@@ -89,6 +89,58 @@ class EstacionamientoServiceImplTest {
     }
 
     @Test
+    void debeObtenerSoloEstacionamientosAsignadosAlOperador() {
+        Estacionamiento estacionamiento = crearEstacionamiento();
+        EstacionamientoResponse response = crearResponse();
+        Pageable pageable = PageRequest.of(0, 10);
+
+        when(estacionamientoRepository.findByUsuariosIdAndActivoTrue(8L, pageable))
+                .thenReturn(new PageImpl<>(List.of(estacionamiento), pageable, 1));
+        when(estacionamientoMapper.toResponse(estacionamiento))
+                .thenReturn(response);
+
+        PageResponse<EstacionamientoResponse> resultado =
+                estacionamientoService.getEstacionamientos(pageable, crearJwtOperador());
+
+        assertThat(resultado.content()).containsExactly(response);
+        verify(estacionamientoRepository).findByUsuariosIdAndActivoTrue(8L, pageable);
+    }
+
+    @Test
+    void debeObtenerEstacionamientoAsignadoAlOperadorPorId() {
+        Estacionamiento estacionamiento = crearEstacionamiento();
+        EstacionamientoResponse response = crearResponse();
+
+        when(estacionamientoRepository.findByIdAndUsuariosIdAndActivoTrue(1L, 8L))
+                .thenReturn(Optional.of(estacionamiento));
+        when(estacionamientoMapper.toResponse(estacionamiento))
+                .thenReturn(response);
+
+        EstacionamientoResponse resultado =
+                estacionamientoService.getEstacionamientoById(1L, crearJwtOperador());
+
+        assertThat(resultado).isEqualTo(response);
+        verify(estacionamientoRepository).findByIdAndUsuariosIdAndActivoTrue(1L, 8L);
+    }
+
+    @Test
+    void debeRechazarEstacionamientoNoAsignadoAlOperador() {
+        when(estacionamientoRepository.findByIdAndUsuariosIdAndActivoTrue(1L, 8L))
+                .thenReturn(Optional.empty());
+
+        assertThatThrownBy(() ->
+                estacionamientoService.getEstacionamientoById(1L, crearJwtOperador())
+        )
+                .isInstanceOf(ResourceNotFoundException.class)
+                .hasMessage(
+                        "Estacionamiento con identificador '1' no fue encontrado"
+                );
+
+        verify(estacionamientoMapper, never())
+                .toResponse(any());
+    }
+
+    @Test
     void debeLanzarExcepcionCuandoEstacionamientoNoExiste() {
         when(estacionamientoRepository.findByIdAndActivoTrue(1L))
                 .thenReturn(Optional.empty());
@@ -327,6 +379,10 @@ class EstacionamientoServiceImplTest {
 
     private Jwt crearJwtOwner() {
         return crearJwt(7L, List.of("OWNER"));
+    }
+
+    private Jwt crearJwtOperador() {
+        return crearJwt(8L, List.of("OPERADOR"));
     }
 
     private Jwt crearJwt(Long usuarioId, List<String> roles) {
