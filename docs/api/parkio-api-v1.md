@@ -17,6 +17,7 @@ Este documento describe el contrato implementado actualmente para los módulos:
 - Rol.
 - Estacionamiento.
 - Cajón.
+- Catálogos.
 
 No describe funcionalidades futuras salvo que se indiquen explícitamente como pendientes.
 
@@ -83,6 +84,7 @@ Los controladores principales ya incluyen anotaciones OpenAPI:
 - `EstacionamientoController`.
 - `CajonController`.
 - `UsuarioController`.
+- `CatalogoController`.
 
 En ambiente de desarrollo:
 
@@ -108,6 +110,8 @@ GET /api/v1/roles
 GET /api/v1/estacionamientos
 GET /api/v1/cajones
 GET /api/v1/usuarios
+GET /api/v1/catalogos/cajones/tipos
+GET /api/v1/catalogos/cajones/estados
 ```
 
 Para probar endpoints protegidos desde Swagger UI se debe usar el botón `Authorize` y proporcionar un JWT con el esquema Bearer.
@@ -125,6 +129,7 @@ Springdoc está deshabilitado por defecto y también en el perfil `prod`. Actual
 | Rol | `ADMIN` | `ADMIN` |
 | Estacionamiento | `ADMIN`, `OPERADOR`, `USER` | `ADMIN` |
 | Cajón | `ADMIN`, `OPERADOR`, `USER` | `ADMIN`; cambio de estado también permite `OPERADOR` |
+| Catálogos | `ADMIN`, `OPERADOR`, `USER` | No aplica |
 
 ### Identificador de transacción
 
@@ -1161,11 +1166,94 @@ Sin cuerpo. Realiza borrado lógico.
 | `404` | Cajón o estacionamiento inexistente/inactivo |
 | `409` | Número duplicado dentro del estacionamiento |
 
+## Módulo Catálogos
+
+Seguridad:
+
+- Requiere JWT válido.
+- Permite los roles `ADMIN`, `OPERADOR` y `USER`.
+- No modifica datos; solo expone valores técnicos existentes en enums del backend.
+
+Los catálogos permiten que el frontend construya listas desplegables sin quemar valores técnicos en el código cliente. Actualmente se generan desde los enums `TipoCajon` y `EstadoCajon`, por lo que no requieren migración Flyway ni tablas adicionales.
+
+### Consultar tipos de cajón
+
+```http
+GET /api/v1/catalogos/cajones/tipos
+```
+
+#### Response 200
+
+```json
+{
+  "timestamp": "2026-07-18T10:00:00",
+  "status": 200,
+  "message": "Tipos de cajon consultados correctamente",
+  "transactionId": "0f5d5c9b-8dc1-4bd1-a173-08f16eb4f96e",
+  "data": [
+    {
+      "codigo": "AUTO",
+      "descripcion": "Auto"
+    },
+    {
+      "codigo": "MOTO",
+      "descripcion": "Moto"
+    },
+    {
+      "codigo": "DISCAPACITADO",
+      "descripcion": "Discapacitado"
+    },
+    {
+      "codigo": "ELECTRICO",
+      "descripcion": "Electrico"
+    }
+  ]
+}
+```
+
+### Consultar estados de cajón
+
+```http
+GET /api/v1/catalogos/cajones/estados
+```
+
+#### Response 200
+
+```json
+{
+  "timestamp": "2026-07-18T10:00:00",
+  "status": 200,
+  "message": "Estados de cajon consultados correctamente",
+  "transactionId": "0f5d5c9b-8dc1-4bd1-a173-08f16eb4f96e",
+  "data": [
+    {
+      "codigo": "LIBRE",
+      "descripcion": "Libre"
+    },
+    {
+      "codigo": "OCUPADO",
+      "descripcion": "Ocupado"
+    },
+    {
+      "codigo": "FUERA_SERVICIO",
+      "descripcion": "Fuera de servicio"
+    }
+  ]
+}
+```
+
+#### Errores del módulo
+
+| HTTP | Causa |
+|---|---|
+| `401` | JWT ausente o inválido |
+| `403` | Usuario sin permisos para consultar catálogos |
+
 ## Pruebas automatizadas relacionadas
 
-El backend cuenta con pruebas unitarias de mapper, servicio y controlador para Rol, Estacionamiento, Cajón y Usuario.
+El backend cuenta con pruebas unitarias de mapper, servicio y controlador para Rol, Estacionamiento, Cajón y Usuario, además de pruebas unitarias de servicio y controlador para Catálogos.
 
-`SecurityConfigTest` cubre reglas de seguridad HTTP, autorización por roles, autenticación JWT simulada y validaciones CORS. Las pruebas CORS validan preflight `OPTIONS` desde orígenes permitidos, rechazo de orígenes no configurados y exposición de `X-Transaction-Id` para consumo desde frontend.
+`SecurityConfigTest` cubre reglas de seguridad HTTP, autorización por roles, autenticación JWT simulada, validaciones CORS y acceso protegido a Catálogos. Las pruebas CORS validan preflight `OPTIONS` desde orígenes permitidos, rechazo de orígenes no configurados y exposición de `X-Transaction-Id` para consumo desde frontend.
 
 `HealthCheckSecurityIntegrationTest` valida que `/actuator/health`, `/actuator/health/liveness` y `/actuator/health/readiness` puedan consultarse sin JWT y respondan estado `UP`.
 
@@ -1176,12 +1264,15 @@ También existen pruebas de integración con Spring Boot completo, PostgreSQL y 
 - `EstacionamientoIntegrationTest`.
 - `CajonIntegrationTest`.
 - `UsuarioIntegrationTest`.
+- `CatalogoIntegrationTest`.
 
 Estas pruebas validan que la conexión use `parkio_test` antes de limpiar datos de prueba.
 
 `AuthUsuarioIntegrationTest` cubre registro público, login con JWT, consulta de endpoint protegido, rechazo de `/api/v1/auth/me` sin token y consulta exitosa de `/api/v1/auth/me` con un JWT real emitido por el backend.
 
 `UsuarioIntegrationTest` cubre creación pública con rol base `USER`, conflictos por correo duplicado, permisos sobre usuario propio, bloqueo de acceso a usuarios ajenos, cambio de contraseña, administración de roles y estacionamientos por `ADMIN`, borrado lógico y rechazo de login para usuarios inactivos.
+
+`CatalogoIntegrationTest` cubre rechazo sin JWT, acceso con roles `ADMIN`, `OPERADOR` y `USER`, formato `ApiResponse`, presencia de `transactionId` y valores reales de los catálogos de tipos y estados de Cajón derivados de los enums `TipoCajon` y `EstadoCajon`.
 
 ## Códigos HTTP utilizados
 

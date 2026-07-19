@@ -24,22 +24,22 @@ Parkio es un backend en desarrollo para administrar:
 - Cajones pertenecientes a un estacionamiento.
 - Estado y tipo de los cajones.
 
-El proyecto contiene actualmente el modelo persistente, DTOs, repositorios, contratos de servicio, migraciones y documentación de arquitectura. Los módulos Rol, Estacionamiento, Cajón y Usuario cuentan además con mapper, servicio transaccional, controlador REST y pruebas unitarias. El módulo Auth implementa login, emisión de JWT y consulta del usuario autenticado mediante `/api/v1/auth/me`.
+El proyecto contiene actualmente el modelo persistente, DTOs, repositorios, contratos de servicio, migraciones y documentación de arquitectura. Los módulos Rol, Estacionamiento, Cajón y Usuario cuentan además con mapper, servicio transaccional, controlador REST y pruebas unitarias. El módulo Catálogos cuenta con DTO, servicio, controlador REST, pruebas unitarias y prueba de integración para exponer valores derivados de enums. El módulo Auth implementa login, emisión de JWT y consulta del usuario autenticado mediante `/api/v1/auth/me`.
 
-La API REST está implementada para Auth, Rol, Estacionamiento, Cajón y Usuario. Usuario permite asignar y retirar roles y estacionamientos. La autenticación JWT está implementada. La autorización granular por roles ya inició en Rol, Usuario, Estacionamiento y Cajón: `/api/v1/roles` requiere rol `ADMIN`; `/api/v1/usuarios` distingue entre operaciones administrativas de `ADMIN` y operaciones propias de `USER` u `OPERADOR`; `/api/v1/estacionamientos` permite consulta a `ADMIN`, `OPERADOR` y `USER`, y escritura solo a `ADMIN`; `/api/v1/cajones` permite consulta a `ADMIN`, `OPERADOR` y `USER`, cambios de estado a `ADMIN` y `OPERADOR`, y escritura administrativa solo a `ADMIN`.
+La API REST está implementada para Auth, Rol, Estacionamiento, Cajón, Usuario y Catálogos. Usuario permite asignar y retirar roles y estacionamientos. La autenticación JWT está implementada. La autorización granular por roles ya inició en Rol, Usuario, Estacionamiento, Cajón y Catálogos: `/api/v1/roles` requiere rol `ADMIN`; `/api/v1/usuarios` distingue entre operaciones administrativas de `ADMIN` y operaciones propias de `USER` u `OPERADOR`; `/api/v1/estacionamientos` permite consulta a `ADMIN`, `OPERADOR` y `USER`, y escritura solo a `ADMIN`; `/api/v1/cajones` permite consulta a `ADMIN`, `OPERADOR` y `USER`, cambios de estado a `ADMIN` y `OPERADOR`, y escritura administrativa solo a `ADMIN`; `/api/v1/catalogos` permite consulta a `ADMIN`, `OPERADOR` y `USER`.
 
 ## Estado Actual
 
 Antes de realizar cambios, considerar lo siguiente:
 
-- `RolController`, `EstacionamientoController`, `CajonController` y `UsuarioController` exponen los recursos `/api/v1/roles`, `/api/v1/estacionamientos`, `/api/v1/cajones` y `/api/v1/usuarios`.
+- `RolController`, `EstacionamientoController`, `CajonController`, `UsuarioController` y `CatalogoController` exponen los recursos `/api/v1/roles`, `/api/v1/estacionamientos`, `/api/v1/cajones`, `/api/v1/usuarios` y `/api/v1/catalogos`.
 - Existe Spring Security HTTP con OAuth2 Resource Server para proteger endpoints mediante JWT.
 - Existen `AuthController`, `AuthService`, `AuthServiceImpl`, `JwtService`, `JwtProperties` y `SecurityConfig`.
 - `AuthController` expone `POST /api/v1/auth/login` como endpoint público y `GET /api/v1/auth/me` como endpoint protegido por JWT.
 - Existe configuración CORS mediante `CorsConfig` y `CorsProperties`, usando propiedades bajo `parkio.cors`.
 - Existe Spring Boot Actuator para Health Check operativo.
 - Existe Springdoc OpenAPI para generar contrato OpenAPI y Swagger UI en ambiente de desarrollo.
-- Los controladores principales Auth, Rol, Estacionamiento, Cajón y Usuario ya tienen anotaciones OpenAPI para Swagger UI.
+- Los controladores principales Auth, Rol, Estacionamiento, Cajón, Usuario y Catálogos ya tienen anotaciones OpenAPI para Swagger UI.
 - Solo se expone `health` bajo `/actuator`; no se deben exponer endpoints sensibles sin autorización explícita.
 - `/actuator/health`, `/actuator/health/liveness` y `/actuator/health/readiness` son públicos y no requieren JWT.
 - La base global de los controllers se configura mediante `spring.mvc.servlet.path=/api/v1`.
@@ -51,6 +51,7 @@ Antes de realizar cambios, considerar lo siguiente:
 - `UsuarioController` utiliza `@PreAuthorize` para permitir operaciones administrativas a `ADMIN` y operaciones propias a `USER` u `OPERADOR`.
 - `EstacionamientoController` utiliza `@PreAuthorize` para permitir consultas a `ADMIN`, `OPERADOR` y `USER`, y modificaciones solo a `ADMIN`.
 - `CajonController` utiliza `@PreAuthorize` para permitir consultas a `ADMIN`, `OPERADOR` y `USER`; cambios de estado a `ADMIN` y `OPERADOR`; y creación, actualización o eliminación solo a `ADMIN`.
+- `CatalogoController` utiliza `@PreAuthorize` para permitir consultas a `ADMIN`, `OPERADOR` y `USER`.
 - `UsuarioSecurity` compara el `usuarioId` de la ruta con el claim `usuarioId` del JWT.
 - Los roles del claim `roles` del JWT se convierten a authorities de Spring Security con prefijo `ROLE_`.
 - Las operaciones `DELETE` de Rol, Usuario, Estacionamiento y Cajón realizan borrado lógico mediante `activo=false`.
@@ -72,13 +73,14 @@ Antes de realizar cambios, considerar lo siguiente:
 - `RolRequest`, `EstacionamientoRequest`, `CajonRequest`, `CajonEstadoRequest`, `UsuarioCreateRequest`, `UsuarioUpdateRequest`, `UsuarioPasswordRequest`, `UsuarioRolRequest` y `UsuarioEstacionamientoRequest` tienen validaciones Jakarta Validation.
 - `RolServiceImpl`, `EstacionamientoServiceImpl`, `CajonServiceImpl` y `UsuarioServiceImpl` están registrados como beans y usan transacciones.
 - `UsuarioServiceImpl` valida correos duplicados y genera hashes BCrypt mediante `PasswordEncoder`.
-- Existen pruebas unitarias para mapper, servicio y controlador de Rol, Estacionamiento, Cajón y Usuario, pruebas de Auth/JWT/seguridad, pruebas específicas de CORS en `SecurityConfigTest`, pruebas de Health Check en `HealthCheckSecurityIntegrationTest`, además de la prueba de carga del contexto.
+- Existen pruebas unitarias para mapper, servicio y controlador de Rol, Estacionamiento, Cajón y Usuario, pruebas de servicio, controlador e integración de Catálogos, pruebas de Auth/JWT/seguridad, pruebas específicas de CORS y Catálogos en `SecurityConfigTest`, pruebas de Health Check en `HealthCheckSecurityIntegrationTest`, además de la prueba de carga del contexto.
 - `SecurityConfigTest` valida CORS con preflight `OPTIONS` desde un origen permitido, rechazo de un origen no configurado y exposición de `X-Transaction-Id` en respuestas reales.
 - Existe una prueba de integración inicial `AuthUsuarioIntegrationTest` que levanta Spring Boot completo, usa PostgreSQL con perfil `test`, valida Flyway, registra un usuario, inicia sesión, consulta un endpoint protegido con JWT y valida `/api/v1/auth/me` con y sin token.
 - Existe `RolIntegrationTest`, que levanta Spring Boot completo, usa PostgreSQL con perfil `test`, valida seguridad JWT/ADMIN y prueba el flujo de listar, crear, consultar, actualizar, detectar duplicados y eliminar lógicamente roles.
 - Existe `EstacionamientoIntegrationTest`, que levanta Spring Boot completo, usa PostgreSQL con perfil `test`, valida seguridad JWT/roles y prueba el flujo de listar, crear, consultar, actualizar y eliminar lógicamente estacionamientos, incluyendo la desactivación lógica de cajones activos asociados.
 - Existe `CajonIntegrationTest`, que levanta Spring Boot completo, usa PostgreSQL con perfil `test`, valida seguridad JWT/roles y prueba consulta, creación, actualización, cambio de estado, conflicto por duplicado y borrado lógico de cajones.
 - Existe `UsuarioIntegrationTest`, que levanta Spring Boot completo, usa PostgreSQL con perfil `test`, valida seguridad JWT/roles y prueba creación pública con rol `USER`, correos duplicados, consulta/actualización del propio usuario, bloqueo sobre usuarios ajenos, cambio de contraseña, asignación y retiro de roles, asignación y retiro de estacionamientos, borrado lógico y bloqueo de login para usuarios inactivos.
+- Existe `CatalogoIntegrationTest`, que levanta Spring Boot completo, usa PostgreSQL con perfil `test`, valida seguridad JWT/roles y prueba los catálogos de tipos y estados de Cajón con `ADMIN`, `OPERADOR` y `USER`, incluyendo formato `ApiResponse`, `transactionId` y valores reales de los enums.
 - Usuario permite asignar y retirar roles y estacionamientos mediante `usuario_rol` y `usuario_estacionamiento`. `UsuarioResponse` representa estas relaciones mediante nombres de roles e identificadores de estacionamientos. La creación pública de usuarios asigna automáticamente el rol base `USER`. Creación, actualización general y cambio de contraseña utilizan DTOs y operaciones separadas.
 - La documentación describe parcialmente una arquitectura futura.
 - Todos los repositorios utilizan `Long` como identificador, en concordancia con `BaseEntity`.
@@ -92,6 +94,7 @@ El proyecto utiliza una organización modular por dominio:
 ```text
 com.kasaca.parkio
 ├── audit
+├── catalogo
 ├── cajon
 ├── estacionamiento
 ├── rol
@@ -173,7 +176,7 @@ Los componentes compartidos deben colocarse en `shared` únicamente cuando sean 
 
 No se debe crear un paquete genérico para código que pertenece claramente a un dominio.
 
-Los paquetes `auth` y `security` existen actualmente. El paquete `config` contiene `PasswordEncoderConfig` y `OpenApiConfig`; los paquetes `controller` y `mapper` existen dentro de Rol, Estacionamiento, Cajón y Usuario, y las excepciones compartidas se encuentran en `shared.exception`. El paquete `common` aparece como propuesta, pero no existe actualmente. Las capacidades pendientes solo deben crearse cuando una tarea autorizada requiera implementarlas.
+Los paquetes `auth`, `security` y `catalogo` existen actualmente. El paquete `config` contiene `PasswordEncoderConfig` y `OpenApiConfig`; los paquetes `controller` y `mapper` existen dentro de Rol, Estacionamiento, Cajón y Usuario, `catalogo` contiene `controller`, `dto` y `service`, y las excepciones compartidas se encuentran en `shared.exception`. El paquete `common` aparece como propuesta, pero no existe actualmente. Las capacidades pendientes solo deben crearse cuando una tarea autorizada requiera implementarlas.
 
 ## Convenciones de Nomenclatura
 
@@ -358,7 +361,7 @@ Reglas obligatorias:
 
 ## Convenciones para Controllers
 
-Actualmente existen `RolController`, `EstacionamientoController`, `CajonController` y `UsuarioController`.
+Actualmente existen `RolController`, `EstacionamientoController`, `CajonController`, `UsuarioController` y `CatalogoController`.
 
 La documentación propone una API con base:
 
@@ -391,6 +394,7 @@ y recursos como:
 /api/v1/usuarios
 /api/v1/estacionamientos
 /api/v1/cajones
+/api/v1/catalogos
 ```
 
 Cuando una tarea solicite implementar controladores:
@@ -548,7 +552,7 @@ Estado actual:
 - Los endpoints distintos al login, `POST /api/v1/usuarios` y Health Check requieren JWT válido. `POST /api/v1/usuarios` queda público para permitir registro inicial y asigna automáticamente el rol base `USER`. `GET /api/v1/auth/me` requiere JWT válido, pero no requiere un rol específico adicional.
 - Los endpoints `/actuator/health`, `/actuator/health/liveness` y `/actuator/health/readiness` son públicos para monitoreo y no deben devolver detalles internos.
 - Swagger UI y OpenAPI JSON son públicos únicamente cuando Springdoc está habilitado por perfil. En la configuración actual se habilitan en `dev` y se deshabilitan por defecto/prod.
-- Existe autorización granular inicial por roles: `RolController` requiere `ADMIN`, `UsuarioController` protege operaciones con `ADMIN`, `USER` y `OPERADOR`, `EstacionamientoController` permite lectura a `ADMIN`/`OPERADOR`/`USER` y escritura a `ADMIN`, y `CajonController` permite lectura a `ADMIN`/`OPERADOR`/`USER`, cambio de estado a `ADMIN`/`OPERADOR` y escritura administrativa a `ADMIN`.
+- Existe autorización granular inicial por roles: `RolController` requiere `ADMIN`, `UsuarioController` protege operaciones con `ADMIN`, `USER` y `OPERADOR`, `EstacionamientoController` permite lectura a `ADMIN`/`OPERADOR`/`USER` y escritura a `ADMIN`, `CajonController` permite lectura a `ADMIN`/`OPERADOR`/`USER`, cambio de estado a `ADMIN`/`OPERADOR` y escritura administrativa a `ADMIN`, y `CatalogoController` permite consulta a `ADMIN`/`OPERADOR`/`USER`.
 - `SecurityConfig` habilita `@EnableMethodSecurity`.
 - `SecurityConfig` convierte el claim `roles` del JWT en authorities `ROLE_*`.
 - El primer usuario `ADMIN` no se crea automáticamente. El bootstrap inicial debe realizarse de forma controlada asignando manualmente el rol `ADMIN` en la tabla `usuario_rol` a un usuario ya creado, sin guardar contraseñas ni secretos en migraciones o documentación.
@@ -578,7 +582,7 @@ La documentación técnica se encuentra en `docs/`.
 
 Incluye:
 
-- Contrato implementado de Auth, Rol, Estacionamiento, Cajón y Usuario.
+- Contrato implementado de Auth, Rol, Estacionamiento, Cajón, Usuario y Catálogos.
 - Arquitectura por capas.
 - Estructura objetivo de paquetes.
 - Flujo JWT.

@@ -13,20 +13,21 @@ Actualmente, el proyecto contiene:
 - Repositorios Spring Data JPA.
 - Contratos de servicio.
 - CRUD REST completo para los módulos Rol, Estacionamiento, Cajón y Usuario.
+- Catálogos REST para tipos y estados de cajón consumibles por frontend.
 - Login mediante `/api/v1/auth/login`.
 - Consulta del usuario autenticado mediante `/api/v1/auth/me`.
 - Seguridad HTTP con Spring Security y JWT.
 - Health Check operativo mediante Spring Boot Actuator.
 - Documentación interactiva OpenAPI/Swagger UI para desarrollo.
 - Manejo global de excepciones y validación para las operaciones implementadas.
-- Pruebas unitarias de mapper, servicio y controlador para Rol, Estacionamiento, Cajón y Usuario.
+- Pruebas unitarias de mapper, servicio y controlador para Rol, Estacionamiento, Cajón y Usuario, además de pruebas de servicio, controlador e integración para Catálogos.
 - Hash seguro de contraseñas de Usuario mediante BCrypt.
 - Migraciones iniciales de base de datos.
 - Documentación de arquitectura, dominio, API implementada y funcionalidades propuestas.
 
-El proyecto expone APIs REST funcionales para autenticar usuarios en `/api/v1/auth/login`, consultar el usuario autenticado en `/api/v1/auth/me` y administrar roles en `/api/v1/roles`, estacionamientos en `/api/v1/estacionamientos`, cajones en `/api/v1/cajones` y usuarios en `/api/v1/usuarios`.
+El proyecto expone APIs REST funcionales para autenticar usuarios en `/api/v1/auth/login`, consultar el usuario autenticado en `/api/v1/auth/me`, administrar roles en `/api/v1/roles`, estacionamientos en `/api/v1/estacionamientos`, cajones en `/api/v1/cajones` y usuarios en `/api/v1/usuarios`, además de consultar catálogos de cajones en `/api/v1/catalogos`.
 
-La autenticación JWT ya está implementada. La autorización granular por rol está aplicada en Rol, Usuario, Estacionamiento y Cajón. `/api/v1/roles` requiere `ADMIN`; `/api/v1/usuarios` distingue entre operaciones administrativas de `ADMIN` y operaciones propias de `USER` u `OPERADOR`; `/api/v1/estacionamientos` permite consultas a `ADMIN`, `OPERADOR` y `USER`, dejando la escritura únicamente a `ADMIN`; y `/api/v1/cajones` permite consulta a `ADMIN`, `OPERADOR` y `USER`, cambios de estado a `ADMIN` y `OPERADOR`, y administración completa solo a `ADMIN`.
+La autenticación JWT ya está implementada. La autorización granular por rol está aplicada en Rol, Usuario, Estacionamiento, Cajón y Catálogos. `/api/v1/roles` requiere `ADMIN`; `/api/v1/usuarios` distingue entre operaciones administrativas de `ADMIN` y operaciones propias de `USER` u `OPERADOR`; `/api/v1/estacionamientos` permite consultas a `ADMIN`, `OPERADOR` y `USER`, dejando la escritura únicamente a `ADMIN`; `/api/v1/cajones` permite consulta a `ADMIN`, `OPERADOR` y `USER`, cambios de estado a `ADMIN` y `OPERADOR`, y administración completa solo a `ADMIN`; y `/api/v1/catalogos` permite consulta a `ADMIN`, `OPERADOR` y `USER`.
 
 ## Objetivos del Sistema
 
@@ -38,6 +39,7 @@ Según el modelo actual y la documentación existente, Parkio busca proporcionar
 - Asociar usuarios con estacionamientos.
 - Registrar y administrar cajones dentro de cada estacionamiento.
 - Consultar el estado de los cajones.
+- Consultar catálogos de tipos y estados de cajón para evitar que el frontend queme valores técnicos.
 - Mantener información de auditoría básica sobre las entidades.
 - Autenticar usuarios mediante correo, contraseña BCrypt y JWT.
 
@@ -49,7 +51,7 @@ La autorización por roles ya forma parte del código ejecutable para Rol, Usuar
 |---|---|
 | Java | 21 |
 | Spring Boot | 3.5.15 |
-| Spring Web | API REST de Rol, Estacionamiento, Cajón y Usuario |
+| Spring Web | API REST de Rol, Estacionamiento, Cajón, Usuario y Catálogos |
 | Spring Data JPA | Persistencia y repositorios |
 | Hibernate | Implementación JPA |
 | PostgreSQL | Base de datos relacional |
@@ -84,10 +86,10 @@ Estado actual de las capas:
 | Entidades | Implementadas |
 | DTOs | Definidos |
 | Repositorios | Definidos con Spring Data JPA |
-| Servicios | Rol, Estacionamiento, Cajón y Usuario implementados |
-| Controladores | `RolController`, `EstacionamientoController`, `CajonController` y `UsuarioController` implementados |
+| Servicios | Rol, Estacionamiento, Cajón, Usuario y Catálogos implementados |
+| Controladores | `RolController`, `EstacionamientoController`, `CajonController`, `UsuarioController` y `CatalogoController` implementados |
 | Mappers | `RolMapper`, `EstacionamientoMapper`, `CajonMapper` y `UsuarioMapper` implementados |
-| Seguridad | Autenticación JWT implementada; autorización por rol implementada en `/api/v1/roles`, `/api/v1/usuarios`, `/api/v1/estacionamientos` y `/api/v1/cajones` |
+| Seguridad | Autenticación JWT implementada; autorización por rol implementada en `/api/v1/roles`, `/api/v1/usuarios`, `/api/v1/estacionamientos`, `/api/v1/cajones` y `/api/v1/catalogos` |
 | Observabilidad | Health Check público implementado mediante Spring Boot Actuator |
 | Documentación interactiva | OpenAPI y Swagger UI habilitados en `dev` y deshabilitados por defecto/prod |
 | Manejo global de errores | Implementado mediante `GlobalExceptionHandler` y `ApiError`, incluyendo `transactionId` |
@@ -128,6 +130,10 @@ parkio/
 │   ├── main/
 │   │   ├── java/com/kasaca/parkio/
 │   │   │   ├── audit/
+│   │   │   ├── catalogo/
+│   │   │   │   ├── controller/
+│   │   │   │   ├── dto/
+│   │   │   │   └── service/
 │   │   │   ├── cajon/
 │   │   │   │   ├── controller/
 │   │   │   │   ├── dto/
@@ -167,6 +173,9 @@ parkio/
 │   │       └── banner.txt
 │   └── test/
 │       └── java/com/kasaca/parkio/
+│           ├── catalogo/
+│           │   ├── controller/
+│           │   └── service/
 │           ├── cajon/
 │           │   ├── controller/
 │           │   ├── mapper/
@@ -175,6 +184,7 @@ parkio/
 │           │   ├── controller/
 │           │   ├── mapper/
 │           │   └── service/
+│           ├── integration/
 │           ├── rol/
 │           │   ├── controller/
 │           │   ├── mapper/
@@ -284,7 +294,29 @@ El módulo implementa inicio de sesión mediante correo y contraseña. Las crede
 
 También expone `GET /api/v1/auth/me`, que requiere JWT válido y devuelve la información vigente del usuario autenticado usando el claim `usuarioId` para consultar la base de datos. Este endpoint permite que el frontend obtenga el usuario, roles y estacionamientos asignados sin depender de decodificar el JWT.
 
-Los endpoints distintos al login y la creación de usuarios requieren encabezado `Authorization: Bearer <token>`. La creación de usuarios permanece pública para permitir el registro inicial y asigna automáticamente el rol base `USER`. El endpoint `/api/v1/auth/me` requiere cualquier JWT válido. El módulo Rol requiere rol `ADMIN`. En Usuario, `ADMIN` puede administrar usuarios, mientras que `USER` y `OPERADOR` pueden consultar, actualizar y cambiar la contraseña únicamente de su propio usuario. En Estacionamiento, `ADMIN`, `OPERADOR` y `USER` pueden consultar, pero solo `ADMIN` puede crear, actualizar o eliminar. En Cajón, `ADMIN`, `OPERADOR` y `USER` pueden consultar; `ADMIN` y `OPERADOR` pueden cambiar estado; y solo `ADMIN` puede crear, actualizar o eliminar.
+Los endpoints distintos al login y la creación de usuarios requieren encabezado `Authorization: Bearer <token>`. La creación de usuarios permanece pública para permitir el registro inicial y asigna automáticamente el rol base `USER`. El endpoint `/api/v1/auth/me` requiere cualquier JWT válido. El módulo Rol requiere rol `ADMIN`. En Usuario, `ADMIN` puede administrar usuarios, mientras que `USER` y `OPERADOR` pueden consultar, actualizar y cambiar la contraseña únicamente de su propio usuario. En Estacionamiento, `ADMIN`, `OPERADOR` y `USER` pueden consultar, pero solo `ADMIN` puede crear, actualizar o eliminar. En Cajón, `ADMIN`, `OPERADOR` y `USER` pueden consultar; `ADMIN` y `OPERADOR` pueden cambiar estado; y solo `ADMIN` puede crear, actualizar o eliminar. En Catálogos, `ADMIN`, `OPERADOR` y `USER` pueden consultar los valores disponibles.
+
+### Catálogos
+
+Incluye:
+
+- `CatalogoResponse`.
+- `CatalogoService`.
+- `CatalogoServiceImpl`.
+- `CatalogoController`.
+- Pruebas unitarias de servicio y controlador.
+- Prueba de integración `CatalogoIntegrationTest`.
+
+El módulo expone catálogos simples para que el frontend pueda construir listas desplegables sin quemar valores técnicos en pantalla. Actualmente publica los tipos y estados disponibles de Cajón a partir de los enums `TipoCajon` y `EstadoCajon`.
+
+Endpoints disponibles:
+
+```http
+GET /api/v1/catalogos/cajones/tipos
+GET /api/v1/catalogos/cajones/estados
+```
+
+Ambos endpoints requieren JWT válido y permiten los roles `ADMIN`, `OPERADOR` y `USER`. Las respuestas usan `ApiResponse<List<CatalogoResponse>>`, donde `codigo` representa el valor técnico que debe enviarse al backend y `descripcion` representa el texto legible que puede mostrarse al usuario.
 
 ### Usuario
 
@@ -396,7 +428,7 @@ Incluye:
 - Dependencia `springdoc-openapi-starter-webmvc-ui`.
 - Configuración `OpenApiConfig`.
 - Esquema de seguridad Bearer JWT para probar endpoints protegidos.
-- Anotaciones OpenAPI en los controladores de Auth, Rol, Estacionamiento, Cajón y Usuario.
+- Anotaciones OpenAPI en los controladores de Auth, Rol, Estacionamiento, Cajón, Usuario y Catálogos.
 - Prueba de integración `OpenApiSecurityIntegrationTest`.
 
 La base de los controllers se define globalmente con:
@@ -422,7 +454,7 @@ El contrato OpenAPI JSON está disponible en:
 http://localhost:8023/api/v1/v3/api-docs
 ```
 
-Swagger UI se genera a partir de los controladores reales y permite probar los endpoints documentados. Los controladores principales `AuthController`, `RolController`, `EstacionamientoController`, `CajonController` y `UsuarioController` ya declaran información OpenAPI mediante `@Tag`, `@Operation`, respuestas HTTP documentadas y parámetros relevantes. Para endpoints protegidos, se debe usar el botón `Authorize` e ingresar un token JWT con formato Bearer.
+Swagger UI se genera a partir de los controladores reales y permite probar los endpoints documentados. Los controladores principales `AuthController`, `RolController`, `EstacionamientoController`, `CajonController`, `UsuarioController` y `CatalogoController` ya declaran información OpenAPI mediante `@Tag`, `@Operation`, respuestas HTTP documentadas y parámetros relevantes. Para endpoints protegidos, se debe usar el botón `Authorize` e ingresar un token JWT con formato Bearer.
 
 Cuando un controlador combine endpoints públicos y protegidos, la seguridad del contrato OpenAPI debe documentarse por método. Este es el caso de `UsuarioController`, porque `POST /api/v1/usuarios` es público y los demás endpoints requieren JWT según sus reglas de autorización.
 
@@ -665,7 +697,7 @@ La URL del repositorio remoto y un procedimiento oficial para aprovisionar Postg
    ./mvnw clean package
    ```
 
-El proyecto contiene una prueba de carga del contexto de Spring, pruebas unitarias para mapper, servicio y controlador de Rol, Estacionamiento, Cajón y Usuario, pruebas de Auth/JWT/seguridad, pruebas específicas de CORS en `SecurityConfigTest`, pruebas de Health Check en `HealthCheckSecurityIntegrationTest` y pruebas de integración contra PostgreSQL para Auth/Usuario/JWT, Rol, Estacionamiento, Cajón y Usuario.
+El proyecto contiene una prueba de carga del contexto de Spring, pruebas unitarias para mapper, servicio y controlador de Rol, Estacionamiento, Cajón y Usuario, pruebas de servicio y controlador para Catálogos, pruebas de Auth/JWT/seguridad, pruebas específicas de CORS y Catálogos en `SecurityConfigTest`, pruebas de Health Check en `HealthCheckSecurityIntegrationTest` y pruebas de integración contra PostgreSQL para Auth/Usuario/JWT, Rol, Estacionamiento, Cajón, Usuario y Catálogos.
 
 También existe `OpenApiSecurityIntegrationTest`, que valida que el contrato OpenAPI y Swagger UI puedan consultarse sin JWT cuando Springdoc está habilitado para el entorno de prueba.
 
@@ -674,6 +706,8 @@ El `pom.xml` configura `maven-surefire-plugin` para cargar Mockito como `javaage
 La prueba `AuthUsuarioIntegrationTest` valida el flujo de autenticación con Spring Boot completo, PostgreSQL y perfil `test`: registro público, login con JWT, acceso a endpoints protegidos, rechazo de `/api/v1/auth/me` sin token y consulta exitosa de `/api/v1/auth/me` con un JWT real emitido por el backend.
 
 La prueba `UsuarioIntegrationTest` valida el flujo de Usuario con Spring Boot completo, PostgreSQL y perfil `test`: creación pública con rol base `USER`, rechazo de correos duplicados, permisos de usuario propio, bloqueo sobre usuarios ajenos, cambio de contraseña, administración de roles y estacionamientos por `ADMIN`, borrado lógico y bloqueo de login para usuarios inactivos.
+
+La prueba `CatalogoIntegrationTest` valida los catálogos de tipos y estados de Cajón con Spring Boot completo, PostgreSQL y perfil `test`: rechazo sin JWT, acceso con `ADMIN`, `OPERADOR` y `USER`, formato `ApiResponse`, presencia de `transactionId` y valores reales derivados de los enums.
 
 Las pruebas CORS en `SecurityConfigTest` validan peticiones preflight `OPTIONS` desde orígenes permitidos, rechazo de orígenes no configurados y exposición del header `X-Transaction-Id` para que el frontend pueda leerlo desde JavaScript.
 
@@ -735,7 +769,7 @@ Y el contrato OpenAPI JSON en:
 http://localhost:8023/api/v1/v3/api-docs
 ```
 
-Swagger UI muestra los endpoints reales bajo la base `/api/v1` y los agrupa por los módulos Auth, Roles, Estacionamientos, Cajones y Usuarios. Para probar endpoints protegidos desde Swagger, primero se debe iniciar sesión en `/api/v1/auth/login`, copiar el token y configurarlo en `Authorize` como Bearer JWT.
+Swagger UI muestra los endpoints reales bajo la base `/api/v1` y los agrupa por los módulos Auth, Roles, Estacionamientos, Cajones, Usuarios y Catálogos. Para probar endpoints protegidos desde Swagger, primero se debe iniciar sesión en `/api/v1/auth/login`, copiar el token y configurarlo en `Authorize` como Bearer JWT.
 
 Las operaciones `DELETE` implementan borrado lógico. Los registros se conservan en base de datos con `activo=false`, no se devuelven en consultas normales y no pueden consultarse por identificador desde la API. Un usuario desactivado tampoco puede iniciar sesión.
 
@@ -870,7 +904,7 @@ La carpeta `docs/` contiene:
 
 | Documento | Descripción |
 |---|---|
-| `api/parkio-api-v1.md` | Contrato implementado para Auth, Rol, Estacionamiento, Cajón y Usuario |
+| `api/parkio-api-v1.md` | Contrato implementado para Auth, Rol, Estacionamiento, Cajón, Usuario y Catálogos |
 | `architecture/spring-boot-architecture.puml` | Arquitectura objetivo por capas |
 | `architecture/parkio-package-structure.puml` | Organización propuesta de paquetes |
 | `architecture/parkio-jwt-flow.puml` | Flujo de autenticación JWT |
@@ -882,7 +916,7 @@ La carpeta `docs/` contiene:
 | `sequence/parkio-create-cajon-sequence.puml` | Secuencia propuesta para registrar cajones |
 | `use-cases/mvp-use-cases.md` | Casos de uso iniciales del MVP |
 
-Parte de esta documentación describe componentes futuros. Los módulos Auth, Rol, Estacionamiento, Cajón y Usuario, el manejo global de errores, la autenticación JWT y la autorización granular por roles están implementados.
+Parte de esta documentación describe componentes futuros. Los módulos Auth, Rol, Estacionamiento, Cajón, Usuario y Catálogos, el manejo global de errores, la autenticación JWT y la autorización granular por roles están implementados.
 
 ## Roadmap Futuro
 

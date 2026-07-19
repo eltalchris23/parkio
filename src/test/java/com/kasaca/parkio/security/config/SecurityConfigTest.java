@@ -5,6 +5,9 @@ import com.kasaca.parkio.auth.controller.AuthController;
 import com.kasaca.parkio.auth.dto.AuthLoginRequest;
 import com.kasaca.parkio.auth.dto.AuthResponse;
 import com.kasaca.parkio.auth.service.AuthService;
+import com.kasaca.parkio.catalogo.controller.CatalogoController;
+import com.kasaca.parkio.catalogo.dto.CatalogoResponse;
+import com.kasaca.parkio.catalogo.service.CatalogoService;
 import com.kasaca.parkio.cajon.controller.CajonController;
 import com.kasaca.parkio.cajon.dto.CajonEstadoRequest;
 import com.kasaca.parkio.cajon.dto.CajonRequest;
@@ -66,7 +69,8 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
         UsuarioController.class,
         RolController.class,
         EstacionamientoController.class,
-        CajonController.class
+        CajonController.class,
+        CatalogoController.class
 })
 @Import({
         SecurityConfig.class,
@@ -113,6 +117,9 @@ class SecurityConfigTest {
 
     @MockitoBean
     private CajonService cajonService;
+
+    @MockitoBean
+    private CatalogoService catalogoService;
 
     @MockitoBean
     private JpaMetamodelMappingContext jpaMetamodelMappingContext;
@@ -925,6 +932,53 @@ class SecurityConfigTest {
                 .andExpect(status().isForbidden());
 
         verifyNoInteractions(cajonService);
+    }
+
+    /**
+     * Verifica que los catalogos de tipos de cajon requieran autenticacion JWT.
+     */
+    @Test
+    void debeRechazarCatalogoTiposCajonSinToken() throws Exception {
+        mockMvc.perform(get("/catalogos/cajones/tipos"))
+                .andExpect(status().isUnauthorized());
+
+        verifyNoInteractions(catalogoService);
+    }
+
+    /**
+     * Verifica que USER pueda consultar catalogos de tipos de cajon.
+     */
+    @Test
+    void debePermitirCatalogoTiposCajonCuandoTieneRolUser() throws Exception {
+        when(catalogoService.getTiposCajon()).thenReturn(List.of(
+                new CatalogoResponse("AUTO", "Auto")
+        ));
+
+        mockMvc.perform(get("/catalogos/cajones/tipos")
+                        .with(jwt().authorities(() -> "ROLE_USER")))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.status").value(200))
+                .andExpect(jsonPath("$.data[0].codigo").value("AUTO"));
+
+        verify(catalogoService).getTiposCajon();
+    }
+
+    /**
+     * Verifica que OPERADOR pueda consultar catalogos de estados de cajon.
+     */
+    @Test
+    void debePermitirCatalogoEstadosCajonCuandoTieneRolOperador() throws Exception {
+        when(catalogoService.getEstadosCajon()).thenReturn(List.of(
+                new CatalogoResponse("LIBRE", "Libre")
+        ));
+
+        mockMvc.perform(get("/catalogos/cajones/estados")
+                        .with(jwt().authorities(() -> "ROLE_OPERADOR")))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.status").value(200))
+                .andExpect(jsonPath("$.data[0].codigo").value("LIBRE"));
+
+        verify(catalogoService).getEstadosCajon();
     }
 
     /**
