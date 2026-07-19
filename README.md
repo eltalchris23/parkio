@@ -671,6 +671,8 @@ También existe `OpenApiSecurityIntegrationTest`, que valida que el contrato Ope
 
 El `pom.xml` configura `maven-surefire-plugin` para cargar Mockito como `javaagent` durante la ejecución de pruebas. Esta configuración evita que Mockito se auto-adjunte dinámicamente al JVM, comportamiento que Java advierte que podría bloquearse en versiones futuras.
 
+La prueba `AuthUsuarioIntegrationTest` valida el flujo de autenticación con Spring Boot completo, PostgreSQL y perfil `test`: registro público, login con JWT, acceso a endpoints protegidos, rechazo de `/api/v1/auth/me` sin token y consulta exitosa de `/api/v1/auth/me` con un JWT real emitido por el backend.
+
 La prueba `UsuarioIntegrationTest` valida el flujo de Usuario con Spring Boot completo, PostgreSQL y perfil `test`: creación pública con rol base `USER`, rechazo de correos duplicados, permisos de usuario propio, bloqueo sobre usuarios ajenos, cambio de contraseña, administración de roles y estacionamientos por `ADMIN`, borrado lógico y bloqueo de login para usuarios inactivos.
 
 Las pruebas CORS en `SecurityConfigTest` validan peticiones preflight `OPTIONS` desde orígenes permitidos, rechazo de orígenes no configurados y exposición del header `X-Transaction-Id` para que el frontend pueda leerlo desde JavaScript.

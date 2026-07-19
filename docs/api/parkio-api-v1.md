@@ -1179,6 +1179,8 @@ También existen pruebas de integración con Spring Boot completo, PostgreSQL y 
 
 Estas pruebas validan que la conexión use `parkio_test` antes de limpiar datos de prueba.
 
+`AuthUsuarioIntegrationTest` cubre registro público, login con JWT, consulta de endpoint protegido, rechazo de `/api/v1/auth/me` sin token y consulta exitosa de `/api/v1/auth/me` con un JWT real emitido por el backend.
+
 `UsuarioIntegrationTest` cubre creación pública con rol base `USER`, conflictos por correo duplicado, permisos sobre usuario propio, bloqueo de acceso a usuarios ajenos, cambio de contraseña, administración de roles y estacionamientos por `ADMIN`, borrado lógico y rechazo de login para usuarios inactivos.
 
 ## Códigos HTTP utilizados

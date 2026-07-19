@@ -101,6 +101,19 @@ class AuthUsuarioIntegrationTest {
     }
 
     /**
+     * Verifica que /auth/me rechace solicitudes sin JWT porque es un endpoint protegido.
+     */
+    @Test
+    void debeRechazarConsultaDeUsuarioAutenticadoSinToken() {
+        ResponseEntity<String> response = restTemplate.getForEntity(
+                "/api/v1/auth/me",
+                String.class
+        );
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.UNAUTHORIZED);
+    }
+
+    /**
      * Valida el flujo completo de registro publico, login con BCrypt/JWT y
      * consulta protegida del propio usuario usando el token emitido.
      */
@@ -133,6 +146,38 @@ class AuthUsuarioIntegrationTest {
         assertThat(userBody.path("data").path("id").asLong()).isEqualTo(usuarioId);
         assertThat(userBody.path("data").path("email").asText()).isEqualTo(EMAIL);
         assertThat(userBody.path("data").path("passwordHash").isMissingNode()).isTrue();
+    }
+
+    /**
+     * Valida el flujo completo de registro publico, login y consulta del usuario
+     * autenticado mediante /auth/me usando el JWT real emitido por el backend.
+     */
+    @Test
+    void debeConsultarUsuarioAutenticadoConJwt() throws Exception {
+        ResponseEntity<String> createResponse = registrarUsuario();
+        JsonNode createBody = objectMapper.readTree(createResponse.getBody());
+        Long usuarioId = createBody.path("data").path("id").asLong();
+
+        assertThat(createResponse.getStatusCode()).isEqualTo(HttpStatus.CREATED);
+
+        ResponseEntity<String> loginResponse = iniciarSesion();
+        JsonNode loginBody = objectMapper.readTree(loginResponse.getBody());
+        String accessToken = loginBody.path("accessToken").asText();
+
+        assertThat(loginResponse.getStatusCode()).isEqualTo(HttpStatus.OK);
+        assertThat(accessToken).isNotBlank();
+
+        ResponseEntity<String> meResponse = consultarUsuarioAutenticado(accessToken);
+        JsonNode meBody = objectMapper.readTree(meResponse.getBody());
+
+        assertThat(meResponse.getStatusCode()).isEqualTo(HttpStatus.OK);
+        assertThat(meBody.path("status").asInt()).isEqualTo(200);
+        assertThat(meBody.path("message").asText()).isEqualTo("Usuario autenticado consultado correctamente");
+        assertThat(meBody.path("transactionId").asText()).isNotBlank();
+        assertThat(meBody.path("data").path("id").asLong()).isEqualTo(usuarioId);
+        assertThat(meBody.path("data").path("email").asText()).isEqualTo(EMAIL);
+        assertThat(meBody.path("data").path("roles").get(0).asText()).isEqualTo("USER");
+        assertThat(meBody.path("data").path("passwordHash").isMissingNode()).isTrue();
     }
 
     /**
@@ -181,6 +226,21 @@ class AuthUsuarioIntegrationTest {
 
         return restTemplate.exchange(
                 "/api/v1/usuarios/" + usuarioId,
+                HttpMethod.GET,
+                new HttpEntity<>(headers),
+                String.class
+        );
+    }
+
+    /**
+     * Consulta el usuario autenticado actual agregando el JWT en Authorization.
+     */
+    private ResponseEntity<String> consultarUsuarioAutenticado(String accessToken) {
+        HttpHeaders headers = new HttpHeaders();
+        headers.setBearerAuth(accessToken);
+
+        return restTemplate.exchange(
+                "/api/v1/auth/me",
                 HttpMethod.GET,
                 new HttpEntity<>(headers),
                 String.class
