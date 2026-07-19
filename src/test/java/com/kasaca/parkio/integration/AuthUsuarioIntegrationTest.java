@@ -84,7 +84,7 @@ class AuthUsuarioIntegrationTest {
                 Integer.class
         );
 
-        assertThat(rolesBase).isEqualTo(3);
+        assertThat(rolesBase).isEqualTo(4);
     }
 
     /**

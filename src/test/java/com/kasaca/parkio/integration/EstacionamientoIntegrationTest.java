@@ -20,6 +20,7 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.ActiveProfiles;
 
 import java.math.BigDecimal;
+import java.util.Base64;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -37,6 +38,8 @@ class EstacionamientoIntegrationTest {
     private static final String TEST_DATABASE_NAME = "parkio_test";
     private static final String ADMIN_EMAIL = "integration.admin.estacionamiento@parkio.com";
     private static final String USER_EMAIL = "integration.user.estacionamiento@parkio.com";
+    private static final String OWNER_EMAIL = "integration.owner.estacionamiento@parkio.com";
+    private static final String OTRO_OWNER_EMAIL = "integration.otro-owner.estacionamiento@parkio.com";
     private static final String PASSWORD = "clave-integracion";
     private static final String ESTACIONAMIENTO_NOMBRE = "Estacionamiento Integracion";
     private static final String ESTACIONAMIENTO_NOMBRE_ACTUALIZADO = "Estacionamiento Integracion Actualizado";
@@ -71,11 +74,7 @@ class EstacionamientoIntegrationTest {
                 CASCADE
                 """);
 
-        jdbcTemplate.update("""
-                UPDATE rol
-                SET activo = TRUE
-                WHERE nombre IN ('ADMIN', 'OWNER', 'OPERADOR', 'USER')
-                """);
+        asegurarRolesBase();
     }
 
     /**
@@ -177,6 +176,86 @@ class EstacionamientoIntegrationTest {
     }
 
     /**
+     * Valida que OWNER pueda administrar únicamente sus propios estacionamientos.
+     *
+     * <p>El flujo crea dos usuarios con rol OWNER. Cada uno crea un estacionamiento
+     * usando endpoints HTTP reales. Después se confirma que el primer OWNER puede
+     * consultar, listar, actualizar y eliminar lógicamente su propio estacionamiento,
+     * pero no puede operar el estacionamiento del segundo OWNER.</p>
+     */
+    @Test
+    void debeLimitarAdministracionDeEstacionamientosAlOwnerAutenticado() throws Exception {
+        Long ownerId = registrarUsuario("Owner", OWNER_EMAIL);
+        asignarRol(ownerId, "OWNER");
+        String ownerToken = iniciarSesion(OWNER_EMAIL);
+        assertThat(extraerRolesDesdeJwt(ownerToken).toString()).contains("OWNER");
+
+        Long otroOwnerId = registrarUsuario("Otro Owner", OTRO_OWNER_EMAIL);
+        asignarRol(otroOwnerId, "OWNER");
+        String otroOwnerToken = iniciarSesion(OTRO_OWNER_EMAIL);
+        assertThat(extraerRolesDesdeJwt(otroOwnerToken).toString()).contains("OWNER");
+
+        ResponseEntity<String> crearPropioResponse = crearEstacionamiento(ownerToken, "Estacionamiento Owner");
+        JsonNode crearPropioBody = objectMapper.readTree(crearPropioResponse.getBody());
+        Long estacionamientoPropioId = crearPropioBody.path("data").path("id").asLong();
+
+        ResponseEntity<String> crearAjenoResponse = crearEstacionamiento(otroOwnerToken, "Estacionamiento Ajeno");
+        JsonNode crearAjenoBody = objectMapper.readTree(crearAjenoResponse.getBody());
+        Long estacionamientoAjenoId = crearAjenoBody.path("data").path("id").asLong();
+
+        assertThat(crearPropioResponse.getStatusCode()).isEqualTo(HttpStatus.CREATED);
+        assertThat(crearPropioBody.path("data").path("ownerId").asLong()).isEqualTo(ownerId);
+        assertThat(consultarOwnerIdEstacionamientoEnBaseDeDatos(estacionamientoPropioId)).isEqualTo(ownerId);
+        assertThat(crearAjenoResponse.getStatusCode()).isEqualTo(HttpStatus.CREATED);
+        assertThat(crearAjenoBody.path("data").path("ownerId").asLong()).isEqualTo(otroOwnerId);
+
+        ResponseEntity<String> listadoOwnerResponse = listarEstacionamientos(ownerToken);
+        JsonNode listadoOwnerBody = objectMapper.readTree(listadoOwnerResponse.getBody());
+
+        assertThat(listadoOwnerResponse.getStatusCode()).isEqualTo(HttpStatus.OK);
+        assertThat(listadoOwnerBody.path("data").path("content")).hasSize(1);
+        assertThat(listadoOwnerBody.path("data").path("content").get(0).path("id").asLong())
+                .isEqualTo(estacionamientoPropioId);
+
+        ResponseEntity<String> consultarPropioResponse =
+                consultarEstacionamiento(ownerToken, estacionamientoPropioId);
+        ResponseEntity<String> consultarAjenoResponse =
+                consultarEstacionamiento(ownerToken, estacionamientoAjenoId);
+
+        assertThat(consultarPropioResponse.getStatusCode()).isEqualTo(HttpStatus.OK);
+        assertThat(consultarAjenoResponse.getStatusCode()).isEqualTo(HttpStatus.NOT_FOUND);
+
+        ResponseEntity<String> actualizarPropioResponse = actualizarEstacionamiento(
+                ownerToken,
+                estacionamientoPropioId,
+                ESTACIONAMIENTO_NOMBRE_ACTUALIZADO
+        );
+        ResponseEntity<String> actualizarAjenoResponse = actualizarEstacionamiento(
+                ownerToken,
+                estacionamientoAjenoId,
+                "Intento Actualizar Ajeno"
+        );
+
+        assertThat(actualizarPropioResponse.getStatusCode()).isEqualTo(HttpStatus.OK);
+        assertThat(actualizarAjenoResponse.getStatusCode()).isEqualTo(HttpStatus.NOT_FOUND);
+
+        Long cajonPropioId = crearCajonActivoEnBaseDeDatos(estacionamientoPropioId);
+        Long cajonAjenoId = crearCajonActivoEnBaseDeDatos(estacionamientoAjenoId);
+
+        ResponseEntity<String> eliminarAjenoResponse =
+                eliminarEstacionamiento(ownerToken, estacionamientoAjenoId);
+        ResponseEntity<String> eliminarPropioResponse =
+                eliminarEstacionamiento(ownerToken, estacionamientoPropioId);
+
+        assertThat(eliminarAjenoResponse.getStatusCode()).isEqualTo(HttpStatus.NOT_FOUND);
+        assertThat(eliminarPropioResponse.getStatusCode()).isEqualTo(HttpStatus.NO_CONTENT);
+        assertThat(consultarActivoEstacionamientoEnBaseDeDatos(estacionamientoPropioId)).isFalse();
+        assertThat(consultarActivoCajonEnBaseDeDatos(cajonPropioId)).isFalse();
+        assertThat(consultarActivoEstacionamientoEnBaseDeDatos(estacionamientoAjenoId)).isTrue();
+        assertThat(consultarActivoCajonEnBaseDeDatos(cajonAjenoId)).isTrue();
+    }
+
+    /**
      * Crea un usuario mediante el endpoint publico y devuelve su identificador.
      */
     private Long registrarUsuario(String nombre, String email) throws Exception {
@@ -206,15 +285,42 @@ class EstacionamientoIntegrationTest {
      * Asigna el rol ADMIN directamente para simular el bootstrap controlado de administracion.
      */
     private void asignarRolAdmin(Long usuarioId) {
+        asignarRol(usuarioId, "ADMIN");
+    }
+
+    /**
+     * Asigna el rol indicado directamente para simular el bootstrap controlado de permisos.
+     */
+    private void asignarRol(Long usuarioId, String rolNombre) {
         jdbcTemplate.update("""
                 INSERT INTO usuario_rol (usuario_id, rol_id)
                 SELECT ?, rol.id
                 FROM rol
-                WHERE rol.nombre = 'ADMIN'
+                WHERE rol.nombre = ?
                 ON CONFLICT DO NOTHING
                 """,
-                usuarioId
+                usuarioId,
+                rolNombre
         );
+    }
+
+    /**
+     * Asegura que los roles base existan y esten activos en la base de pruebas.
+     *
+     * <p>Esto evita falsos negativos cuando parkio_test ya existia antes de una
+     * migracion de datos, como la que agrego el rol OWNER.</p>
+     */
+    private void asegurarRolesBase() {
+        jdbcTemplate.update("""
+                INSERT INTO rol (nombre, activo)
+                VALUES
+                    ('ADMIN', TRUE),
+                    ('OWNER', TRUE),
+                    ('OPERADOR', TRUE),
+                    ('USER', TRUE)
+                ON CONFLICT (nombre)
+                DO UPDATE SET activo = EXCLUDED.activo
+                """);
     }
 
     /**
@@ -236,6 +342,17 @@ class EstacionamientoIntegrationTest {
 
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
         return body.path("accessToken").asText();
+    }
+
+    /**
+     * Decodifica el payload del JWT para comprobar los roles emitidos en pruebas.
+     */
+    private JsonNode extraerRolesDesdeJwt(String accessToken) throws Exception {
+        String payload = accessToken.split("\\.")[1];
+        byte[] decodedPayload = Base64.getUrlDecoder().decode(payload);
+        JsonNode jwtBody = objectMapper.readTree(decodedPayload);
+
+        return jwtBody.path("roles");
     }
 
     /**
@@ -349,6 +466,17 @@ class EstacionamientoIntegrationTest {
         return jdbcTemplate.queryForObject(
                 "SELECT activo FROM estacionamiento WHERE id = ?",
                 Boolean.class,
+                estacionamientoId
+        );
+    }
+
+    /**
+     * Consulta directamente el owner_id para verificar la propiedad del estacionamiento.
+     */
+    private Long consultarOwnerIdEstacionamientoEnBaseDeDatos(Long estacionamientoId) {
+        return jdbcTemplate.queryForObject(
+                "SELECT owner_id FROM estacionamiento WHERE id = ?",
+                Long.class,
                 estacionamientoId
         );
     }

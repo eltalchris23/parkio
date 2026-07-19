@@ -20,6 +20,8 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
@@ -47,10 +49,14 @@ public class CajonController {
 
     /**
      * Lista cajones activos de forma paginada.
-     * Si se recibe estacionamientoId, filtra los cajones por estacionamiento.
+     *
+     * <p>Si se recibe estacionamientoId, filtra los cajones por estacionamiento.
+     * El JWT ya fue validado por Spring Security y se usa en la capa de servicio
+     * para limitar a OWNER a los cajones de sus propios estacionamientos.</p>
      *
      * @param estacionamientoId identificador opcional del estacionamiento usado para filtrar cajones
      * @param pageable datos de paginación y ordenamiento enviados como page, size y sort
+     * @param jwt JWT validado por Spring Security con claims del usuario autenticado
      * @param request solicitud HTTP usada para construir la respuesta estandarizada con transactionId
      * @return respuesta estandarizada con la página de cajones encontrados
      */
@@ -59,7 +65,7 @@ public class CajonController {
             description = """
                     Devuelve cajones activos de forma paginada.
                     Si se envía estacionamientoId, devuelve únicamente los cajones activos de ese estacionamiento.
-                    Requiere rol ADMIN, OPERADOR o USER.
+                    Requiere rol ADMIN, OWNER, OPERADOR o USER.
                     """
     )
     @io.swagger.v3.oas.annotations.responses.ApiResponses({
@@ -80,7 +86,7 @@ public class CajonController {
                     description = "Estacionamiento no encontrado cuando se consulta por estacionamientoId"
             )
     })
-    @PreAuthorize("hasAnyRole('ADMIN', 'OPERADOR', 'USER')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'OWNER', 'OPERADOR', 'USER')")
     @GetMapping(produces = MediaType.APPLICATION_JSON_VALUE)
     public ResponseEntity<ApiResponse<PageResponse<CajonResponse>>> getCajones(
             @Parameter(
@@ -88,20 +94,22 @@ public class CajonController {
                     example = "1"
             )
             @RequestParam(required = false) Long estacionamientoId,
-
             @ParameterObject Pageable pageable,
-
-            @Parameter(hidden = true)
-            HttpServletRequest request
+            @AuthenticationPrincipal Jwt jwt,
+            @Parameter(hidden = true) HttpServletRequest request
     ) {
         log.info("INICIO - Listado de cajones");
 
         PageResponse<CajonResponse> cajones;
 
         if (estacionamientoId == null) {
-            cajones = cajonService.getCajones(pageable);
+            cajones = cajonService.getCajones(pageable, jwt);
         } else {
-            cajones = cajonService.getCajonesByEstacionamientoId(estacionamientoId, pageable);
+            cajones = cajonService.getCajonesByEstacionamientoId(
+                    estacionamientoId,
+                    pageable,
+                    jwt
+            );
         }
 
         log.info("FIN - Listado de cajones");
@@ -117,9 +125,11 @@ public class CajonController {
     }
 
     /**
-     * Consulta un cajón activo por su identificador.
+     * Consulta un cajón activo por su identificador respetando el alcance del
+     * usuario autenticado.
      *
      * @param cajonId identificador del cajón que se desea consultar
+     * @param jwt JWT validado por Spring Security con claims del usuario autenticado
      * @param request solicitud HTTP usada para construir la respuesta estandarizada con transactionId
      * @return respuesta estandarizada con los datos del cajón encontrado
      */
@@ -128,7 +138,7 @@ public class CajonController {
             description = """
                     Devuelve la información de un cajón activo.
                     Si el cajón no existe o está inactivo, la API responde 404.
-                    Requiere rol ADMIN, OPERADOR o USER.
+                    Requiere rol ADMIN, OWNER, OPERADOR o USER.
                     """
     )
     @io.swagger.v3.oas.annotations.responses.ApiResponses({
@@ -149,16 +159,15 @@ public class CajonController {
                     description = "Cajón no encontrado"
             )
     })
-    @PreAuthorize("hasAnyRole('ADMIN', 'OPERADOR', 'USER')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'OWNER', 'OPERADOR', 'USER')")
     @GetMapping(value = "/{cajonId}", produces = MediaType.APPLICATION_JSON_VALUE)
     public ResponseEntity<ApiResponse<CajonResponse>> getCajon(
             @Parameter(description = "Identificador del cajón", example = "1")
             @PathVariable Long cajonId,
-
-            @Parameter(hidden = true)
-            HttpServletRequest request
+            @AuthenticationPrincipal Jwt jwt,
+            @Parameter(hidden = true) HttpServletRequest request
     ) {
-        CajonResponse response = cajonService.getCajon(cajonId);
+        CajonResponse response = cajonService.getCajon(cajonId, jwt);
 
         return ResponseEntity.ok(
                 ApiResponse.of(
@@ -173,7 +182,11 @@ public class CajonController {
     /**
      * Crea un cajón dentro de un estacionamiento existente.
      *
+     * <p>ADMIN puede crear cajones en cualquier estacionamiento. OWNER solo
+     * puede crear cajones en estacionamientos donde sea dueño.</p>
+     *
      * @param request datos necesarios para crear el cajón
+     * @param jwt JWT validado por Spring Security con claims del usuario autenticado
      * @param httpRequest solicitud HTTP usada para construir la respuesta estandarizada con transactionId
      * @return respuesta estandarizada con el cajón creado y estado HTTP 201
      */
@@ -182,7 +195,7 @@ public class CajonController {
             description = """
                     Crea un nuevo cajón asociado a un estacionamiento existente.
                     El número del cajón no debe duplicarse dentro del mismo estacionamiento.
-                    Requiere rol ADMIN.
+                    Requiere rol ADMIN u OWNER.
                     """
     )
     @io.swagger.v3.oas.annotations.responses.ApiResponses({
@@ -211,18 +224,17 @@ public class CajonController {
                     description = "Ya existe un cajón con el mismo número en el estacionamiento"
             )
     })
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'OWNER')")
     @PostMapping(
             consumes = MediaType.APPLICATION_JSON_VALUE,
             produces = MediaType.APPLICATION_JSON_VALUE
     )
     public ResponseEntity<ApiResponse<CajonResponse>> addCajon(
             @Valid @RequestBody CajonRequest request,
-
-            @Parameter(hidden = true)
-            HttpServletRequest httpRequest
+            @AuthenticationPrincipal Jwt jwt,
+            @Parameter(hidden = true) HttpServletRequest httpRequest
     ) {
-        CajonResponse response = cajonService.addCajon(request);
+        CajonResponse response = cajonService.addCajon(request, jwt);
 
         return ResponseEntity
                 .status(HttpStatus.CREATED)
@@ -239,8 +251,12 @@ public class CajonController {
     /**
      * Actualiza los datos principales de un cajón existente.
      *
+     * <p>ADMIN puede actualizar cualquier cajón. OWNER solo puede actualizar
+     * cajones de sus propios estacionamientos.</p>
+     *
      * @param cajonId identificador del cajón que se desea actualizar
      * @param request datos actualizados del cajón
+     * @param jwt JWT validado por Spring Security con claims del usuario autenticado
      * @param httpRequest solicitud HTTP usada para construir la respuesta estandarizada con transactionId
      * @return respuesta estandarizada con el cajón actualizado
      */
@@ -249,7 +265,7 @@ public class CajonController {
             description = """
                     Actualiza los datos principales de un cajón existente.
                     No se usa para cambiar únicamente el estado operativo; para eso existe PATCH /cajones/{cajonId}/estado.
-                    Requiere rol ADMIN.
+                    Requiere rol ADMIN u OWNER.
                     """
     )
     @io.swagger.v3.oas.annotations.responses.ApiResponses({
@@ -278,7 +294,7 @@ public class CajonController {
                     description = "Ya existe un cajón con el mismo número en el estacionamiento"
             )
     })
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'OWNER')")
     @PutMapping(
             value = "/{cajonId}",
             consumes = MediaType.APPLICATION_JSON_VALUE,
@@ -287,13 +303,11 @@ public class CajonController {
     public ResponseEntity<ApiResponse<CajonResponse>> updateCajon(
             @Parameter(description = "Identificador del cajón", example = "1")
             @PathVariable Long cajonId,
-
             @Valid @RequestBody CajonRequest request,
-
-            @Parameter(hidden = true)
-            HttpServletRequest httpRequest
+            @AuthenticationPrincipal Jwt jwt,
+            @Parameter(hidden = true) HttpServletRequest httpRequest
     ) {
-        CajonResponse response = cajonService.updateCajon(cajonId, request);
+        CajonResponse response = cajonService.updateCajon(cajonId, request, jwt);
 
         return ResponseEntity.ok(
                 ApiResponse.of(
@@ -308,8 +322,13 @@ public class CajonController {
     /**
      * Cambia únicamente el estado operativo de un cajón.
      *
+     * <p>ADMIN y OWNER pueden cambiar estado dentro de su alcance. OPERADOR
+     * conserva la regla actual y más adelante se limitará por asignación a
+     * estacionamientos.</p>
+     *
      * @param cajonId identificador del cajón que cambiará de estado
      * @param request nuevo estado operativo del cajón
+     * @param jwt JWT validado por Spring Security con claims del usuario autenticado
      * @param httpRequest solicitud HTTP usada para construir la respuesta estandarizada con transactionId
      * @return respuesta estandarizada con el cajón con estado actualizado
      */
@@ -318,7 +337,7 @@ public class CajonController {
             description = """
                     Cambia únicamente el estado operativo del cajón.
                     Este endpoint está pensado para operación diaria del estacionamiento.
-                    Requiere rol ADMIN u OPERADOR.
+                    Requiere rol ADMIN, OWNER u OPERADOR.
                     """
     )
     @io.swagger.v3.oas.annotations.responses.ApiResponses({
@@ -343,7 +362,7 @@ public class CajonController {
                     description = "Cajón no encontrado"
             )
     })
-    @PreAuthorize("hasAnyRole('ADMIN', 'OPERADOR')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'OWNER', 'OPERADOR')")
     @PatchMapping(
             value = "/{cajonId}/estado",
             consumes = MediaType.APPLICATION_JSON_VALUE,
@@ -352,13 +371,11 @@ public class CajonController {
     public ResponseEntity<ApiResponse<CajonResponse>> updateEstado(
             @Parameter(description = "Identificador del cajón", example = "1")
             @PathVariable Long cajonId,
-
             @Valid @RequestBody CajonEstadoRequest request,
-
-            @Parameter(hidden = true)
-            HttpServletRequest httpRequest
+            @AuthenticationPrincipal Jwt jwt,
+            @Parameter(hidden = true) HttpServletRequest httpRequest
     ) {
-        CajonResponse response = cajonService.updateEstado(cajonId, request);
+        CajonResponse response = cajonService.updateEstado(cajonId, request, jwt);
 
         return ResponseEntity.ok(
                 ApiResponse.of(
@@ -373,14 +390,18 @@ public class CajonController {
     /**
      * Elimina lógicamente un cajón mediante su identificador.
      *
+     * <p>ADMIN puede eliminar cualquier cajón. OWNER solo puede eliminar cajones
+     * de sus propios estacionamientos.</p>
+     *
      * @param cajonId identificador del cajón que se desea desactivar
+     * @param jwt JWT validado por Spring Security con claims del usuario autenticado
      */
     @Operation(
             summary = "Eliminar cajón",
             description = """
                     Desactiva lógicamente un cajón cambiando su campo activo a false.
                     No elimina físicamente el registro de la base de datos.
-                    Requiere rol ADMIN.
+                    Requiere rol ADMIN u OWNER.
                     """
     )
     @io.swagger.v3.oas.annotations.responses.ApiResponses({
@@ -401,13 +422,14 @@ public class CajonController {
                     description = "Cajón no encontrado"
             )
     })
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'OWNER')")
     @DeleteMapping("/{cajonId}")
     @ResponseStatus(HttpStatus.NO_CONTENT)
     public void deleteCajon(
             @Parameter(description = "Identificador del cajón", example = "1")
-            @PathVariable Long cajonId
+            @PathVariable Long cajonId,
+            @AuthenticationPrincipal Jwt jwt
     ) {
-        cajonService.deleteCajon(cajonId);
+        cajonService.deleteCajon(cajonId, jwt);
     }
 }

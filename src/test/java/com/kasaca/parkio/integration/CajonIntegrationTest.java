@@ -22,6 +22,8 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.ActiveProfiles;
 
+import java.util.Base64;
+
 import static org.assertj.core.api.Assertions.assertThat;
 
 /**
@@ -39,6 +41,8 @@ class CajonIntegrationTest {
     private static final String ADMIN_EMAIL = "integration.admin.cajon@parkio.com";
     private static final String USER_EMAIL = "integration.user.cajon@parkio.com";
     private static final String OPERADOR_EMAIL = "integration.operador.cajon@parkio.com";
+    private static final String OWNER_EMAIL = "integration.owner.cajon@parkio.com";
+    private static final String OTRO_OWNER_EMAIL = "integration.otro-owner.cajon@parkio.com";
     private static final String PASSWORD = "clave-integracion";
     private static final String CAJON_NUMERO = "A-01";
     private static final String CAJON_NUMERO_ACTUALIZADO = "A-02";
@@ -73,11 +77,7 @@ class CajonIntegrationTest {
                 CASCADE
                 """);
 
-        jdbcTemplate.update("""
-                UPDATE rol
-                SET activo = TRUE
-                WHERE nombre IN ('ADMIN', 'OWNER', 'OPERADOR', 'USER')
-                """);
+        asegurarRolesBase();
     }
 
     /**
@@ -197,6 +197,84 @@ class CajonIntegrationTest {
     }
 
     /**
+     * Valida que OWNER pueda administrar cajones solo dentro de sus estacionamientos.
+     *
+     * <p>El flujo crea dos dueños diferentes, cada uno con su estacionamiento preparado en
+     * base de datos de prueba. Luego confirma que el primer OWNER puede operar sus propios
+     * cajones usando endpoints HTTP reales, pero no puede consultar, crear, mover, cambiar
+     * estado ni eliminar cajones asociados al estacionamiento del segundo OWNER.</p>
+     */
+    @Test
+    void debeLimitarAdministracionDeCajonesAlOwnerDelEstacionamiento() throws Exception {
+        Long ownerId = registrarUsuario("Owner", OWNER_EMAIL);
+        asignarRol(ownerId, "OWNER");
+        String ownerToken = iniciarSesion(OWNER_EMAIL);
+        assertThat(extraerRolesDesdeJwt(ownerToken).toString()).contains("OWNER");
+
+        Long otroOwnerId = registrarUsuario("Otro Owner", OTRO_OWNER_EMAIL);
+        asignarRol(otroOwnerId, "OWNER");
+        String otroOwnerToken = iniciarSesion(OTRO_OWNER_EMAIL);
+        assertThat(extraerRolesDesdeJwt(otroOwnerToken).toString()).contains("OWNER");
+
+        Long estacionamientoOwnerId = crearEstacionamientoActivoEnBaseDeDatos(ownerId, "Estacionamiento Owner Cajon");
+        Long estacionamientoAjenoId = crearEstacionamientoActivoEnBaseDeDatos(otroOwnerId, "Estacionamiento Ajeno Cajon");
+
+        ResponseEntity<String> crearPropioResponse = crearCajon(ownerToken, estacionamientoOwnerId, "O-01");
+        JsonNode crearPropioBody = objectMapper.readTree(crearPropioResponse.getBody());
+        Long cajonPropioId = crearPropioBody.path("data").path("id").asLong();
+
+        ResponseEntity<String> crearAjenoResponse = crearCajon(otroOwnerToken, estacionamientoAjenoId, "X-01");
+        JsonNode crearAjenoBody = objectMapper.readTree(crearAjenoResponse.getBody());
+        Long cajonAjenoId = crearAjenoBody.path("data").path("id").asLong();
+
+        assertThat(crearPropioResponse.getStatusCode()).isEqualTo(HttpStatus.CREATED);
+        assertThat(crearAjenoResponse.getStatusCode()).isEqualTo(HttpStatus.CREATED);
+
+        ResponseEntity<String> listarOwnerResponse = listarCajones(ownerToken);
+        JsonNode listarOwnerBody = objectMapper.readTree(listarOwnerResponse.getBody());
+
+        assertThat(listarOwnerResponse.getStatusCode()).isEqualTo(HttpStatus.OK);
+        assertThat(listarOwnerBody.path("data").path("content")).hasSize(1);
+        assertThat(listarOwnerBody.path("data").path("content").get(0).path("id").asLong()).isEqualTo(cajonPropioId);
+
+        ResponseEntity<String> consultarPropioResponse = consultarCajon(ownerToken, cajonPropioId);
+        ResponseEntity<String> consultarAjenoResponse = consultarCajon(ownerToken, cajonAjenoId);
+        ResponseEntity<String> crearEnAjenoResponse = crearCajon(ownerToken, estacionamientoAjenoId, "O-02");
+
+        assertThat(consultarPropioResponse.getStatusCode()).isEqualTo(HttpStatus.OK);
+        assertThat(consultarAjenoResponse.getStatusCode()).isEqualTo(HttpStatus.NOT_FOUND);
+        assertThat(crearEnAjenoResponse.getStatusCode()).isEqualTo(HttpStatus.NOT_FOUND);
+
+        ResponseEntity<String> actualizarPropioResponse = actualizarCajon(
+                ownerToken,
+                cajonPropioId,
+                estacionamientoOwnerId,
+                CAJON_NUMERO_ACTUALIZADO
+        );
+        ResponseEntity<String> moverAAjenoResponse = actualizarCajon(
+                ownerToken,
+                cajonPropioId,
+                estacionamientoAjenoId,
+                "O-03"
+        );
+        ResponseEntity<String> estadoPropioResponse = actualizarEstado(ownerToken, cajonPropioId, EstadoCajon.OCUPADO);
+        ResponseEntity<String> estadoAjenoResponse = actualizarEstado(ownerToken, cajonAjenoId, EstadoCajon.OCUPADO);
+
+        assertThat(actualizarPropioResponse.getStatusCode()).isEqualTo(HttpStatus.OK);
+        assertThat(moverAAjenoResponse.getStatusCode()).isEqualTo(HttpStatus.NOT_FOUND);
+        assertThat(estadoPropioResponse.getStatusCode()).isEqualTo(HttpStatus.OK);
+        assertThat(estadoAjenoResponse.getStatusCode()).isEqualTo(HttpStatus.NOT_FOUND);
+
+        ResponseEntity<String> eliminarAjenoResponse = eliminarCajon(ownerToken, cajonAjenoId);
+        ResponseEntity<String> eliminarPropioResponse = eliminarCajon(ownerToken, cajonPropioId);
+
+        assertThat(eliminarAjenoResponse.getStatusCode()).isEqualTo(HttpStatus.NOT_FOUND);
+        assertThat(eliminarPropioResponse.getStatusCode()).isEqualTo(HttpStatus.NO_CONTENT);
+        assertThat(consultarActivoCajonEnBaseDeDatos(cajonPropioId)).isFalse();
+        assertThat(consultarActivoCajonEnBaseDeDatos(cajonAjenoId)).isTrue();
+    }
+
+    /**
      * Crea un usuario mediante el endpoint publico y devuelve su identificador.
      */
     private Long registrarUsuario(String nombre, String email) throws Exception {
@@ -239,6 +317,25 @@ class CajonIntegrationTest {
     }
 
     /**
+     * Asegura que los roles base existan y esten activos en la base de pruebas.
+     *
+     * <p>Esto hace que la prueba sea resistente si la base local parkio_test ya
+     * existia antes de agregar una migracion de datos como OWNER.</p>
+     */
+    private void asegurarRolesBase() {
+        jdbcTemplate.update("""
+                INSERT INTO rol (nombre, activo)
+                VALUES
+                    ('ADMIN', TRUE),
+                    ('OWNER', TRUE),
+                    ('OPERADOR', TRUE),
+                    ('USER', TRUE)
+                ON CONFLICT (nombre)
+                DO UPDATE SET activo = EXCLUDED.activo
+                """);
+    }
+
+    /**
      * Inicia sesion con un usuario existente y devuelve el JWT emitido por el backend.
      */
     private String iniciarSesion(String email) throws Exception {
@@ -257,6 +354,17 @@ class CajonIntegrationTest {
 
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
         return body.path("accessToken").asText();
+    }
+
+    /**
+     * Decodifica el payload del JWT para comprobar los roles emitidos en pruebas.
+     */
+    private JsonNode extraerRolesDesdeJwt(String accessToken) throws Exception {
+        String payload = accessToken.split("\\.")[1];
+        byte[] decodedPayload = Base64.getUrlDecoder().decode(payload);
+        JsonNode jwtBody = objectMapper.readTree(decodedPayload);
+
+        return jwtBody.path("roles");
     }
 
     /**
@@ -380,6 +488,22 @@ class CajonIntegrationTest {
     }
 
     /**
+     * Crea un estacionamiento activo con owner para preparar escenarios de alcance por dueño.
+     */
+    private Long crearEstacionamientoActivoEnBaseDeDatos(Long ownerId, String nombre) {
+        return jdbcTemplate.queryForObject(
+                """
+                INSERT INTO estacionamiento (nombre, descripcion, latitud, longitud, owner_id, activo)
+                VALUES (?, 'Dato de apoyo para pruebas de owner', 19.43260800, -99.13320900, ?, TRUE)
+                RETURNING id
+                """,
+                Long.class,
+                nombre,
+                ownerId
+        );
+    }
+
+    /**
      * Crea un cajon activo directamente en la base para preparar escenarios de consulta y permisos.
      */
     private Long crearCajonActivoEnBaseDeDatos(Long estacionamientoId, String numero) {
@@ -428,4 +552,3 @@ class CajonIntegrationTest {
         assertThat(databaseName).isEqualTo(TEST_DATABASE_NAME);
     }
 }
-

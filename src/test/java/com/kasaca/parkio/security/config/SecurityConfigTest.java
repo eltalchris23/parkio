@@ -51,6 +51,7 @@ import java.util.Set;
 
 import static org.hamcrest.Matchers.containsString;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.when;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
@@ -723,7 +724,7 @@ class SecurityConfigTest {
                 new PageImpl<>(List.of(response), PageRequest.of(0, 10), 1)
         );
 
-        when(cajonService.getCajones(any()))
+        when(cajonService.getCajones(any(), any(Jwt.class)))
                 .thenReturn(pageResponse);
 
         mockMvc.perform(get("/cajones")
@@ -736,7 +737,7 @@ class SecurityConfigTest {
                 .andExpect(jsonPath("$.data.content[0].id").value(1L))
                 .andExpect(jsonPath("$.data.content[0].numero").value("A-001"));
 
-        verify(cajonService).getCajones(any());
+        verify(cajonService).getCajones(any(), any(Jwt.class));
     }
 
     /**
@@ -744,7 +745,7 @@ class SecurityConfigTest {
      */
     @Test
     void debePermitirListarCajonesCuandoTieneRolOperador() throws Exception {
-        when(cajonService.getCajones(any()))
+        when(cajonService.getCajones(any(), any(Jwt.class)))
                 .thenReturn(PageResponse.from(
                         new PageImpl<>(List.of(), PageRequest.of(0, 10), 0)
                 ));
@@ -755,7 +756,7 @@ class SecurityConfigTest {
                         .with(jwt().authorities(() -> "ROLE_OPERADOR")))
                 .andExpect(status().isOk());
 
-        verify(cajonService).getCajones(any());
+        verify(cajonService).getCajones(any(), any(Jwt.class));
     }
 
     /**
@@ -763,7 +764,7 @@ class SecurityConfigTest {
      */
     @Test
     void debePermitirListarCajonesCuandoTieneRolUser() throws Exception {
-        when(cajonService.getCajones(any()))
+        when(cajonService.getCajones(any(), any(Jwt.class)))
                 .thenReturn(PageResponse.from(
                         new PageImpl<>(List.of(), PageRequest.of(0, 10), 0)
                 ));
@@ -774,7 +775,27 @@ class SecurityConfigTest {
                         .with(jwt().authorities(() -> "ROLE_USER")))
                 .andExpect(status().isOk());
 
-        verify(cajonService).getCajones(any());
+        verify(cajonService).getCajones(any(), any(Jwt.class));
+    }
+
+    /**
+     * Verifica que OWNER pueda listar cajones.
+     * El alcance real a cajones propios lo valida CajonService con el usuarioId del JWT.
+     */
+    @Test
+    void debePermitirListarCajonesCuandoTieneRolOwner() throws Exception {
+        when(cajonService.getCajones(any(), any(Jwt.class)))
+                .thenReturn(PageResponse.from(
+                        new PageImpl<>(List.of(), PageRequest.of(0, 10), 0)
+                ));
+
+        mockMvc.perform(get("/cajones")
+                        .param("page", "0")
+                        .param("size", "10")
+                        .with(jwt().authorities(() -> "ROLE_OWNER")))
+                .andExpect(status().isOk());
+
+        verify(cajonService).getCajones(any(), any(Jwt.class));
     }
 
     /**
@@ -787,7 +808,11 @@ class SecurityConfigTest {
                 new PageImpl<>(List.of(response), PageRequest.of(0, 10), 1)
         );
 
-        when(cajonService.getCajonesByEstacionamientoId(any(Long.class), any()))
+        when(cajonService.getCajonesByEstacionamientoId(
+                any(Long.class),
+                any(),
+                any(Jwt.class)
+        ))
                 .thenReturn(pageResponse);
 
         mockMvc.perform(get("/cajones")
@@ -798,7 +823,11 @@ class SecurityConfigTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.content[0].estacionamientoId").value(10L));
 
-        verify(cajonService).getCajonesByEstacionamientoId(any(Long.class), any());
+        verify(cajonService).getCajonesByEstacionamientoId(
+                any(Long.class),
+                any(),
+                any(Jwt.class)
+        );
     }
 
     /**
@@ -808,7 +837,7 @@ class SecurityConfigTest {
     void debePermitirConsultarCajonCuandoTieneRolUser() throws Exception {
         CajonResponse response = crearCajonResponse(EstadoCajon.LIBRE);
 
-        when(cajonService.getCajon(1L)).thenReturn(response);
+        when(cajonService.getCajon(eq(1L), any(Jwt.class))).thenReturn(response);
 
         mockMvc.perform(get("/cajones/1")
                         .with(jwt().authorities(() -> "ROLE_USER")))
@@ -818,11 +847,11 @@ class SecurityConfigTest {
                 .andExpect(jsonPath("$.data.id").value(1L))
                 .andExpect(jsonPath("$.data.numero").value("A-001"));
 
-        verify(cajonService).getCajon(1L);
+        verify(cajonService).getCajon(eq(1L), any(Jwt.class));
     }
 
     /**
-     * Verifica que solo ADMIN pueda crear cajones.
+     * Verifica que OPERADOR no pueda crear cajones.
      */
     @Test
     void debeRechazarCrearCajonCuandoTieneRolOperador() throws Exception {
@@ -845,7 +874,7 @@ class SecurityConfigTest {
         CajonRequest request = crearCajonRequest();
         CajonResponse response = crearCajonResponse(EstadoCajon.LIBRE);
 
-        when(cajonService.addCajon(request)).thenReturn(response);
+        when(cajonService.addCajon(eq(request), any(Jwt.class))).thenReturn(response);
 
         mockMvc.perform(post("/cajones")
                         .with(jwt().authorities(() -> "ROLE_ADMIN"))
@@ -857,11 +886,33 @@ class SecurityConfigTest {
                 .andExpect(jsonPath("$.data.id").value(1L))
                 .andExpect(jsonPath("$.data.numero").value("A-001"));
 
-        verify(cajonService).addCajon(request);
+        verify(cajonService).addCajon(eq(request), any(Jwt.class));
     }
 
     /**
-     * Verifica que solo ADMIN pueda actualizar cajones.
+     * Verifica que OWNER pueda crear cajones.
+     * CajonService se encarga de limitar la creacion a estacionamientos propios.
+     */
+    @Test
+    void debePermitirCrearCajonCuandoTieneRolOwner() throws Exception {
+        CajonRequest request = crearCajonRequest();
+        CajonResponse response = crearCajonResponse(EstadoCajon.LIBRE);
+
+        when(cajonService.addCajon(eq(request), any(Jwt.class))).thenReturn(response);
+
+        mockMvc.perform(post("/cajones")
+                        .with(jwt().authorities(() -> "ROLE_OWNER"))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.status").value(201))
+                .andExpect(jsonPath("$.data.id").value(1L));
+
+        verify(cajonService).addCajon(eq(request), any(Jwt.class));
+    }
+
+    /**
+     * Verifica que USER no pueda actualizar cajones.
      */
     @Test
     void debeRechazarActualizarCajonCuandoTieneRolUser() throws Exception {
@@ -884,7 +935,7 @@ class SecurityConfigTest {
         CajonEstadoRequest request = new CajonEstadoRequest(EstadoCajon.OCUPADO);
         CajonResponse response = crearCajonResponse(EstadoCajon.OCUPADO);
 
-        when(cajonService.updateEstado(1L, request)).thenReturn(response);
+        when(cajonService.updateEstado(eq(1L), eq(request), any(Jwt.class))).thenReturn(response);
 
         mockMvc.perform(patch("/cajones/1/estado")
                         .with(jwt().authorities(() -> "ROLE_OPERADOR"))
@@ -896,7 +947,29 @@ class SecurityConfigTest {
                 .andExpect(jsonPath("$.data.id").value(1L))
                 .andExpect(jsonPath("$.data.estado").value("OCUPADO"));
 
-        verify(cajonService).updateEstado(1L, request);
+        verify(cajonService).updateEstado(eq(1L), eq(request), any(Jwt.class));
+    }
+
+    /**
+     * Verifica que OWNER pueda cambiar el estado de un cajon.
+     * CajonService limita este cambio a cajones de estacionamientos propios.
+     */
+    @Test
+    void debePermitirCambiarEstadoCajonCuandoTieneRolOwner() throws Exception {
+        CajonEstadoRequest request = new CajonEstadoRequest(EstadoCajon.OCUPADO);
+        CajonResponse response = crearCajonResponse(EstadoCajon.OCUPADO);
+
+        when(cajonService.updateEstado(eq(1L), eq(request), any(Jwt.class))).thenReturn(response);
+
+        mockMvc.perform(patch("/cajones/1/estado")
+                        .with(jwt().authorities(() -> "ROLE_OWNER"))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.status").value(200))
+                .andExpect(jsonPath("$.data.estado").value("OCUPADO"));
+
+        verify(cajonService).updateEstado(eq(1L), eq(request), any(Jwt.class));
     }
 
     /**
@@ -924,7 +997,20 @@ class SecurityConfigTest {
                         .with(jwt().authorities(() -> "ROLE_ADMIN")))
                 .andExpect(status().isNoContent());
 
-        verify(cajonService).deleteCajon(1L);
+        verify(cajonService).deleteCajon(eq(1L), any(Jwt.class));
+    }
+
+    /**
+     * Verifica que OWNER pueda eliminar cajones.
+     * CajonService valida que el cajon pertenezca a un estacionamiento propio.
+     */
+    @Test
+    void debePermitirEliminarCajonCuandoTieneRolOwner() throws Exception {
+        mockMvc.perform(delete("/cajones/1")
+                        .with(jwt().authorities(() -> "ROLE_OWNER")))
+                .andExpect(status().isNoContent());
+
+        verify(cajonService).deleteCajon(eq(1L), any(Jwt.class));
     }
 
     /**

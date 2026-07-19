@@ -21,6 +21,8 @@ import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.web.PageableHandlerMethodArgumentResolver;
 import org.springframework.http.MediaType;
+import org.springframework.security.oauth2.jwt.Jwt;
+import org.springframework.security.web.method.annotation.AuthenticationPrincipalArgumentResolver;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 
@@ -28,6 +30,7 @@ import java.time.LocalDateTime;
 import java.util.List;
 
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.nullable;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
@@ -55,7 +58,10 @@ class CajonControllerTest {
 
         mockMvc = MockMvcBuilders
                 .standaloneSetup(controller)
-                .setCustomArgumentResolvers(new PageableHandlerMethodArgumentResolver())
+                .setCustomArgumentResolvers(
+                        new PageableHandlerMethodArgumentResolver(),
+                        new AuthenticationPrincipalArgumentResolver()
+                )
                 .setControllerAdvice(new GlobalExceptionHandler())
                 .build();
 
@@ -70,7 +76,7 @@ class CajonControllerTest {
                 new PageImpl<>(List.of(crearResponse()), PageRequest.of(0, 10), 1)
         );
 
-        when(cajonService.getCajones(any()))
+        when(cajonService.getCajones(any(), nullable(Jwt.class)))
                 .thenReturn(pageResponse);
 
         mockMvc.perform(get("/cajones")
@@ -89,7 +95,7 @@ class CajonControllerTest {
                 .andExpect(jsonPath("$.data.size").value(10))
                 .andExpect(jsonPath("$.data.page").value(0));
 
-        verify(cajonService).getCajones(any());
+        verify(cajonService).getCajones(any(), nullable(Jwt.class));
     }
 
     @Test
@@ -98,7 +104,7 @@ class CajonControllerTest {
                 new PageImpl<>(List.of(crearResponse()), PageRequest.of(0, 10), 1)
         );
 
-        when(cajonService.getCajonesByEstacionamientoId(any(Long.class), any()))
+        when(cajonService.getCajonesByEstacionamientoId(any(Long.class), any(), nullable(Jwt.class)))
                 .thenReturn(pageResponse);
 
         mockMvc.perform(get("/cajones")
@@ -111,12 +117,12 @@ class CajonControllerTest {
                         .value(10L));
 
         verify(cajonService)
-                .getCajonesByEstacionamientoId(any(Long.class), any());
+                .getCajonesByEstacionamientoId(any(Long.class), any(), nullable(Jwt.class));
     }
 
     @Test
     void debeObtenerCajonPorId() throws Exception {
-        when(cajonService.getCajon(1L)).thenReturn(crearResponse());
+        when(cajonService.getCajon(1L, null)).thenReturn(crearResponse());
 
         mockMvc.perform(get("/cajones/1"))
                 .andExpect(status().isOk())
@@ -126,12 +132,12 @@ class CajonControllerTest {
                 .andExpect(jsonPath("$.data.id").value(1L))
                 .andExpect(jsonPath("$.data.numero").value("A-001"));
 
-        verify(cajonService).getCajon(1L);
+        verify(cajonService).getCajon(1L, null);
     }
 
     @Test
     void debeResponderNotFoundCuandoCajonNoExiste() throws Exception {
-        when(cajonService.getCajon(99L))
+        when(cajonService.getCajon(99L, null))
                 .thenThrow(new ResourceNotFoundException("Cajón", 99L));
 
         mockMvc.perform(get("/cajones/99"))
@@ -146,7 +152,7 @@ class CajonControllerTest {
     void debeCrearCajon() throws Exception {
         CajonRequest request = crearRequest();
 
-        when(cajonService.addCajon(any(CajonRequest.class)))
+        when(cajonService.addCajon(any(CajonRequest.class), nullable(Jwt.class)))
                 .thenReturn(crearResponse());
 
         mockMvc.perform(post("/cajones")
@@ -159,12 +165,12 @@ class CajonControllerTest {
                 .andExpect(jsonPath("$.data.id").value(1L))
                 .andExpect(jsonPath("$.data.estado").value("LIBRE"));
 
-        verify(cajonService).addCajon(any(CajonRequest.class));
+        verify(cajonService).addCajon(any(CajonRequest.class), nullable(Jwt.class));
     }
 
     @Test
     void debeResponderConflictCuandoNumeroEstaDuplicado() throws Exception {
-        when(cajonService.addCajon(any(CajonRequest.class)))
+        when(cajonService.addCajon(any(CajonRequest.class), nullable(Jwt.class)))
                 .thenThrow(new ConflictException(
                         "Ya existe el cajón 'A-001' en el estacionamiento '10'"
                 ));
@@ -250,7 +256,8 @@ class CajonControllerTest {
 
         when(cajonService.updateCajon(
                 any(Long.class),
-                any(CajonRequest.class)
+                any(CajonRequest.class),
+                nullable(Jwt.class)
         )).thenReturn(response);
 
         mockMvc.perform(put("/cajones/1")
@@ -266,7 +273,8 @@ class CajonControllerTest {
 
         verify(cajonService).updateCajon(
                 any(Long.class),
-                any(CajonRequest.class)
+                any(CajonRequest.class),
+                nullable(Jwt.class)
         );
     }
 
@@ -287,7 +295,8 @@ class CajonControllerTest {
 
         when(cajonService.updateEstado(
                 any(Long.class),
-                any(CajonEstadoRequest.class)
+                any(CajonEstadoRequest.class),
+                nullable(Jwt.class)
         )).thenReturn(response);
 
         mockMvc.perform(patch("/cajones/1/estado")
@@ -302,7 +311,8 @@ class CajonControllerTest {
 
         verify(cajonService).updateEstado(
                 any(Long.class),
-                any(CajonEstadoRequest.class)
+                any(CajonEstadoRequest.class),
+                nullable(Jwt.class)
         );
     }
 
@@ -330,7 +340,7 @@ class CajonControllerTest {
                 .andExpect(status().isNoContent())
                 .andExpect(content().string(""));
 
-        verify(cajonService).deleteCajon(1L);
+        verify(cajonService).deleteCajon(1L, null);
     }
 
     private CajonRequest crearRequest() {
