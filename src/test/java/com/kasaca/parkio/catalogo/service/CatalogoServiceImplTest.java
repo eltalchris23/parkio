@@ -45,10 +45,10 @@ class CatalogoServiceImplTest {
 
         assertThat(response)
                 .extracting(CatalogoResponse::codigo)
-                .containsExactly("LIBRE", "OCUPADO", "FUERA_SERVICIO");
+                .containsExactly("LIBRE", "RESERVADO", "OCUPADO", "FUERA_SERVICIO");
 
         assertThat(response)
                 .extracting(CatalogoResponse::descripcion)
-                .containsExactly("Libre", "Ocupado", "Fuera de servicio");
+                .containsExactly("Libre", "Reservado", "Ocupado", "Fuera de servicio");
     }
 }

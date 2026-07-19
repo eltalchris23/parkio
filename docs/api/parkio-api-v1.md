@@ -987,6 +987,7 @@ Tipos permitidos:
 Estados permitidos:
 
 - `LIBRE`
+- `RESERVADO`
 - `OCUPADO`
 - `FUERA_SERVICIO`
 
@@ -1251,6 +1252,10 @@ GET /api/v1/catalogos/cajones/estados
     {
       "codigo": "LIBRE",
       "descripcion": "Libre"
+    },
+    {
+      "codigo": "RESERVADO",
+      "descripcion": "Reservado"
     },
     {
       "codigo": "OCUPADO",

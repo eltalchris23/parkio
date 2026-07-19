@@ -35,6 +35,7 @@ entity estacionamiento {
     descripcion : VARCHAR(500)
     latitud : NUMERIC(10,8)
     longitud : NUMERIC(11,8)
+    owner_id : BIGINT
     activo : BOOLEAN
     fecha_creacion : TIMESTAMP
     fecha_actualizacion : TIMESTAMP
@@ -57,12 +58,33 @@ entity cajon {
     fecha_actualizacion : TIMESTAMP
 }
 
+entity reserva {
+    * id : BIGINT
+    --
+    codigo : VARCHAR(30)
+    placa : VARCHAR(15)
+    estado : VARCHAR(30)
+    fecha_reserva : TIMESTAMP
+    fecha_expiracion : TIMESTAMP
+    tiempo_expiracion_minutos : INTEGER
+    usuario_id : BIGINT
+    estacionamiento_id : BIGINT
+    cajon_id : BIGINT
+    activo : BOOLEAN
+    fecha_creacion : TIMESTAMP
+    fecha_actualizacion : TIMESTAMP
+}
+
 usuario ||--o{ usuario_rol
 rol ||--o{ usuario_rol
 
 usuario ||--o{ usuario_estacionamiento
 estacionamiento ||--o{ usuario_estacionamiento
 
+usuario ||--o{ estacionamiento : owner
 estacionamiento ||--o{ cajon
+usuario ||--o{ reserva
+estacionamiento ||--o{ reserva
+cajon ||--o{ reserva
 
 @enduml

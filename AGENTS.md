@@ -69,6 +69,7 @@ Antes de realizar cambios, considerar lo siguiente:
 - Los usuarios inactivos no pueden iniciar sesión.
 - `spring.jpa.open-in-view` está desactivado globalmente mediante `open-in-view: false`.
 - `RolMapper`, `EstacionamientoMapper`, `CajonMapper` y `UsuarioMapper` están implementados.
+- Existe `Reserva`, `EstadoReserva`, `ReservaProperties`, `ReservaConfig` y la migración Flyway `V10__create_reserva.sql` como preparación inicial del módulo Reserva. Todavía no existen DTOs, repositorio, servicio, controlador ni endpoints de reservas.
 - El manejo global de excepciones está implementado mediante `GlobalExceptionHandler` y `ApiError`.
 - `RolRequest`, `EstacionamientoRequest`, `CajonRequest`, `CajonEstadoRequest`, `UsuarioCreateRequest`, `UsuarioUpdateRequest`, `UsuarioPasswordRequest`, `UsuarioRolRequest` y `UsuarioEstacionamientoRequest` tienen validaciones Jakarta Validation.
 - `RolServiceImpl`, `EstacionamientoServiceImpl`, `CajonServiceImpl` y `UsuarioServiceImpl` están registrados como beans y usan transacciones.
@@ -97,6 +98,7 @@ com.kasaca.parkio
 ├── catalogo
 ├── cajon
 ├── estacionamiento
+├── reserva
 ├── rol
 ├── shared
 └── usuario
@@ -267,7 +269,9 @@ No se debe duplicar manualmente la administración de fechas salvo que exista un
 - `Estacionamiento` y `Cajon`: uno a muchos.
 - `Cajon` y `Estacionamiento`: muchos a uno.
 
-`tipo` y `estado` de `Cajon` utilizan `TipoCajon` y `EstadoCajon`, persistidos mediante `EnumType.STRING`. El estado inicial es `LIBRE` y se actualiza mediante una operación específica con `CajonEstadoRequest`.
+`tipo` y `estado` de `Cajon` utilizan `TipoCajon` y `EstadoCajon`, persistidos mediante `EnumType.STRING`. El estado inicial es `LIBRE` y se actualiza mediante una operación específica con `CajonEstadoRequest`. Los estados actuales de cajón son `LIBRE`, `RESERVADO`, `OCUPADO` y `FUERA_SERVICIO`.
+
+`EstadoReserva` existe como preparación del módulo Reserva y define `CREADA`, `CANCELADA`, `EXPIRADA` y `USADA`. La creación futura de reservas debe manejar expiración configurable mediante `parkio.reserva.expiracion-minutos` o `PARKIO_RESERVA_EXPIRACION_MINUTOS`, para liberar cajones reservados cuando el cliente no llegue a tiempo sin modificar backend ni frontend.
 
 ## Convenciones para DTOs
 
@@ -494,6 +498,7 @@ V6__create_cajon.sql
 V7__insert_roles_base.sql
 V8__insert_owner_role.sql
 V9__add_owner_to_estacionamiento.sql
+V10__create_reserva.sql
 ```
 
 Reglas obligatorias:
@@ -527,6 +532,8 @@ Existen migraciones de datos iniciales para los roles base `ADMIN`, `OWNER`, `OP
 El rol `OWNER` existe como rol base para representar al dueño de uno o varios estacionamientos. Su soporte inicial ya está implementado en Estacionamiento mediante `owner_id`: `OWNER` crea estacionamientos asociados a su usuario autenticado y solo consulta, actualiza o elimina lógicamente sus propios estacionamientos. En Cajón, `OWNER` puede consultar, crear, actualizar, cambiar estado y eliminar lógicamente cajones solo dentro de estacionamientos propios. No se debe asumir todavía que `OWNER` tenga reglas completas sobre Usuario, asignación de operadores, reportes o facturación hasta que existan cambios explícitos en código, pruebas y documentación.
 
 No se debe asumir la existencia de usuarios, estacionamientos u otros registros predeterminados.
+
+La tabla `reserva` ya existe por migración, pero el módulo Reserva todavía no expone API ni servicio. Cualquier implementación futura debe usar `ReservaProperties.expiracionMinutos()` para calcular la expiración de nuevas reservas. El frontend no debe enviar la duración de la reserva; el backend debe aplicar la configuración vigente y guardar el valor usado en `tiempo_expiracion_minutos`.
 
 ## Seguridad y Autenticación
 

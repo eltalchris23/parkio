@@ -62,6 +62,11 @@ parkio:
       secret: ${PARKIO_JWT_SECRET:clave-local-de-desarrollo-cambiar-en-produccion}
       expiration-minutes: ${PARKIO_JWT_EXPIRATION_MINUTES:60}
 
+  reserva:
+    # Minutos de vigencia para una reserva nueva.
+    # Se puede cambiar por ambiente con PARKIO_RESERVA_EXPIRACION_MINUTOS sin modificar backend ni frontend.
+    expiracion-minutos: ${PARKIO_RESERVA_EXPIRACION_MINUTOS:20}
+
 logging:
   pattern:
     console: "%d{yyyy-MM-dd HH:mm:ss.SSS} %-5level [transactionId=%X{transactionId}] [%thread] %logger{36} - %msg%n"

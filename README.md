@@ -94,7 +94,7 @@ Estado actual de las capas:
 | Documentación interactiva | OpenAPI y Swagger UI habilitados en `dev` y deshabilitados por defecto/prod |
 | Manejo global de errores | Implementado mediante `GlobalExceptionHandler` y `ApiError`, incluyendo `transactionId` |
 | Auditoría JPA | Habilitada |
-| Migraciones | Implementadas de V1 a V9 |
+| Migraciones | Implementadas de V1 a V10 |
 
 La clase principal habilita la auditoría mediante `@EnableJpaAuditing`. Las entidades heredan los campos comunes desde `BaseEntity`.
 
@@ -155,6 +155,9 @@ parkio/
 │   │   │   │   ├── mapper/
 │   │   │   │   ├── repository/
 │   │   │   │   └── service/
+│   │   │   ├── reserva/
+│   │   │   │   ├── config/
+│   │   │   │   └── entity/
 │   │   │   ├── shared/
 │   │   │   │   ├── entity/
 │   │   │   │   └── exception/
@@ -257,7 +260,27 @@ Campos propios:
 - Estado.
 - Estacionamiento propietario.
 
-`tipo` y `estado` se almacenan como `VARCHAR(30)` y se modelan mediante los enums `TipoCajon` y `EstadoCajon`. Los tipos disponibles son `AUTO`, `MOTO`, `DISCAPACITADO` y `ELECTRICO`; los estados disponibles son `LIBRE`, `OCUPADO` y `FUERA_SERVICIO`.
+`tipo` y `estado` se almacenan como `VARCHAR(30)` y se modelan mediante los enums `TipoCajon` y `EstadoCajon`. Los tipos disponibles son `AUTO`, `MOTO`, `DISCAPACITADO` y `ELECTRICO`; los estados disponibles son `LIBRE`, `RESERVADO`, `OCUPADO` y `FUERA_SERVICIO`.
+
+### Reserva
+
+Representa una reserva temporal de un cajón realizada por un cliente.
+
+Campos propios:
+
+- Código público único.
+- Placa opcional del vehículo.
+- Estado.
+- Fecha de reserva.
+- Fecha de expiración.
+- Tiempo de expiración aplicado en minutos.
+- Usuario cliente.
+- Estacionamiento.
+- Cajón reservado.
+
+`estado` se almacena como `VARCHAR(30)` y se modela mediante el enum `EstadoReserva`. Los estados disponibles son `CREADA`, `CANCELADA`, `EXPIRADA` y `USADA`.
+
+La duración de reservas nuevas se parametriza mediante `parkio.reserva.expiracion-minutos` y puede cambiarse por ambiente con `PARKIO_RESERVA_EXPIRACION_MINUTOS`, sin modificar código del backend ni del frontend.
 
 ### Relaciones
 
@@ -265,6 +288,9 @@ Campos propios:
 Usuario  * ─── *  Rol
 Usuario  * ─── *  Estacionamiento
 Estacionamiento  1 ─── *  Cajón
+Usuario  1 ─── *  Reserva
+Estacionamiento  1 ─── *  Reserva
+Cajón  1 ─── *  Reserva
 ```
 
 Las relaciones muchos a muchos utilizan las tablas intermedias:
@@ -389,6 +415,22 @@ Incluye:
 - Pruebas unitarias de mapper, servicio y controlador.
 
 El módulo implementa operaciones para listar de forma paginada, filtrar por estacionamiento de forma paginada, consultar, crear, actualizar, cambiar el estado y eliminar cajones. Los listados devuelven una respuesta estandarizada con `ApiResponse<PageResponse<CajonResponse>>`, mientras que consultar, crear, actualizar y cambiar estado devuelven `ApiResponse<CajonResponse>`, incluyendo código HTTP, mensaje y `transactionId`. La eliminación es lógica mediante `activo=false`. Valida la existencia del cajón y del estacionamiento, evita números duplicados dentro del mismo estacionamiento y aplica Jakarta Validation en `CajonRequest` y `CajonEstadoRequest`. La autorización permite listar y consultar a `ADMIN`, `OWNER`, `OPERADOR` y `USER`; cambiar estado a `ADMIN`, `OWNER` y `OPERADOR`; crear, actualizar y eliminar a `ADMIN` de forma global y a `OWNER` solo dentro de sus propios estacionamientos.
+
+### Reserva
+
+Preparación inicial del módulo de reservas.
+
+Incluye:
+
+- Entidad `Reserva`.
+- `EstadoReserva`.
+- `ReservaProperties`.
+- `ReservaConfig`.
+- Migración Flyway `V10__create_reserva.sql`.
+
+El enum `EstadoReserva` define los estados `CREADA`, `CANCELADA`, `EXPIRADA` y `USADA`. Todavía no existen DTOs, repositorio, servicio, controlador ni endpoints de reservas implementados.
+
+Para la creación futura de reservas se debe usar la propiedad `parkio.reserva.expiracion-minutos`, configurable mediante `PARKIO_RESERVA_EXPIRACION_MINUTOS`. El frontend no debe enviar la duración de la reserva; el backend debe calcular `fechaExpiracion` con la configuración vigente y guardar el tiempo aplicado en cada registro.
 
 ### Auditoría
 
@@ -628,6 +670,7 @@ Variables soportadas:
 | `PARKIO_JWT_ISSUER` | Emisor del JWT |
 | `PARKIO_JWT_SECRET` | Secreto usado para firmar JWT |
 | `PARKIO_JWT_EXPIRATION_MINUTES` | Vigencia del token en minutos |
+| `PARKIO_RESERVA_EXPIRACION_MINUTOS` | Minutos de vigencia para nuevas reservas |
 | `PARKIO_TEST_DB_URL` | URL JDBC para pruebas |
 | `PARKIO_TEST_DB_USERNAME` | Usuario PostgreSQL para pruebas |
 | `PARKIO_TEST_DB_PASSWORD` | Contraseña PostgreSQL para pruebas |
@@ -641,6 +684,7 @@ $env:PARKIO_DB_USERNAME="postgres"
 $env:PARKIO_DB_PASSWORD="123123"
 $env:PARKIO_CORS_ALLOWED_ORIGINS="http://localhost:4200,http://localhost:5173"
 $env:PARKIO_JWT_SECRET="clave-segura-local"
+$env:PARKIO_RESERVA_EXPIRACION_MINUTOS="20"
 ```
 
 `PARKIO_JWT_SECRET` no debe reutilizar el valor local por defecto fuera de desarrollo. En producción debe definirse como un secreto externo, suficientemente largo y no versionado en el repositorio.
@@ -863,6 +907,7 @@ Migraciones existentes:
 | V7 | `V7__insert_roles_base.sql` | Inserta los roles base `ADMIN`, `OPERADOR` y `USER` |
 | V8 | `V8__insert_owner_role.sql` | Inserta el rol base `OWNER` |
 | V9 | `V9__add_owner_to_estacionamiento.sql` | Agrega `owner_id` a `estacionamiento` para identificar al dueño |
+| V10 | `V10__create_reserva.sql` | Crea la tabla `reserva` para apartar temporalmente cajones |
 
 Las migraciones se ejecutan automáticamente al iniciar la aplicación.
 

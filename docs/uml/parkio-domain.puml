@@ -25,6 +25,7 @@ class Estacionamiento {
     descripcion : String
     latitud : BigDecimal
     longitud : BigDecimal
+    ownerId : Long
     activo : Boolean
 }
 
@@ -33,6 +34,17 @@ class Cajon {
     numero : String
     tipo : TipoCajon
     estado : EstadoCajon
+    activo : Boolean
+}
+
+class Reserva {
+    id : Long
+    codigo : String
+    placa : String
+    estado : EstadoReserva
+    fechaReserva : LocalDateTime
+    fechaExpiracion : LocalDateTime
+    tiempoExpiracionMinutos : Integer
     activo : Boolean
 }
 
@@ -45,15 +57,28 @@ enum TipoCajon {
 
 enum EstadoCajon {
     LIBRE
+    RESERVADO
     OCUPADO
     FUERA_SERVICIO
 }
 
+enum EstadoReserva {
+    CREADA
+    CANCELADA
+    EXPIRADA
+    USADA
+}
+
 Usuario "*" -- "*" Rol
 Usuario "*" -- "*" Estacionamiento
+Usuario "1" -- "*" Estacionamiento : owner
 Estacionamiento "1" -- "*" Cajon
+Usuario "1" -- "*" Reserva
+Estacionamiento "1" -- "*" Reserva
+Cajon "1" -- "*" Reserva
 
 Cajon --> TipoCajon
 Cajon --> EstadoCajon
+Reserva --> EstadoReserva
 
 @enduml

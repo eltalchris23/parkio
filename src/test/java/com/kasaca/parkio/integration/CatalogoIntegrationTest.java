@@ -185,16 +185,19 @@ class CatalogoIntegrationTest {
         assertThat(body.path("transactionId").asText()).isNotBlank();
 
         assertThat(body.path("data").isArray()).isTrue();
-        assertThat(body.path("data").size()).isEqualTo(3);
+        assertThat(body.path("data").size()).isEqualTo(4);
 
         assertThat(body.path("data").get(0).path("codigo").asText()).isEqualTo("LIBRE");
         assertThat(body.path("data").get(0).path("descripcion").asText()).isEqualTo("Libre");
 
-        assertThat(body.path("data").get(1).path("codigo").asText()).isEqualTo("OCUPADO");
-        assertThat(body.path("data").get(1).path("descripcion").asText()).isEqualTo("Ocupado");
+        assertThat(body.path("data").get(1).path("codigo").asText()).isEqualTo("RESERVADO");
+        assertThat(body.path("data").get(1).path("descripcion").asText()).isEqualTo("Reservado");
 
-        assertThat(body.path("data").get(2).path("codigo").asText()).isEqualTo("FUERA_SERVICIO");
-        assertThat(body.path("data").get(2).path("descripcion").asText()).isEqualTo("Fuera de servicio");
+        assertThat(body.path("data").get(2).path("codigo").asText()).isEqualTo("OCUPADO");
+        assertThat(body.path("data").get(2).path("descripcion").asText()).isEqualTo("Ocupado");
+
+        assertThat(body.path("data").get(3).path("codigo").asText()).isEqualTo("FUERA_SERVICIO");
+        assertThat(body.path("data").get(3).path("descripcion").asText()).isEqualTo("Fuera de servicio");
     }
 
     /**

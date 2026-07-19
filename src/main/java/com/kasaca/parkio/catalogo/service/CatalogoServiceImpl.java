@@ -65,6 +65,7 @@ public class CatalogoServiceImpl implements CatalogoService {
     private String getDescripcionEstadoCajon(EstadoCajon estado) {
         return switch (estado) {
             case LIBRE -> "Libre";
+            case RESERVADO -> "Reservado";
             case OCUPADO -> "Ocupado";
             case FUERA_SERVICIO -> "Fuera de servicio";
         };
