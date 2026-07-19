@@ -94,7 +94,7 @@ Estado actual de las capas:
 | Documentación interactiva | OpenAPI y Swagger UI habilitados en `dev` y deshabilitados por defecto/prod |
 | Manejo global de errores | Implementado mediante `GlobalExceptionHandler` y `ApiError`, incluyendo `transactionId` |
 | Auditoría JPA | Habilitada |
-| Migraciones | Implementadas de V1 a V7 |
+| Migraciones | Implementadas de V1 a V8 |
 
 La clase principal habilita la auditoría mediante `@EnableJpaAuditing`. Las entidades heredan los campos comunes desde `BaseEntity`.
 
@@ -857,10 +857,13 @@ Migraciones existentes:
 | V5 | `V5__create_usuario_estacionamiento.sql` | Crea la relación entre usuarios y estacionamientos |
 | V6 | `V6__create_cajon.sql` | Crea la tabla `cajon` y sus restricciones |
 | V7 | `V7__insert_roles_base.sql` | Inserta los roles base `ADMIN`, `OPERADOR` y `USER` |
+| V8 | `V8__insert_owner_role.sql` | Inserta el rol base `OWNER` |
 
 Las migraciones se ejecutan automáticamente al iniciar la aplicación.
 
-Se incluye una migración de datos iniciales para crear los roles base `ADMIN`, `OPERADOR` y `USER`. La inserción utiliza `ON CONFLICT (nombre) DO NOTHING`, por lo que no falla si alguno de esos roles ya existe.
+Se incluyen migraciones de datos iniciales para crear los roles base `ADMIN`, `OWNER`, `OPERADOR` y `USER`. La inserción utiliza `ON CONFLICT (nombre) DO NOTHING`, por lo que no falla si alguno de esos roles ya existe.
+
+El rol `OWNER` representa al dueño de uno o varios estacionamientos. Actualmente existe como rol base en la base de datos; las reglas específicas de propiedad de estacionamientos para `OWNER` todavía no están implementadas.
 
 El proyecto no crea usuarios ni estacionamientos predeterminados.
 

@@ -492,6 +492,7 @@ V4__create_estacionamiento.sql
 V5__create_usuario_estacionamiento.sql
 V6__create_cajon.sql
 V7__insert_roles_base.sql
+V8__insert_owner_role.sql
 ```
 
 Reglas obligatorias:
@@ -520,7 +521,9 @@ Por tanto, Flyway controla el esquema y Hibernate solamente lo valida.
 
 Además, `open-in-view: false` evita que Hibernate mantenga abierta la sesión durante la serialización HTTP. Si una operación necesita datos de relaciones JPA para construir un DTO, esos datos deben obtenerse dentro del service y no desde el controller ni durante la serialización de la respuesta.
 
-Existe una migración de datos iniciales para los roles base `ADMIN`, `OPERADOR` y `USER`. La migración utiliza `ON CONFLICT (nombre) DO NOTHING`, por lo que no falla si alguno de esos roles ya existe.
+Existen migraciones de datos iniciales para los roles base `ADMIN`, `OWNER`, `OPERADOR` y `USER`. Las migraciones utilizan `ON CONFLICT (nombre) DO NOTHING`, por lo que no fallan si alguno de esos roles ya existe.
+
+El rol `OWNER` existe como rol base para representar al dueño de uno o varios estacionamientos. No se debe asumir que sus reglas específicas de propiedad, consulta o administración de estacionamientos ya están implementadas hasta que existan cambios explícitos en código, pruebas y documentación.
 
 No se debe asumir la existencia de usuarios, estacionamientos u otros registros predeterminados.
 

@@ -122,6 +122,15 @@ Springdoc está deshabilitado por defecto y también en el perfil `prod`. Actual
 
 ### Autorización por roles
 
+Roles base existentes en base de datos:
+
+| Rol | Uso actual |
+|---|---|
+| `ADMIN` | Administración global de Parkio |
+| `OWNER` | Dueño de uno o varios estacionamientos; sus reglas específicas de propiedad todavía no están implementadas |
+| `OPERADOR` | Operación de estacionamientos según permisos actuales |
+| `USER` | Usuario/cliente final y rol asignado por defecto en el registro público |
+
 | Módulo | Consulta | Escritura / Administración |
 |---|---|---|
 | Auth | Público para login; `/auth/me` requiere JWT válido | No aplica |
