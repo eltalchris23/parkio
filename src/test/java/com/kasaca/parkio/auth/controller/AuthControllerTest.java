@@ -7,18 +7,27 @@ import com.kasaca.parkio.auth.dto.AuthResponse;
 import com.kasaca.parkio.auth.service.AuthService;
 import com.kasaca.parkio.shared.exception.GlobalExceptionHandler;
 import com.kasaca.parkio.shared.exception.UnauthorizedException;
+import com.kasaca.parkio.usuario.dto.UsuarioResponse;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.http.MediaType;
+import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.oauth2.jwt.Jwt;
+import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationToken;
+import org.springframework.security.web.method.annotation.AuthenticationPrincipalArgumentResolver;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
+
+import java.time.LocalDateTime;
+import java.util.Set;
 
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -41,6 +50,7 @@ class AuthControllerTest {
 
         mockMvc = MockMvcBuilders
                 .standaloneSetup(authController)
+                .setCustomArgumentResolvers(new AuthenticationPrincipalArgumentResolver())
                 .setControllerAdvice(new GlobalExceptionHandler())
                 .build();
 
@@ -105,6 +115,47 @@ class AuthControllerTest {
                 .andExpect(jsonPath("$.validationErrors.password").exists());
 
         verifyNoInteractions(authService);
+    }
+
+    /**
+     * Verifica que el endpoint /auth/me devuelva la informacion vigente del usuario autenticado.
+     */
+    @Test
+    void debeConsultarUsuarioAutenticado() throws Exception {
+        Jwt jwt = Jwt.withTokenValue("token-prueba")
+                .header("alg", "HS256")
+                .claim("usuarioId", 1L)
+                .build();
+        UsuarioResponse response = new UsuarioResponse(
+                1L,
+                "Christian",
+                "Hernandez",
+                "christian@parkio.com",
+                true,
+                LocalDateTime.of(2026, 7, 18, 10, 0),
+                Set.of("ADMIN"),
+                Set.of(1L)
+        );
+
+        when(authService.getCurrentUser(jwt)).thenReturn(response);
+
+        try {
+            SecurityContextHolder.getContext().setAuthentication(new JwtAuthenticationToken(jwt));
+
+            mockMvc.perform(get("/auth/me"))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.status").value(200))
+                    .andExpect(jsonPath("$.message").value("Usuario autenticado consultado correctamente"))
+                    .andExpect(jsonPath("$.data.id").value(1L))
+                    .andExpect(jsonPath("$.data.nombre").value("Christian"))
+                    .andExpect(jsonPath("$.data.email").value("christian@parkio.com"))
+                    .andExpect(jsonPath("$.data.roles[0]").value("ADMIN"))
+                    .andExpect(jsonPath("$.data.estacionamientoIds[0]").value(1L));
+        } finally {
+            SecurityContextHolder.clearContext();
+        }
+
+        verify(authService).getCurrentUser(jwt);
     }
 }
 

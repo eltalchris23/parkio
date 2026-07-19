@@ -24,7 +24,7 @@ Parkio es un backend en desarrollo para administrar:
 - Cajones pertenecientes a un estacionamiento.
 - Estado y tipo de los cajones.
 
-El proyecto contiene actualmente el modelo persistente, DTOs, repositorios, contratos de servicio, migraciones y documentación de arquitectura. Los módulos Rol, Estacionamiento, Cajón y Usuario cuentan además con mapper, servicio transaccional, controlador REST y pruebas unitarias. El módulo Auth implementa login y emisión de JWT.
+El proyecto contiene actualmente el modelo persistente, DTOs, repositorios, contratos de servicio, migraciones y documentación de arquitectura. Los módulos Rol, Estacionamiento, Cajón y Usuario cuentan además con mapper, servicio transaccional, controlador REST y pruebas unitarias. El módulo Auth implementa login, emisión de JWT y consulta del usuario autenticado mediante `/api/v1/auth/me`.
 
 La API REST está implementada para Auth, Rol, Estacionamiento, Cajón y Usuario. Usuario permite asignar y retirar roles y estacionamientos. La autenticación JWT está implementada. La autorización granular por roles ya inició en Rol, Usuario, Estacionamiento y Cajón: `/api/v1/roles` requiere rol `ADMIN`; `/api/v1/usuarios` distingue entre operaciones administrativas de `ADMIN` y operaciones propias de `USER` u `OPERADOR`; `/api/v1/estacionamientos` permite consulta a `ADMIN`, `OPERADOR` y `USER`, y escritura solo a `ADMIN`; `/api/v1/cajones` permite consulta a `ADMIN`, `OPERADOR` y `USER`, cambios de estado a `ADMIN` y `OPERADOR`, y escritura administrativa solo a `ADMIN`.
 
@@ -35,6 +35,7 @@ Antes de realizar cambios, considerar lo siguiente:
 - `RolController`, `EstacionamientoController`, `CajonController` y `UsuarioController` exponen los recursos `/api/v1/roles`, `/api/v1/estacionamientos`, `/api/v1/cajones` y `/api/v1/usuarios`.
 - Existe Spring Security HTTP con OAuth2 Resource Server para proteger endpoints mediante JWT.
 - Existen `AuthController`, `AuthService`, `AuthServiceImpl`, `JwtService`, `JwtProperties` y `SecurityConfig`.
+- `AuthController` expone `POST /api/v1/auth/login` como endpoint público y `GET /api/v1/auth/me` como endpoint protegido por JWT.
 - Existe configuración CORS mediante `CorsConfig` y `CorsProperties`, usando propiedades bajo `parkio.cors`.
 - Existe Spring Boot Actuator para Health Check operativo.
 - Existe Springdoc OpenAPI para generar contrato OpenAPI y Swagger UI en ambiente de desarrollo.
@@ -542,8 +543,9 @@ Estado actual:
 - Existe `AuthService` y `AuthServiceImpl`.
 - Existe un bean `PasswordEncoder` basado en BCrypt para almacenar hashes de contraseñas.
 - Existe endpoint de login en `POST /api/v1/auth/login`.
+- Existe endpoint protegido `GET /api/v1/auth/me`, que consulta la información vigente del usuario autenticado usando el claim `usuarioId` del JWT.
 - No existe `JwtFilter` propio; Spring Security valida el token mediante OAuth2 Resource Server.
-- Los endpoints distintos al login, `POST /api/v1/usuarios` y Health Check requieren JWT válido. `POST /api/v1/usuarios` queda público para permitir registro inicial y asigna automáticamente el rol base `USER`.
+- Los endpoints distintos al login, `POST /api/v1/usuarios` y Health Check requieren JWT válido. `POST /api/v1/usuarios` queda público para permitir registro inicial y asigna automáticamente el rol base `USER`. `GET /api/v1/auth/me` requiere JWT válido, pero no requiere un rol específico adicional.
 - Los endpoints `/actuator/health`, `/actuator/health/liveness` y `/actuator/health/readiness` son públicos para monitoreo y no deben devolver detalles internos.
 - Swagger UI y OpenAPI JSON son públicos únicamente cuando Springdoc está habilitado por perfil. En la configuración actual se habilitan en `dev` y se deshabilitan por defecto/prod.
 - Existe autorización granular inicial por roles: `RolController` requiere `ADMIN`, `UsuarioController` protege operaciones con `ADMIN`, `USER` y `OPERADOR`, `EstacionamientoController` permite lectura a `ADMIN`/`OPERADOR`/`USER` y escritura a `ADMIN`, y `CajonController` permite lectura a `ADMIN`/`OPERADOR`/`USER`, cambio de estado a `ADMIN`/`OPERADOR` y escritura administrativa a `ADMIN`.

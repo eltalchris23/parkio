@@ -14,6 +14,7 @@ Actualmente, el proyecto contiene:
 - Contratos de servicio.
 - CRUD REST completo para los módulos Rol, Estacionamiento, Cajón y Usuario.
 - Login mediante `/api/v1/auth/login`.
+- Consulta del usuario autenticado mediante `/api/v1/auth/me`.
 - Seguridad HTTP con Spring Security y JWT.
 - Health Check operativo mediante Spring Boot Actuator.
 - Documentación interactiva OpenAPI/Swagger UI para desarrollo.
@@ -23,7 +24,7 @@ Actualmente, el proyecto contiene:
 - Migraciones iniciales de base de datos.
 - Documentación de arquitectura, dominio, API implementada y funcionalidades propuestas.
 
-El proyecto expone APIs REST funcionales para autenticar usuarios en `/api/v1/auth/login` y administrar roles en `/api/v1/roles`, estacionamientos en `/api/v1/estacionamientos`, cajones en `/api/v1/cajones` y usuarios en `/api/v1/usuarios`.
+El proyecto expone APIs REST funcionales para autenticar usuarios en `/api/v1/auth/login`, consultar el usuario autenticado en `/api/v1/auth/me` y administrar roles en `/api/v1/roles`, estacionamientos en `/api/v1/estacionamientos`, cajones en `/api/v1/cajones` y usuarios en `/api/v1/usuarios`.
 
 La autenticación JWT ya está implementada. La autorización granular por rol está aplicada en Rol, Usuario, Estacionamiento y Cajón. `/api/v1/roles` requiere `ADMIN`; `/api/v1/usuarios` distingue entre operaciones administrativas de `ADMIN` y operaciones propias de `USER` u `OPERADOR`; `/api/v1/estacionamientos` permite consultas a `ADMIN`, `OPERADOR` y `USER`, dejando la escritura únicamente a `ADMIN`; y `/api/v1/cajones` permite consulta a `ADMIN`, `OPERADOR` y `USER`, cambios de estado a `ADMIN` y `OPERADOR`, y administración completa solo a `ADMIN`.
 
@@ -281,7 +282,9 @@ Incluye:
 
 El módulo implementa inicio de sesión mediante correo y contraseña. Las credenciales se validan contra `Usuario.passwordHash` usando `PasswordEncoder` y BCrypt. Cuando son válidas, se emite un JWT con el correo del usuario, su identificador y sus roles como claims. El login está disponible en `/api/v1/auth/login`.
 
-Los endpoints distintos al login y la creación de usuarios requieren encabezado `Authorization: Bearer <token>`. La creación de usuarios permanece pública para permitir el registro inicial y asigna automáticamente el rol base `USER`. El módulo Rol requiere rol `ADMIN`. En Usuario, `ADMIN` puede administrar usuarios, mientras que `USER` y `OPERADOR` pueden consultar, actualizar y cambiar la contraseña únicamente de su propio usuario. En Estacionamiento, `ADMIN`, `OPERADOR` y `USER` pueden consultar, pero solo `ADMIN` puede crear, actualizar o eliminar. En Cajón, `ADMIN`, `OPERADOR` y `USER` pueden consultar; `ADMIN` y `OPERADOR` pueden cambiar estado; y solo `ADMIN` puede crear, actualizar o eliminar.
+También expone `GET /api/v1/auth/me`, que requiere JWT válido y devuelve la información vigente del usuario autenticado usando el claim `usuarioId` para consultar la base de datos. Este endpoint permite que el frontend obtenga el usuario, roles y estacionamientos asignados sin depender de decodificar el JWT.
+
+Los endpoints distintos al login y la creación de usuarios requieren encabezado `Authorization: Bearer <token>`. La creación de usuarios permanece pública para permitir el registro inicial y asigna automáticamente el rol base `USER`. El endpoint `/api/v1/auth/me` requiere cualquier JWT válido. El módulo Rol requiere rol `ADMIN`. En Usuario, `ADMIN` puede administrar usuarios, mientras que `USER` y `OPERADOR` pueden consultar, actualizar y cambiar la contraseña únicamente de su propio usuario. En Estacionamiento, `ADMIN`, `OPERADOR` y `USER` pueden consultar, pero solo `ADMIN` puede crear, actualizar o eliminar. En Cajón, `ADMIN`, `OPERADOR` y `USER` pueden consultar; `ADMIN` y `OPERADOR` pueden cambiar estado; y solo `ADMIN` puede crear, actualizar o eliminar.
 
 ### Usuario
 
@@ -700,7 +703,7 @@ Si la conexión con PostgreSQL y las migraciones son correctas, la aplicación i
 http://localhost:8023
 ```
 
-Actualmente está disponible el login bajo `/api/v1/auth/login` y la creación de usuarios mediante `POST /api/v1/usuarios` sin token. La creación pública asigna automáticamente el rol base `USER`. Los endpoints CRUD de roles bajo `/api/v1/roles` requieren un token JWT válido con rol `ADMIN`. En `/api/v1/usuarios`, las operaciones administrativas requieren `ADMIN` y las operaciones sobre el propio usuario permiten `USER` u `OPERADOR` cuando el `usuarioId` de la ruta coincide con el claim del JWT. En `/api/v1/estacionamientos`, las consultas permiten `ADMIN`, `OPERADOR` y `USER`, mientras que las modificaciones requieren `ADMIN`. En `/api/v1/cajones`, las consultas permiten `ADMIN`, `OPERADOR` y `USER`, el cambio de estado permite `ADMIN` y `OPERADOR`, y las operaciones de creación, actualización y eliminación requieren `ADMIN`.
+Actualmente está disponible el login bajo `/api/v1/auth/login`, la consulta del usuario autenticado bajo `/api/v1/auth/me` y la creación de usuarios mediante `POST /api/v1/usuarios` sin token. La creación pública asigna automáticamente el rol base `USER`. `/api/v1/auth/me` requiere JWT válido y devuelve los datos vigentes del usuario autenticado. Los endpoints CRUD de roles bajo `/api/v1/roles` requieren un token JWT válido con rol `ADMIN`. En `/api/v1/usuarios`, las operaciones administrativas requieren `ADMIN` y las operaciones sobre el propio usuario permiten `USER` u `OPERADOR` cuando el `usuarioId` de la ruta coincide con el claim del JWT. En `/api/v1/estacionamientos`, las consultas permiten `ADMIN`, `OPERADOR` y `USER`, mientras que las modificaciones requieren `ADMIN`. En `/api/v1/cajones`, las consultas permiten `ADMIN`, `OPERADOR` y `USER`, el cambio de estado permite `ADMIN` y `OPERADOR`, y las operaciones de creación, actualización y eliminación requieren `ADMIN`.
 
 Los endpoints de Health Check están disponibles sin JWT:
 

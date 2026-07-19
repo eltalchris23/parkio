@@ -40,6 +40,8 @@ Todos los demás endpoints de negocio requieren JWT válido:
 Authorization: Bearer <token>
 ```
 
+El endpoint `GET /api/v1/auth/me` requiere JWT válido y devuelve la información vigente del usuario autenticado.
+
 El JWT incluye, entre otros datos:
 
 - `sub`: correo del usuario.
@@ -101,6 +103,7 @@ Ejemplo:
 
 ```http
 POST /api/v1/auth/login
+GET /api/v1/auth/me
 GET /api/v1/roles
 GET /api/v1/estacionamientos
 GET /api/v1/cajones
@@ -117,7 +120,7 @@ Springdoc está deshabilitado por defecto y también en el perfil `prod`. Actual
 
 | Módulo | Consulta | Escritura / Administración |
 |---|---|---|
-| Auth | Público para login | No aplica |
+| Auth | Público para login; `/auth/me` requiere JWT válido | No aplica |
 | Usuario | `ADMIN`; o propio usuario para `USER`/`OPERADOR` en endpoints permitidos | `ADMIN`; o propio usuario para actualización/cambio de contraseña |
 | Rol | `ADMIN` | `ADMIN` |
 | Estacionamiento | `ADMIN`, `OPERADOR`, `USER` | `ADMIN` |
@@ -283,6 +286,45 @@ Validaciones:
 |---|---|
 | `400` | Datos inválidos |
 | `401` | Credenciales inválidas o usuario inactivo |
+
+### Usuario autenticado
+
+```http
+GET /api/v1/auth/me
+Authorization: Bearer <token>
+```
+
+Endpoint protegido. Requiere JWT válido, pero no requiere un rol específico adicional.
+
+Este endpoint consulta la información vigente del usuario autenticado usando el claim `usuarioId` del JWT. El frontend puede usarlo después del login o al recargar la aplicación para conocer el usuario, sus roles y sus estacionamientos asignados sin decodificar directamente el token.
+
+#### Response 200
+
+```json
+{
+  "timestamp": "2026-07-18T10:00:00",
+  "status": 200,
+  "message": "Usuario autenticado consultado correctamente",
+  "transactionId": "0f5d5c9b-8dc1-4bd1-a173-08f16eb4f96e",
+  "data": {
+    "id": 1,
+    "nombre": "Christian",
+    "apellido": "Hernandez",
+    "email": "christian@parkio.com",
+    "activo": true,
+    "fechaCreacion": "2026-07-18T10:00:00",
+    "roles": ["ADMIN"],
+    "estacionamientoIds": [1]
+  }
+}
+```
+
+#### Errores
+
+| HTTP | Causa |
+|---|---|
+| `401` | Token ausente, inválido o sin claim `usuarioId` |
+| `404` | Usuario autenticado no encontrado o inactivo |
 
 ## Módulo Rol
 
