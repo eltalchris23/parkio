@@ -9,6 +9,7 @@ public record EstacionamientoResponse(
         String descripcion,
         BigDecimal latitud,
         BigDecimal longitud,
+        Long ownerId,
         Boolean activo,
         LocalDateTime fechaCreacion
 ) {

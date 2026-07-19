@@ -70,7 +70,7 @@ class CatalogoIntegrationTest {
         jdbcTemplate.update("""
                 UPDATE rol
                 SET activo = TRUE
-                WHERE nombre IN ('ADMIN', 'OPERADOR', 'USER')
+                WHERE nombre IN ('ADMIN', 'OWNER', 'OPERADOR', 'USER')
                 """);
     }
 

@@ -39,6 +39,7 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.data.jpa.mapping.JpaMetamodelMappingContext;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
+import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
@@ -528,6 +529,7 @@ class SecurityConfigTest {
                 "Sucursal centro",
                 new BigDecimal("19.43260000"),
                 new BigDecimal("-99.13320000"),
+                null,
                 true,
                 LocalDateTime.of(2026, 7, 7, 9, 0)
         );
@@ -536,7 +538,7 @@ class SecurityConfigTest {
                 new PageImpl<>(List.of(response), PageRequest.of(0, 10), 1)
         );
 
-        when(estacionamientoService.getEstacionamientos(any()))
+        when(estacionamientoService.getEstacionamientos(any(), any(Jwt.class)))
                 .thenReturn(pageResponse);
 
         mockMvc.perform(get("/estacionamientos")
@@ -549,7 +551,7 @@ class SecurityConfigTest {
                 .andExpect(jsonPath("$.data.content[0].id").value(1L))
                 .andExpect(jsonPath("$.data.content[0].nombre").value("Estacionamiento Centro"));
 
-        verify(estacionamientoService).getEstacionamientos(any());
+        verify(estacionamientoService).getEstacionamientos(any(), any(Jwt.class));
     }
 
     /**
@@ -557,7 +559,7 @@ class SecurityConfigTest {
      */
     @Test
     void debePermitirListarEstacionamientosCuandoTieneRolOperador() throws Exception {
-        when(estacionamientoService.getEstacionamientos(any()))
+        when(estacionamientoService.getEstacionamientos(any(), any(Jwt.class)))
                 .thenReturn(PageResponse.from(
                         new PageImpl<>(List.of(), PageRequest.of(0, 10), 0)
                 ));
@@ -568,7 +570,7 @@ class SecurityConfigTest {
                         .with(jwt().authorities(() -> "ROLE_OPERADOR")))
                 .andExpect(status().isOk());
 
-        verify(estacionamientoService).getEstacionamientos(any());
+        verify(estacionamientoService).getEstacionamientos(any(), any(Jwt.class));
     }
 
     /**
@@ -576,7 +578,7 @@ class SecurityConfigTest {
      */
     @Test
     void debePermitirListarEstacionamientosCuandoTieneRolUser() throws Exception {
-        when(estacionamientoService.getEstacionamientos(any()))
+        when(estacionamientoService.getEstacionamientos(any(), any(Jwt.class)))
                 .thenReturn(PageResponse.from(
                         new PageImpl<>(List.of(), PageRequest.of(0, 10), 0)
                 ));
@@ -587,7 +589,7 @@ class SecurityConfigTest {
                         .with(jwt().authorities(() -> "ROLE_USER")))
                 .andExpect(status().isOk());
 
-        verify(estacionamientoService).getEstacionamientos(any());
+        verify(estacionamientoService).getEstacionamientos(any(), any(Jwt.class));
     }
 
     /**
@@ -601,11 +603,12 @@ class SecurityConfigTest {
                 "Sucursal centro",
                 new BigDecimal("19.43260000"),
                 new BigDecimal("-99.13320000"),
+                null,
                 true,
                 LocalDateTime.of(2026, 7, 7, 9, 0)
         );
 
-        when(estacionamientoService.getEstacionamientoById(1L)).thenReturn(response);
+        when(estacionamientoService.getEstacionamientoById(any(Long.class), any(Jwt.class))).thenReturn(response);
 
         mockMvc.perform(get("/estacionamientos/1")
                         .with(jwt().authorities(() -> "ROLE_ADMIN")))
@@ -615,11 +618,11 @@ class SecurityConfigTest {
                 .andExpect(jsonPath("$.data.id").value(1L))
                 .andExpect(jsonPath("$.data.nombre").value("Estacionamiento Centro"));
 
-        verify(estacionamientoService).getEstacionamientoById(1L);
+        verify(estacionamientoService).getEstacionamientoById(any(Long.class), any(Jwt.class));
     }
 
     /**
-     * Verifica que solo ADMIN pueda crear estacionamientos.
+     * Verifica que OPERADOR no pueda crear estacionamientos.
      */
     @Test
     void debeRechazarCrearEstacionamientoCuandoTieneRolOperador() throws Exception {
@@ -656,11 +659,13 @@ class SecurityConfigTest {
                 "Sucursal centro",
                 new BigDecimal("19.43260000"),
                 new BigDecimal("-99.13320000"),
+                null,
                 true,
                 LocalDateTime.of(2026, 7, 7, 9, 0)
         );
 
-        when(estacionamientoService.addEstacionamiento(request)).thenReturn(response);
+        when(estacionamientoService.addEstacionamiento(any(EstacionamientoRequest.class), any(Jwt.class)))
+                .thenReturn(response);
 
         mockMvc.perform(post("/estacionamientos")
                         .with(jwt().authorities(() -> "ROLE_ADMIN"))
@@ -672,11 +677,11 @@ class SecurityConfigTest {
                 .andExpect(jsonPath("$.data.id").value(1L))
                 .andExpect(jsonPath("$.data.nombre").value("Estacionamiento Centro"));
 
-        verify(estacionamientoService).addEstacionamiento(request);
+        verify(estacionamientoService).addEstacionamiento(any(EstacionamientoRequest.class), any(Jwt.class));
     }
 
     /**
-     * Verifica que solo ADMIN pueda actualizar estacionamientos.
+     * Verifica que USER no pueda actualizar estacionamientos.
      */
     @Test
     void debeRechazarActualizarEstacionamientoCuandoTieneRolUser() throws Exception {

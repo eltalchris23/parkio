@@ -6,7 +6,9 @@ import com.kasaca.parkio.usuario.entity.Usuario;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.FetchType;
+import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToMany;
+import jakarta.persistence.ManyToOne;
 import jakarta.persistence.OneToMany;
 import jakarta.persistence.Table;
 import lombok.AllArgsConstructor;
@@ -56,6 +58,10 @@ public class Estacionamiento extends BaseEntity{
             nullable = false
     )
     private BigDecimal longitud;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "owner_id")
+    private Usuario owner;
 
     @OneToMany(
             mappedBy = "estacionamiento",

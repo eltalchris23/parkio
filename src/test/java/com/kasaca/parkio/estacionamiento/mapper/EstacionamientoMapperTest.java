@@ -3,6 +3,7 @@ package com.kasaca.parkio.estacionamiento.mapper;
 import com.kasaca.parkio.estacionamiento.dto.EstacionamientoRequest;
 import com.kasaca.parkio.estacionamiento.dto.EstacionamientoResponse;
 import com.kasaca.parkio.estacionamiento.entity.Estacionamiento;
+import com.kasaca.parkio.usuario.entity.Usuario;
 import org.junit.jupiter.api.Test;
 
 import java.math.BigDecimal;
@@ -20,7 +21,7 @@ class EstacionamientoMapperTest {
         EstacionamientoRequest request = crearRequest();
 
         Estacionamiento estacionamiento =
-                estacionamientoMapper.toEntity(request);
+                estacionamientoMapper.toEntity(request, null);
 
         assertThat(estacionamiento.getNombre())
                 .isEqualTo("Parkio Centro");
@@ -31,8 +32,22 @@ class EstacionamientoMapperTest {
         assertThat(estacionamiento.getLongitud())
                 .isEqualByComparingTo("-99.13320900");
         assertThat(estacionamiento.getActivo()).isTrue();
+        assertThat(estacionamiento.getOwner()).isNull();
         assertThat(estacionamiento.getCajones()).isEmpty();
         assertThat(estacionamiento.getUsuarios()).isEmpty();
+    }
+
+    @Test
+    void debeConvertirRequestAEntidadConOwner() {
+        EstacionamientoRequest request = crearRequest();
+        Usuario owner = new Usuario();
+        owner.setId(7L);
+
+        Estacionamiento estacionamiento =
+                estacionamientoMapper.toEntity(request, owner);
+
+        assertThat(estacionamiento.getOwner()).isEqualTo(owner);
+        assertThat(estacionamiento.getOwner().getId()).isEqualTo(7L);
     }
 
     @Test
@@ -78,6 +93,7 @@ class EstacionamientoMapperTest {
                 .isEqualByComparingTo("19.43260800");
         assertThat(response.longitud())
                 .isEqualByComparingTo("-99.13320900");
+        assertThat(response.ownerId()).isNull();
         assertThat(response.activo()).isTrue();
         assertThat(response.fechaCreacion())
                 .isEqualTo(estacionamiento.getFechaCreacion());

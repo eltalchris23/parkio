@@ -9,6 +9,8 @@ import com.kasaca.parkio.estacionamiento.mapper.EstacionamientoMapper;
 import com.kasaca.parkio.estacionamiento.repository.EstacionamientoRepository;
 import com.kasaca.parkio.shared.dto.PageResponse;
 import com.kasaca.parkio.shared.exception.ResourceNotFoundException;
+import com.kasaca.parkio.usuario.entity.Usuario;
+import com.kasaca.parkio.usuario.repository.UsuarioRepository;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
@@ -17,10 +19,12 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
+import org.springframework.security.oauth2.jwt.Jwt;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -42,6 +46,9 @@ class EstacionamientoServiceImplTest {
     @Mock
     private EstacionamientoMapper estacionamientoMapper;
 
+    @Mock
+    private UsuarioRepository usuarioRepository;
+
     @InjectMocks
     private EstacionamientoServiceImpl estacionamientoService;
 
@@ -57,7 +64,7 @@ class EstacionamientoServiceImplTest {
                 .thenReturn(response);
 
         PageResponse<EstacionamientoResponse> resultado =
-                estacionamientoService.getEstacionamientos(pageable);
+                estacionamientoService.getEstacionamientos(pageable, crearJwtAdmin());
 
         assertThat(resultado.content()).containsExactly(response);
         assertThat(resultado.totalElements()).isEqualTo(1);
@@ -76,7 +83,7 @@ class EstacionamientoServiceImplTest {
                 .thenReturn(response);
 
         EstacionamientoResponse resultado =
-                estacionamientoService.getEstacionamientoById(1L);
+                estacionamientoService.getEstacionamientoById(1L, crearJwtAdmin());
 
         assertThat(resultado).isEqualTo(response);
     }
@@ -87,7 +94,7 @@ class EstacionamientoServiceImplTest {
                 .thenReturn(Optional.empty());
 
         assertThatThrownBy(() ->
-                estacionamientoService.getEstacionamientoById(1L)
+                estacionamientoService.getEstacionamientoById(1L, crearJwtAdmin())
         )
                 .isInstanceOf(ResourceNotFoundException.class)
                 .hasMessage(
@@ -104,7 +111,7 @@ class EstacionamientoServiceImplTest {
         Estacionamiento estacionamiento = crearEstacionamiento();
         EstacionamientoResponse response = crearResponse();
 
-        when(estacionamientoMapper.toEntity(request))
+        when(estacionamientoMapper.toEntity(request, null))
                 .thenReturn(estacionamiento);
         when(estacionamientoRepository.save(estacionamiento))
                 .thenReturn(estacionamiento);
@@ -112,11 +119,36 @@ class EstacionamientoServiceImplTest {
                 .thenReturn(response);
 
         EstacionamientoResponse resultado =
-                estacionamientoService.addEstacionamiento(request);
+                estacionamientoService.addEstacionamiento(request, crearJwtAdmin());
 
         assertThat(resultado).isEqualTo(response);
-        verify(estacionamientoMapper).toEntity(request);
+        verify(estacionamientoMapper).toEntity(request, null);
         verify(estacionamientoRepository).save(estacionamiento);
+    }
+
+    @Test
+    void debeCrearEstacionamientoConOwnerCuandoJwtTieneRolOwner() {
+        EstacionamientoRequest request = crearRequest();
+        Usuario owner = crearUsuarioOwner();
+        Estacionamiento estacionamiento = crearEstacionamiento();
+        estacionamiento.setOwner(owner);
+        EstacionamientoResponse response = crearResponseConOwner();
+
+        when(usuarioRepository.findByIdAndActivoTrue(7L))
+                .thenReturn(Optional.of(owner));
+        when(estacionamientoMapper.toEntity(request, owner))
+                .thenReturn(estacionamiento);
+        when(estacionamientoRepository.save(estacionamiento))
+                .thenReturn(estacionamiento);
+        when(estacionamientoMapper.toResponse(estacionamiento))
+                .thenReturn(response);
+
+        EstacionamientoResponse resultado =
+                estacionamientoService.addEstacionamiento(request, crearJwtOwner());
+
+        assertThat(resultado.ownerId()).isEqualTo(7L);
+        verify(usuarioRepository).findByIdAndActivoTrue(7L);
+        verify(estacionamientoMapper).toEntity(request, owner);
     }
 
     @Test
@@ -137,6 +169,7 @@ class EstacionamientoServiceImplTest {
                         "Sucursal Reforma",
                         request.latitud(),
                         request.longitud(),
+                        null,
                         true,
                         estacionamiento.getFechaCreacion()
                 );
@@ -151,7 +184,8 @@ class EstacionamientoServiceImplTest {
         EstacionamientoResponse resultado =
                 estacionamientoService.updateEstacionamiento(
                         1L,
-                        request
+                        request,
+                        crearJwtAdmin()
                 );
 
         assertThat(resultado).isEqualTo(response);
@@ -170,7 +204,8 @@ class EstacionamientoServiceImplTest {
         assertThatThrownBy(() ->
                 estacionamientoService.updateEstacionamiento(
                         99L,
-                        request
+                        request,
+                        crearJwtAdmin()
                 )
         )
                 .isInstanceOf(ResourceNotFoundException.class)
@@ -199,7 +234,7 @@ class EstacionamientoServiceImplTest {
         when(estacionamientoRepository.save(estacionamiento))
                 .thenReturn(estacionamiento);
 
-        estacionamientoService.deleteEstacionamiento(1L);
+        estacionamientoService.deleteEstacionamiento(1L, crearJwtAdmin());
 
         assertThat(estacionamiento.getActivo()).isFalse();
         assertThat(cajon.getActivo()).isFalse();
@@ -213,7 +248,7 @@ class EstacionamientoServiceImplTest {
                 .thenReturn(Optional.empty());
 
         assertThatThrownBy(() ->
-                estacionamientoService.deleteEstacionamiento(99L)
+                estacionamientoService.deleteEstacionamiento(99L, crearJwtAdmin())
         )
                 .isInstanceOf(ResourceNotFoundException.class)
                 .hasMessage(
@@ -258,8 +293,49 @@ class EstacionamientoServiceImplTest {
                 "Sucursal Centro Histórico",
                 new BigDecimal("19.43260800"),
                 new BigDecimal("-99.13320900"),
+                null,
                 true,
                 LocalDateTime.of(2026, 6, 21, 12, 0)
         );
+    }
+
+    private EstacionamientoResponse crearResponseConOwner() {
+        return new EstacionamientoResponse(
+                1L,
+                "Parkio Centro",
+                "Sucursal Centro HistÃ³rico",
+                new BigDecimal("19.43260800"),
+                new BigDecimal("-99.13320900"),
+                7L,
+                true,
+                LocalDateTime.of(2026, 6, 21, 12, 0)
+        );
+    }
+
+    private Usuario crearUsuarioOwner() {
+        Usuario usuario = new Usuario();
+        usuario.setId(7L);
+        usuario.setNombre("Owner");
+        usuario.setEmail("owner@parkio.com");
+        usuario.setActivo(true);
+        return usuario;
+    }
+
+    private Jwt crearJwtAdmin() {
+        return crearJwt(1L, List.of("ADMIN"));
+    }
+
+    private Jwt crearJwtOwner() {
+        return crearJwt(7L, List.of("OWNER"));
+    }
+
+    private Jwt crearJwt(Long usuarioId, List<String> roles) {
+        return Jwt.withTokenValue("token")
+                .header("alg", "HS256")
+                .claims(claims -> claims.putAll(Map.of(
+                        "usuarioId", usuarioId,
+                        "roles", roles
+                )))
+                .build();
     }
 }

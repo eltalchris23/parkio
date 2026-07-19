@@ -127,7 +127,7 @@ Roles base existentes en base de datos:
 | Rol | Uso actual |
 |---|---|
 | `ADMIN` | Administración global de Parkio |
-| `OWNER` | Dueño de uno o varios estacionamientos; sus reglas específicas de propiedad todavía no están implementadas |
+| `OWNER` | Dueño de uno o varios estacionamientos; en Estacionamiento ya puede crear y administrar solo sus propios registros |
 | `OPERADOR` | Operación de estacionamientos según permisos actuales |
 | `USER` | Usuario/cliente final y rol asignado por defecto en el registro público |
 
@@ -136,7 +136,7 @@ Roles base existentes en base de datos:
 | Auth | Público para login; `/auth/me` requiere JWT válido | No aplica |
 | Usuario | `ADMIN`; o propio usuario para `USER`/`OPERADOR` en endpoints permitidos | `ADMIN`; o propio usuario para actualización/cambio de contraseña |
 | Rol | `ADMIN` | `ADMIN` |
-| Estacionamiento | `ADMIN`, `OPERADOR`, `USER` | `ADMIN` |
+| Estacionamiento | `ADMIN`, `OWNER`, `OPERADOR`, `USER`; `OWNER` solo ve los propios | `ADMIN`; `OWNER` solo administra los propios |
 | Cajón | `ADMIN`, `OPERADOR`, `USER` | `ADMIN`; cambio de estado también permite `OPERADOR` |
 | Catálogos | `ADMIN`, `OPERADOR`, `USER` | No aplica |
 
@@ -799,8 +799,11 @@ Sin cuerpo.
 Seguridad:
 
 - Requiere JWT válido.
-- `GET /api/v1/estacionamientos` y `GET /api/v1/estacionamientos/{estacionamientoId}` permiten `ADMIN`, `OPERADOR` y `USER`.
-- `POST`, `PUT` y `DELETE` requieren `ADMIN`.
+- `GET /api/v1/estacionamientos` y `GET /api/v1/estacionamientos/{estacionamientoId}` permiten `ADMIN`, `OWNER`, `OPERADOR` y `USER`.
+- `ADMIN` consulta y administra todos los estacionamientos.
+- `OWNER` consulta, crea, actualiza y elimina lógicamente solo sus propios estacionamientos.
+- `OPERADOR` y `USER` conservan la consulta permitida actual.
+- `POST`, `PUT` y `DELETE` requieren `ADMIN` u `OWNER`; la capa de servicio limita a `OWNER` a sus propios estacionamientos.
 
 ### Listar estacionamientos
 
@@ -824,6 +827,7 @@ GET /api/v1/estacionamientos?page=0&size=10&sort=nombre,asc
         "descripcion": "Sucursal Centro Histórico",
         "latitud": 19.432608,
         "longitud": -99.133209,
+        "ownerId": 2,
         "activo": true,
         "fechaCreacion": "2026-07-18T10:00:00"
       }
@@ -859,6 +863,7 @@ GET /api/v1/estacionamientos/{estacionamientoId}
     "descripcion": "Sucursal Centro Histórico",
     "latitud": 19.432608,
     "longitud": -99.133209,
+    "ownerId": 2,
     "activo": true,
     "fechaCreacion": "2026-07-18T10:00:00"
   }
@@ -903,6 +908,7 @@ Validaciones:
     "descripcion": "Sucursal Centro Histórico",
     "latitud": 19.432608,
     "longitud": -99.133209,
+    "ownerId": 2,
     "activo": true,
     "fechaCreacion": "2026-07-18T10:00:00"
   }
@@ -931,6 +937,7 @@ Usa el mismo cuerpo de creación.
     "descripcion": "Sucursal Reforma",
     "latitud": 19.427,
     "longitud": -99.1677,
+    "ownerId": 2,
     "activo": true,
     "fechaCreacion": "2026-07-18T10:00:00"
   }

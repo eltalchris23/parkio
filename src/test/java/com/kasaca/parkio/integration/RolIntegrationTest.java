@@ -71,13 +71,13 @@ class RolIntegrationTest {
 
         jdbcTemplate.update("""
                 DELETE FROM rol
-                WHERE nombre NOT IN ('ADMIN', 'OPERADOR', 'USER')
+                WHERE nombre NOT IN ('ADMIN', 'OWNER', 'OPERADOR', 'USER')
                 """);
 
         jdbcTemplate.update("""
                 UPDATE rol
                 SET activo = TRUE
-                WHERE nombre IN ('ADMIN', 'OPERADOR', 'USER')
+                WHERE nombre IN ('ADMIN', 'OWNER', 'OPERADOR', 'USER')
                 """);
     }
 

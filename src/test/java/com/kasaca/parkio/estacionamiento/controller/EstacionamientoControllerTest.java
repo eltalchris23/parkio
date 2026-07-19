@@ -17,6 +17,8 @@ import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.web.PageableHandlerMethodArgumentResolver;
 import org.springframework.http.MediaType;
+import org.springframework.security.oauth2.jwt.Jwt;
+import org.springframework.security.web.method.annotation.AuthenticationPrincipalArgumentResolver;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 
@@ -25,6 +27,7 @@ import java.time.LocalDateTime;
 import java.util.List;
 
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.nullable;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
@@ -52,7 +55,10 @@ class EstacionamientoControllerTest {
 
         mockMvc = MockMvcBuilders
                 .standaloneSetup(controller)
-                .setCustomArgumentResolvers(new PageableHandlerMethodArgumentResolver())
+                .setCustomArgumentResolvers(
+                        new PageableHandlerMethodArgumentResolver(),
+                        new AuthenticationPrincipalArgumentResolver()
+                )
                 .setControllerAdvice(new GlobalExceptionHandler())
                 .build();
 
@@ -68,7 +74,7 @@ class EstacionamientoControllerTest {
                 new PageImpl<>(List.of(response), PageRequest.of(0, 10), 1)
         );
 
-        when(estacionamientoService.getEstacionamientos(any()))
+        when(estacionamientoService.getEstacionamientos(any(), nullable(Jwt.class)))
                 .thenReturn(pageResponse);
 
         mockMvc.perform(get("/estacionamientos")
@@ -88,14 +94,14 @@ class EstacionamientoControllerTest {
                 .andExpect(jsonPath("$.data.size").value(10))
                 .andExpect(jsonPath("$.data.page").value(0));
 
-        verify(estacionamientoService).getEstacionamientos(any());
+        verify(estacionamientoService).getEstacionamientos(any(), nullable(Jwt.class));
     }
 
     @Test
     void debeObtenerEstacionamientoPorId() throws Exception {
         EstacionamientoResponse response = crearResponse();
 
-        when(estacionamientoService.getEstacionamientoById(1L))
+        when(estacionamientoService.getEstacionamientoById(1L, null))
                 .thenReturn(response);
 
         mockMvc.perform(get("/estacionamientos/1"))
@@ -113,12 +119,12 @@ class EstacionamientoControllerTest {
                         .value(-99.133209));
 
         verify(estacionamientoService)
-                .getEstacionamientoById(1L);
+                .getEstacionamientoById(1L, null);
     }
 
     @Test
     void debeResponderNotFoundCuandoNoExiste() throws Exception {
-        when(estacionamientoService.getEstacionamientoById(99L))
+        when(estacionamientoService.getEstacionamientoById(99L, null))
                 .thenThrow(
                         new ResourceNotFoundException(
                                 "Estacionamiento",
@@ -142,7 +148,7 @@ class EstacionamientoControllerTest {
         EstacionamientoRequest request = crearRequest();
         EstacionamientoResponse response = crearResponse();
 
-        when(estacionamientoService.addEstacionamiento(any()))
+        when(estacionamientoService.addEstacionamiento(any(), nullable(Jwt.class)))
                 .thenReturn(response);
 
         mockMvc.perform(post("/estacionamientos")
@@ -159,7 +165,10 @@ class EstacionamientoControllerTest {
                 .andExpect(jsonPath("$.data.activo").value(true));
 
         verify(estacionamientoService)
-                .addEstacionamiento(any(EstacionamientoRequest.class));
+                .addEstacionamiento(
+                        any(EstacionamientoRequest.class),
+                        nullable(Jwt.class)
+                );
     }
 
     @Test
@@ -228,13 +237,15 @@ class EstacionamientoControllerTest {
                         request.descripcion(),
                         request.latitud(),
                         request.longitud(),
+                        null,
                         true,
                         LocalDateTime.of(2026, 6, 21, 12, 0)
                 );
 
         when(estacionamientoService.updateEstacionamiento(
                 any(Long.class),
-                any(EstacionamientoRequest.class)
+                any(EstacionamientoRequest.class),
+                nullable(Jwt.class)
         )).thenReturn(response);
 
         mockMvc.perform(put("/estacionamientos/1")
@@ -253,7 +264,8 @@ class EstacionamientoControllerTest {
         verify(estacionamientoService)
                 .updateEstacionamiento(
                         any(Long.class),
-                        any(EstacionamientoRequest.class)
+                        any(EstacionamientoRequest.class),
+                        nullable(Jwt.class)
                 );
     }
 
@@ -264,7 +276,7 @@ class EstacionamientoControllerTest {
                 .andExpect(content().string(""));
 
         verify(estacionamientoService)
-                .deleteEstacionamiento(1L);
+                .deleteEstacionamiento(1L, null);
     }
 
     private EstacionamientoRequest crearRequest() {
@@ -283,6 +295,7 @@ class EstacionamientoControllerTest {
                 "Sucursal Centro Histórico",
                 new BigDecimal("19.43260800"),
                 new BigDecimal("-99.13320900"),
+                null,
                 true,
                 LocalDateTime.of(2026, 6, 21, 12, 0)
         );

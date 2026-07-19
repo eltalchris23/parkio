@@ -27,7 +27,7 @@ Actualmente, el proyecto contiene:
 
 El proyecto expone APIs REST funcionales para autenticar usuarios en `/api/v1/auth/login`, consultar el usuario autenticado en `/api/v1/auth/me`, administrar roles en `/api/v1/roles`, estacionamientos en `/api/v1/estacionamientos`, cajones en `/api/v1/cajones` y usuarios en `/api/v1/usuarios`, además de consultar catálogos de cajones en `/api/v1/catalogos`.
 
-La autenticación JWT ya está implementada. La autorización granular por rol está aplicada en Rol, Usuario, Estacionamiento, Cajón y Catálogos. `/api/v1/roles` requiere `ADMIN`; `/api/v1/usuarios` distingue entre operaciones administrativas de `ADMIN` y operaciones propias de `USER` u `OPERADOR`; `/api/v1/estacionamientos` permite consultas a `ADMIN`, `OPERADOR` y `USER`, dejando la escritura únicamente a `ADMIN`; `/api/v1/cajones` permite consulta a `ADMIN`, `OPERADOR` y `USER`, cambios de estado a `ADMIN` y `OPERADOR`, y administración completa solo a `ADMIN`; y `/api/v1/catalogos` permite consulta a `ADMIN`, `OPERADOR` y `USER`.
+La autenticación JWT ya está implementada. La autorización granular por rol está aplicada en Rol, Usuario, Estacionamiento, Cajón y Catálogos. `/api/v1/roles` requiere `ADMIN`; `/api/v1/usuarios` distingue entre operaciones administrativas de `ADMIN` y operaciones propias de `USER` u `OPERADOR`; `/api/v1/estacionamientos` permite consultas a `ADMIN`, `OWNER`, `OPERADOR` y `USER`, permite escritura a `ADMIN` y permite a `OWNER` crear, consultar, actualizar y eliminar lógicamente sus propios estacionamientos; `/api/v1/cajones` permite consulta a `ADMIN`, `OPERADOR` y `USER`, cambios de estado a `ADMIN` y `OPERADOR`, y administración completa solo a `ADMIN`; y `/api/v1/catalogos` permite consulta a `ADMIN`, `OPERADOR` y `USER`.
 
 ## Objetivos del Sistema
 
@@ -43,7 +43,7 @@ Según el modelo actual y la documentación existente, Parkio busca proporcionar
 - Mantener información de auditoría básica sobre las entidades.
 - Autenticar usuarios mediante correo, contraseña BCrypt y JWT.
 
-La autorización por roles ya forma parte del código ejecutable para Rol, Usuario, Estacionamiento y Cajón. Las reglas actuales distinguen operaciones administrativas, consultas permitidas y operaciones sobre el propio usuario según los roles `ADMIN`, `OPERADOR` y `USER`.
+La autorización por roles ya forma parte del código ejecutable para Rol, Usuario, Estacionamiento y Cajón. Las reglas actuales distinguen operaciones administrativas, operaciones de dueño de estacionamiento, consultas permitidas y operaciones sobre el propio usuario según los roles `ADMIN`, `OWNER`, `OPERADOR` y `USER`.
 
 ## Tecnologías Utilizadas
 
@@ -94,7 +94,7 @@ Estado actual de las capas:
 | Documentación interactiva | OpenAPI y Swagger UI habilitados en `dev` y deshabilitados por defecto/prod |
 | Manejo global de errores | Implementado mediante `GlobalExceptionHandler` y `ApiError`, incluyendo `transactionId` |
 | Auditoría JPA | Habilitada |
-| Migraciones | Implementadas de V1 a V8 |
+| Migraciones | Implementadas de V1 a V9 |
 
 La clase principal habilita la auditoría mediante `@EnableJpaAuditing`. Las entidades heredan los campos comunes desde `BaseEntity`.
 
@@ -294,7 +294,7 @@ El módulo implementa inicio de sesión mediante correo y contraseña. Las crede
 
 También expone `GET /api/v1/auth/me`, que requiere JWT válido y devuelve la información vigente del usuario autenticado usando el claim `usuarioId` para consultar la base de datos. Este endpoint permite que el frontend obtenga el usuario, roles y estacionamientos asignados sin depender de decodificar el JWT.
 
-Los endpoints distintos al login y la creación de usuarios requieren encabezado `Authorization: Bearer <token>`. La creación de usuarios permanece pública para permitir el registro inicial y asigna automáticamente el rol base `USER`. El endpoint `/api/v1/auth/me` requiere cualquier JWT válido. El módulo Rol requiere rol `ADMIN`. En Usuario, `ADMIN` puede administrar usuarios, mientras que `USER` y `OPERADOR` pueden consultar, actualizar y cambiar la contraseña únicamente de su propio usuario. En Estacionamiento, `ADMIN`, `OPERADOR` y `USER` pueden consultar, pero solo `ADMIN` puede crear, actualizar o eliminar. En Cajón, `ADMIN`, `OPERADOR` y `USER` pueden consultar; `ADMIN` y `OPERADOR` pueden cambiar estado; y solo `ADMIN` puede crear, actualizar o eliminar. En Catálogos, `ADMIN`, `OPERADOR` y `USER` pueden consultar los valores disponibles.
+Los endpoints distintos al login y la creación de usuarios requieren encabezado `Authorization: Bearer <token>`. La creación de usuarios permanece pública para permitir el registro inicial y asigna automáticamente el rol base `USER`. El endpoint `/api/v1/auth/me` requiere cualquier JWT válido. El módulo Rol requiere rol `ADMIN`. En Usuario, `ADMIN` puede administrar usuarios, mientras que `USER` y `OPERADOR` pueden consultar, actualizar y cambiar la contraseña únicamente de su propio usuario. En Estacionamiento, `ADMIN` consulta y administra todos los estacionamientos; `OWNER` crea estacionamientos asociados a su usuario autenticado y solo consulta, actualiza o elimina lógicamente sus propios estacionamientos; `OPERADOR` y `USER` conservan la consulta permitida actual. En Cajón, `ADMIN`, `OPERADOR` y `USER` pueden consultar; `ADMIN` y `OPERADOR` pueden cambiar estado; y solo `ADMIN` puede crear, actualizar o eliminar. En Catálogos, `ADMIN`, `OPERADOR` y `USER` pueden consultar los valores disponibles.
 
 ### Catálogos
 
@@ -371,7 +371,7 @@ Incluye:
 - Validaciones de entrada.
 - Pruebas unitarias de mapper, servicio y controlador.
 
-El módulo implementa operaciones para listar de forma paginada, consultar, crear, actualizar y eliminar estacionamientos. El listado devuelve una respuesta estandarizada con `ApiResponse<PageResponse<EstacionamientoResponse>>`, mientras que consultar, crear y actualizar devuelven `ApiResponse<EstacionamientoResponse>`, incluyendo código HTTP, mensaje y `transactionId`. Utiliza DTOs, mapper, transacciones y `ResourceNotFoundException` para recursos inexistentes. La eliminación es lógica mediante `activo=false` y también desactiva lógicamente los cajones activos asociados. La autorización permite listar y consultar a `ADMIN`, `OPERADOR` y `USER`; crear, actualizar y eliminar son operaciones exclusivas de `ADMIN`.
+El módulo implementa operaciones para listar de forma paginada, consultar, crear, actualizar y eliminar estacionamientos. El listado devuelve una respuesta estandarizada con `ApiResponse<PageResponse<EstacionamientoResponse>>`, mientras que consultar, crear y actualizar devuelven `ApiResponse<EstacionamientoResponse>`, incluyendo código HTTP, mensaje y `transactionId`. `EstacionamientoResponse` incluye `ownerId` para identificar al dueño cuando exista. Utiliza DTOs, mapper, transacciones y `ResourceNotFoundException` para recursos inexistentes. La eliminación es lógica mediante `activo=false` y también desactiva lógicamente los cajones activos asociados. La autorización permite a `ADMIN` consultar y administrar todos los estacionamientos; permite a `OWNER` crear estacionamientos asociados a su usuario autenticado y consultar, actualizar o eliminar lógicamente solo los propios; `OPERADOR` y `USER` conservan la consulta permitida actual.
 
 ### Cajón
 
@@ -858,12 +858,13 @@ Migraciones existentes:
 | V6 | `V6__create_cajon.sql` | Crea la tabla `cajon` y sus restricciones |
 | V7 | `V7__insert_roles_base.sql` | Inserta los roles base `ADMIN`, `OPERADOR` y `USER` |
 | V8 | `V8__insert_owner_role.sql` | Inserta el rol base `OWNER` |
+| V9 | `V9__add_owner_to_estacionamiento.sql` | Agrega `owner_id` a `estacionamiento` para identificar al dueño |
 
 Las migraciones se ejecutan automáticamente al iniciar la aplicación.
 
 Se incluyen migraciones de datos iniciales para crear los roles base `ADMIN`, `OWNER`, `OPERADOR` y `USER`. La inserción utiliza `ON CONFLICT (nombre) DO NOTHING`, por lo que no falla si alguno de esos roles ya existe.
 
-El rol `OWNER` representa al dueño de uno o varios estacionamientos. Actualmente existe como rol base en la base de datos; las reglas específicas de propiedad de estacionamientos para `OWNER` todavía no están implementadas.
+El rol `OWNER` representa al dueño de uno o varios estacionamientos. El soporte inicial de propiedad está implementado en Estacionamiento mediante `owner_id`: cuando un `OWNER` crea un estacionamiento, el backend toma el `usuarioId` desde el JWT validado y lo asigna como dueño. `ADMIN` conserva administración global. La columna `owner_id` permite valores nulos para conservar compatibilidad con estacionamientos creados antes de esta migración.
 
 El proyecto no crea usuarios ni estacionamientos predeterminados.
 

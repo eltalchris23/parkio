@@ -79,7 +79,7 @@ class AuthUsuarioIntegrationTest {
                 """
                 SELECT COUNT(*)
                 FROM rol
-                WHERE nombre IN ('ADMIN', 'OPERADOR', 'USER')
+                WHERE nombre IN ('ADMIN', 'OWNER', 'OPERADOR', 'USER')
                 """,
                 Integer.class
         );

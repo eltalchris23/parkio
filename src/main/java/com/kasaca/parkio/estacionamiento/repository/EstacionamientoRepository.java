@@ -12,4 +12,8 @@ public interface EstacionamientoRepository extends JpaRepository<Estacionamiento
     Page<Estacionamiento> findByActivoTrue(Pageable pageable);
 
     Optional<Estacionamiento> findByIdAndActivoTrue(Long id);
+
+    Page<Estacionamiento> findByOwnerIdAndActivoTrue(Long ownerId, Pageable pageable);
+
+    Optional<Estacionamiento> findByIdAndOwnerIdAndActivoTrue(Long id, Long ownerId);
 }

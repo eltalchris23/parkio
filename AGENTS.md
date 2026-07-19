@@ -26,7 +26,7 @@ Parkio es un backend en desarrollo para administrar:
 
 El proyecto contiene actualmente el modelo persistente, DTOs, repositorios, contratos de servicio, migraciones y documentación de arquitectura. Los módulos Rol, Estacionamiento, Cajón y Usuario cuentan además con mapper, servicio transaccional, controlador REST y pruebas unitarias. El módulo Catálogos cuenta con DTO, servicio, controlador REST, pruebas unitarias y prueba de integración para exponer valores derivados de enums. El módulo Auth implementa login, emisión de JWT y consulta del usuario autenticado mediante `/api/v1/auth/me`.
 
-La API REST está implementada para Auth, Rol, Estacionamiento, Cajón, Usuario y Catálogos. Usuario permite asignar y retirar roles y estacionamientos. La autenticación JWT está implementada. La autorización granular por roles ya inició en Rol, Usuario, Estacionamiento, Cajón y Catálogos: `/api/v1/roles` requiere rol `ADMIN`; `/api/v1/usuarios` distingue entre operaciones administrativas de `ADMIN` y operaciones propias de `USER` u `OPERADOR`; `/api/v1/estacionamientos` permite consulta a `ADMIN`, `OPERADOR` y `USER`, y escritura solo a `ADMIN`; `/api/v1/cajones` permite consulta a `ADMIN`, `OPERADOR` y `USER`, cambios de estado a `ADMIN` y `OPERADOR`, y escritura administrativa solo a `ADMIN`; `/api/v1/catalogos` permite consulta a `ADMIN`, `OPERADOR` y `USER`.
+La API REST está implementada para Auth, Rol, Estacionamiento, Cajón, Usuario y Catálogos. Usuario permite asignar y retirar roles y estacionamientos. La autenticación JWT está implementada. La autorización granular por roles ya inició en Rol, Usuario, Estacionamiento, Cajón y Catálogos: `/api/v1/roles` requiere rol `ADMIN`; `/api/v1/usuarios` distingue entre operaciones administrativas de `ADMIN` y operaciones propias de `USER` u `OPERADOR`; `/api/v1/estacionamientos` permite consulta a `ADMIN`, `OWNER`, `OPERADOR` y `USER`, escritura global a `ADMIN` y escritura propia a `OWNER`; `/api/v1/cajones` permite consulta a `ADMIN`, `OPERADOR` y `USER`, cambios de estado a `ADMIN` y `OPERADOR`, y escritura administrativa solo a `ADMIN`; `/api/v1/catalogos` permite consulta a `ADMIN`, `OPERADOR` y `USER`.
 
 ## Estado Actual
 
@@ -49,7 +49,7 @@ Antes de realizar cambios, considerar lo siguiente:
 - No existe `JwtFilter` propio; la validación del token se delega a Spring Security OAuth2 Resource Server.
 - La autorización granular por roles está implementada inicialmente en `RolController` mediante `@PreAuthorize("hasRole('ADMIN')")`.
 - `UsuarioController` utiliza `@PreAuthorize` para permitir operaciones administrativas a `ADMIN` y operaciones propias a `USER` u `OPERADOR`.
-- `EstacionamientoController` utiliza `@PreAuthorize` para permitir consultas a `ADMIN`, `OPERADOR` y `USER`, y modificaciones solo a `ADMIN`.
+- `EstacionamientoController` utiliza `@PreAuthorize` para permitir consultas a `ADMIN`, `OWNER`, `OPERADOR` y `USER`; escritura a `ADMIN`; y escritura de estacionamientos propios a `OWNER`.
 - `CajonController` utiliza `@PreAuthorize` para permitir consultas a `ADMIN`, `OPERADOR` y `USER`; cambios de estado a `ADMIN` y `OPERADOR`; y creación, actualización o eliminación solo a `ADMIN`.
 - `CatalogoController` utiliza `@PreAuthorize` para permitir consultas a `ADMIN`, `OPERADOR` y `USER`.
 - `UsuarioSecurity` compara el `usuarioId` de la ruta con el claim `usuarioId` del JWT.
@@ -58,8 +58,8 @@ Antes de realizar cambios, considerar lo siguiente:
 - Las consultas normales trabajan solo con registros activos. Un registro inactivo debe tratarse como no encontrado para la API.
 - El listado de roles `GET /api/v1/roles` devuelve una respuesta estandarizada mediante `ApiResponse<PageResponse<RolResponse>>` y acepta `page`, `size` y `sort`.
 - Las operaciones no paginadas de Rol para consultar, crear y actualizar devuelven una respuesta estandarizada mediante `ApiResponse<RolResponse>`.
-- El listado de estacionamientos `GET /api/v1/estacionamientos` devuelve una respuesta estandarizada mediante `ApiResponse<PageResponse<EstacionamientoResponse>>` y acepta `page`, `size` y `sort`.
-- Las operaciones no paginadas de Estacionamiento para consultar, crear y actualizar devuelven una respuesta estandarizada mediante `ApiResponse<EstacionamientoResponse>`.
+- El listado de estacionamientos `GET /api/v1/estacionamientos` devuelve una respuesta estandarizada mediante `ApiResponse<PageResponse<EstacionamientoResponse>>` y acepta `page`, `size` y `sort`. `ADMIN` ve todos los estacionamientos activos, `OWNER` ve solo los propios, y `OPERADOR`/`USER` conservan la consulta permitida actual.
+- Las operaciones no paginadas de Estacionamiento para consultar, crear y actualizar devuelven una respuesta estandarizada mediante `ApiResponse<EstacionamientoResponse>`. `EstacionamientoResponse` incluye `ownerId`.
 - Los listados de cajones `GET /api/v1/cajones` y `GET /api/v1/cajones?estacionamientoId={id}` devuelven una respuesta estandarizada mediante `ApiResponse<PageResponse<CajonResponse>>` y aceptan `page`, `size` y `sort`.
 - Las operaciones no paginadas de Cajón para consultar, crear, actualizar y cambiar estado devuelven una respuesta estandarizada mediante `ApiResponse<CajonResponse>`.
 - El listado de usuarios `GET /api/v1/usuarios` devuelve una respuesta estandarizada mediante `ApiResponse<PageResponse<UsuarioResponse>>` y acepta `page`, `size` y `sort`.
@@ -493,6 +493,7 @@ V5__create_usuario_estacionamiento.sql
 V6__create_cajon.sql
 V7__insert_roles_base.sql
 V8__insert_owner_role.sql
+V9__add_owner_to_estacionamiento.sql
 ```
 
 Reglas obligatorias:
@@ -523,7 +524,7 @@ Además, `open-in-view: false` evita que Hibernate mantenga abierta la sesión d
 
 Existen migraciones de datos iniciales para los roles base `ADMIN`, `OWNER`, `OPERADOR` y `USER`. Las migraciones utilizan `ON CONFLICT (nombre) DO NOTHING`, por lo que no fallan si alguno de esos roles ya existe.
 
-El rol `OWNER` existe como rol base para representar al dueño de uno o varios estacionamientos. No se debe asumir que sus reglas específicas de propiedad, consulta o administración de estacionamientos ya están implementadas hasta que existan cambios explícitos en código, pruebas y documentación.
+El rol `OWNER` existe como rol base para representar al dueño de uno o varios estacionamientos. Su soporte inicial ya está implementado en Estacionamiento mediante `owner_id`: `OWNER` crea estacionamientos asociados a su usuario autenticado y solo consulta, actualiza o elimina lógicamente sus propios estacionamientos. No se debe asumir todavía que `OWNER` tenga reglas completas sobre Cajón, Usuario, asignación de operadores, reportes o facturación hasta que existan cambios explícitos en código, pruebas y documentación.
 
 No se debe asumir la existencia de usuarios, estacionamientos u otros registros predeterminados.
 

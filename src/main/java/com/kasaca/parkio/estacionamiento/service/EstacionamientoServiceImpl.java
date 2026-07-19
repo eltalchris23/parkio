@@ -9,9 +9,13 @@ import com.kasaca.parkio.estacionamiento.mapper.EstacionamientoMapper;
 import com.kasaca.parkio.estacionamiento.repository.EstacionamientoRepository;
 import com.kasaca.parkio.shared.dto.PageResponse;
 import com.kasaca.parkio.shared.exception.ResourceNotFoundException;
+import com.kasaca.parkio.usuario.entity.Usuario;
+import com.kasaca.parkio.usuario.repository.UsuarioRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.security.access.AccessDeniedException;
+import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -26,40 +30,65 @@ public class EstacionamientoServiceImpl
     private final EstacionamientoRepository estacionamientoRepository;
     private final CajonRepository cajonRepository;
     private final EstacionamientoMapper estacionamientoMapper;
+    private final UsuarioRepository usuarioRepository;
 
     /**
-     * Obtiene únicamente estacionamientos activos para ocultar registros
-     * desactivados mediante borrado lógico.
+     * Obtiene estacionamientos activos según el alcance del usuario autenticado.
+     *
+     * <p>ADMIN consulta todos los estacionamientos activos. OWNER consulta solo
+     * los estacionamientos donde es dueño. OPERADOR y USER conservan por ahora
+     * la regla previa de consulta general hasta que se implemente su alcance
+     * específico.</p>
      */
     @Override
-    public PageResponse<EstacionamientoResponse> getEstacionamientos(Pageable pageable) {
-        Page<EstacionamientoResponse> estacionamientos =
-                estacionamientoRepository.findByActivoTrue(pageable)
-                        .map(estacionamientoMapper::toResponse);
+    public PageResponse<EstacionamientoResponse> getEstacionamientos(
+            Pageable pageable,
+            Jwt jwt
+    ) {
+        Page<Estacionamiento> estacionamientos =
+                isOwner(jwt) && !isAdmin(jwt)
+                        ? estacionamientoRepository.findByOwnerIdAndActivoTrue(
+                                extractUsuarioId(jwt),
+                                pageable
+                        )
+                        : estacionamientoRepository.findByActivoTrue(pageable);
 
-        return PageResponse.from(estacionamientos);
-    }
-
-    /**
-     * Consulta un estacionamiento activo por identificador.
-     */
-    @Override
-    public EstacionamientoResponse getEstacionamientoById(Long id) {
-        return estacionamientoMapper.toResponse(
-                findEstacionamientoById(id)
+        return PageResponse.from(
+                estacionamientos.map(estacionamientoMapper::toResponse)
         );
     }
 
     /**
-     * Crea un estacionamiento nuevo a partir del DTO de entrada.
+     * Consulta un estacionamiento activo por identificador respetando el alcance
+     * del usuario autenticado.
+     */
+    @Override
+    public EstacionamientoResponse getEstacionamientoById(Long id, Jwt jwt) {
+        return estacionamientoMapper.toResponse(
+                findEstacionamientoById(id, jwt)
+        );
+    }
+
+    /**
+     * Crea un estacionamiento nuevo y asigna owner cuando el usuario autenticado
+     * tiene rol OWNER.
+     *
+     * <p>El owner se toma del claim usuarioId del JWT validado por Spring
+     * Security. ADMIN conserva la capacidad de crear estacionamientos sin owner
+     * hasta implementar un flujo administrativo para asignar dueño explícito.</p>
      */
     @Override
     @Transactional
     public EstacionamientoResponse addEstacionamiento(
-            EstacionamientoRequest request
+            EstacionamientoRequest request,
+            Jwt jwt
     ) {
+        Usuario owner = isOwner(jwt) && !isAdmin(jwt)
+                ? findUsuarioActivoById(extractUsuarioId(jwt))
+                : null;
+
         Estacionamiento estacionamiento =
-                estacionamientoMapper.toEntity(request);
+                estacionamientoMapper.toEntity(request, owner);
 
         Estacionamiento savedEstacionamiento =
                 estacionamientoRepository.save(estacionamiento);
@@ -68,16 +97,18 @@ public class EstacionamientoServiceImpl
     }
 
     /**
-     * Actualiza los datos de un estacionamiento activo.
+     * Actualiza los datos de un estacionamiento activo respetando el alcance
+     * del usuario autenticado.
      */
     @Override
     @Transactional
     public EstacionamientoResponse updateEstacionamiento(
             Long id,
-            EstacionamientoRequest request
+            EstacionamientoRequest request,
+            Jwt jwt
     ) {
         Estacionamiento estacionamiento =
-                findEstacionamientoById(id);
+                findEstacionamientoById(id, jwt);
 
         estacionamientoMapper.updateEntity(
                 request,
@@ -93,15 +124,17 @@ public class EstacionamientoServiceImpl
     }
 
     /**
-     * Realiza el borrado lógico del estacionamiento y de sus cajones activos.
-     * Esto conserva la trazabilidad y evita dejar cajones activos dentro de un
-     * estacionamiento desactivado.
+     * Realiza el borrado lógico del estacionamiento y de sus cajones activos
+     * respetando el alcance del usuario autenticado.
+     *
+     * <p>Esto conserva la trazabilidad y evita dejar cajones activos dentro de
+     * un estacionamiento desactivado.</p>
      */
     @Override
     @Transactional
-    public void deleteEstacionamiento(Long id) {
+    public void deleteEstacionamiento(Long id, Jwt jwt) {
         Estacionamiento estacionamiento =
-                findEstacionamientoById(id);
+                findEstacionamientoById(id, jwt);
 
         List<Cajon> cajones = cajonRepository.findByEstacionamientoIdAndActivoTrue(id);
 
@@ -113,10 +146,26 @@ public class EstacionamientoServiceImpl
     }
 
     /**
-     * Busca internamente un estacionamiento activo o lanza una excepción 404
-     * cuando no existe o fue desactivado mediante borrado lógico.
+     * Busca internamente un estacionamiento activo aplicando el alcance del JWT.
+     *
+     * <p>ADMIN puede resolver cualquier estacionamiento activo. OWNER solo puede
+     * resolver estacionamientos donde su usuario sea el owner. OPERADOR y USER
+     * conservan la consulta general por ahora.</p>
      */
-    private Estacionamiento findEstacionamientoById(Long id) {
+    private Estacionamiento findEstacionamientoById(Long id, Jwt jwt) {
+        if (isOwner(jwt) && !isAdmin(jwt)) {
+            return estacionamientoRepository.findByIdAndOwnerIdAndActivoTrue(
+                            id,
+                            extractUsuarioId(jwt)
+                    )
+                    .orElseThrow(() ->
+                            new ResourceNotFoundException(
+                                    "Estacionamiento",
+                                    id
+                            )
+                    );
+        }
+
         return estacionamientoRepository.findByIdAndActivoTrue(id)
                 .orElseThrow(() ->
                         new ResourceNotFoundException(
@@ -124,5 +173,55 @@ public class EstacionamientoServiceImpl
                                 id
                         )
                 );
+    }
+
+    /**
+     * Busca un usuario activo por identificador para asignarlo como owner.
+     */
+    private Usuario findUsuarioActivoById(Long usuarioId) {
+        return usuarioRepository.findByIdAndActivoTrue(usuarioId)
+                .orElseThrow(() ->
+                        new ResourceNotFoundException(
+                                "Usuario",
+                                usuarioId
+                        )
+                );
+    }
+
+    /**
+     * Extrae el claim usuarioId del JWT emitido por Parkio.
+     */
+    private Long extractUsuarioId(Jwt jwt) {
+        if (jwt == null || jwt.getClaim("usuarioId") == null) {
+            throw new AccessDeniedException("JWT sin claim usuarioId");
+        }
+
+        Number usuarioId = jwt.getClaim("usuarioId");
+        return usuarioId.longValue();
+    }
+
+    /**
+     * Indica si el JWT contiene el rol ADMIN.
+     */
+    private boolean isAdmin(Jwt jwt) {
+        return hasRole(jwt, "ADMIN");
+    }
+
+    /**
+     * Indica si el JWT contiene el rol OWNER.
+     */
+    private boolean isOwner(Jwt jwt) {
+        return hasRole(jwt, "OWNER");
+    }
+
+    /**
+     * Verifica si el claim roles contiene el rol solicitado.
+     */
+    private boolean hasRole(Jwt jwt, String role) {
+        if (jwt == null || jwt.getClaimAsStringList("roles") == null) {
+            return false;
+        }
+
+        return jwt.getClaimAsStringList("roles").contains(role);
     }
 }
