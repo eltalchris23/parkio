@@ -66,6 +66,9 @@ parkio:
     # Minutos de vigencia para una reserva nueva.
     # Se puede cambiar por ambiente con PARKIO_RESERVA_EXPIRACION_MINUTOS sin modificar backend ni frontend.
     expiracion-minutos: ${PARKIO_RESERVA_EXPIRACION_MINUTOS:20}
+    # Frecuencia en milisegundos con la que el backend revisa reservas vencidas.
+    # Se puede cambiar por ambiente con PARKIO_RESERVA_EXPIRACION_CHECK_MS.
+    expiracion-check-ms: ${PARKIO_RESERVA_EXPIRACION_CHECK_MS:60000}
 
 logging:
   pattern:

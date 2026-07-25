@@ -14,20 +14,21 @@ Actualmente, el proyecto contiene:
 - Contratos de servicio.
 - CRUD REST completo para los módulos Rol, Estacionamiento, Cajón y Usuario.
 - Catálogos REST para tipos y estados de cajón consumibles por frontend.
+- Reservas REST para apartar temporalmente cajones disponibles, cancelarlas manualmente y expirar automáticamente reservas vencidas.
 - Login mediante `/api/v1/auth/login`.
 - Consulta del usuario autenticado mediante `/api/v1/auth/me`.
 - Seguridad HTTP con Spring Security y JWT.
 - Health Check operativo mediante Spring Boot Actuator.
 - Documentación interactiva OpenAPI/Swagger UI para desarrollo.
 - Manejo global de excepciones y validación para las operaciones implementadas.
-- Pruebas unitarias de mapper, servicio y controlador para Rol, Estacionamiento, Cajón y Usuario, además de pruebas de servicio, controlador e integración para Catálogos.
+- Pruebas unitarias de mapper, servicio y controlador para Rol, Estacionamiento, Cajón, Usuario y Reserva, además de pruebas de servicio, controlador e integración para Catálogos.
 - Hash seguro de contraseñas de Usuario mediante BCrypt.
 - Migraciones iniciales de base de datos.
 - Documentación de arquitectura, dominio, API implementada y funcionalidades propuestas.
 
-El proyecto expone APIs REST funcionales para autenticar usuarios en `/api/v1/auth/login`, consultar el usuario autenticado en `/api/v1/auth/me`, administrar roles en `/api/v1/roles`, estacionamientos en `/api/v1/estacionamientos`, cajones en `/api/v1/cajones` y usuarios en `/api/v1/usuarios`, además de consultar catálogos de cajones en `/api/v1/catalogos`.
+El proyecto expone APIs REST funcionales para autenticar usuarios en `/api/v1/auth/login`, consultar el usuario autenticado en `/api/v1/auth/me`, administrar roles en `/api/v1/roles`, estacionamientos en `/api/v1/estacionamientos`, cajones en `/api/v1/cajones`, usuarios en `/api/v1/usuarios` y reservas en `/api/v1/reservas`, además de consultar catálogos de cajones en `/api/v1/catalogos`.
 
-La autenticación JWT ya está implementada. La autorización granular por rol está aplicada en Rol, Usuario, Estacionamiento, Cajón y Catálogos. `/api/v1/roles` requiere `ADMIN`; `/api/v1/usuarios` distingue entre operaciones administrativas de `ADMIN` y operaciones propias de `USER` u `OPERADOR`; `/api/v1/estacionamientos` permite consultas a `ADMIN`, `OWNER`, `OPERADOR` y `USER`, permite escritura a `ADMIN` y permite a `OWNER` crear, consultar, actualizar y eliminar lógicamente sus propios estacionamientos; `/api/v1/cajones` permite consulta a `ADMIN`, `OWNER`, `OPERADOR` y `USER`, cambios de estado a `ADMIN`, `OWNER` y `OPERADOR`, administración global a `ADMIN` y administración propia a `OWNER`; y `/api/v1/catalogos` permite consulta a `ADMIN`, `OPERADOR` y `USER`.
+La autenticación JWT ya está implementada. La autorización granular por rol está aplicada en Rol, Usuario, Estacionamiento, Cajón, Reserva y Catálogos. `/api/v1/roles` requiere `ADMIN`; `/api/v1/usuarios` distingue entre operaciones administrativas de `ADMIN` y operaciones propias de `USER` u `OPERADOR`; `/api/v1/estacionamientos` permite consultas a `ADMIN`, `OWNER`, `OPERADOR` y `USER`, permite escritura a `ADMIN` y permite a `OWNER` crear, consultar, actualizar y eliminar lógicamente sus propios estacionamientos; `/api/v1/cajones` permite consulta a `ADMIN`, `OWNER`, `OPERADOR` y `USER`, cambios de estado a `ADMIN`, `OWNER` y `OPERADOR`, administración global a `ADMIN` y administración propia a `OWNER`; `/api/v1/reservas` permite crear, consultar y cancelar reservas propias a `USER`, consultar por código a `ADMIN`, `OWNER` y `OPERADOR`, y consultar por identificador a `ADMIN`; y `/api/v1/catalogos` permite consulta a `ADMIN`, `OPERADOR` y `USER`.
 
 ## Objetivos del Sistema
 
@@ -51,7 +52,7 @@ La autorización por roles ya forma parte del código ejecutable para Rol, Usuar
 |---|---|
 | Java | 21 |
 | Spring Boot | 3.5.15 |
-| Spring Web | API REST de Rol, Estacionamiento, Cajón, Usuario y Catálogos |
+| Spring Web | API REST de Rol, Estacionamiento, Cajón, Usuario, Reserva y Catálogos |
 | Spring Data JPA | Persistencia y repositorios |
 | Hibernate | Implementación JPA |
 | PostgreSQL | Base de datos relacional |
@@ -67,7 +68,7 @@ La autorización por roles ya forma parte del código ejecutable para Rol, Usuar
 | JUnit 5 | Pruebas mediante Spring Boot Test |
 | PlantUML | Diagramas en la documentación |
 
-El proyecto incluye Spring Security para proteger endpoints, Spring Security OAuth2 Resource Server para validar JWT y `spring-security-crypto` para BCrypt. La autorización granular por rol ya está implementada en Rol, Usuario, Estacionamiento y Cajón.
+El proyecto incluye Spring Security para proteger endpoints, Spring Security OAuth2 Resource Server para validar JWT y `spring-security-crypto` para BCrypt. La autorización granular por rol ya está implementada en Rol, Usuario, Estacionamiento, Cajón, Reserva y Catálogos.
 
 ## Arquitectura del Proyecto
 
@@ -86,10 +87,10 @@ Estado actual de las capas:
 | Entidades | Implementadas |
 | DTOs | Definidos |
 | Repositorios | Definidos con Spring Data JPA |
-| Servicios | Rol, Estacionamiento, Cajón, Usuario y Catálogos implementados |
-| Controladores | `RolController`, `EstacionamientoController`, `CajonController`, `UsuarioController` y `CatalogoController` implementados |
-| Mappers | `RolMapper`, `EstacionamientoMapper`, `CajonMapper` y `UsuarioMapper` implementados |
-| Seguridad | Autenticación JWT implementada; autorización por rol implementada en `/api/v1/roles`, `/api/v1/usuarios`, `/api/v1/estacionamientos`, `/api/v1/cajones` y `/api/v1/catalogos` |
+| Servicios | Rol, Estacionamiento, Cajón, Usuario, Reserva y Catálogos implementados |
+| Controladores | `RolController`, `EstacionamientoController`, `CajonController`, `UsuarioController`, `ReservaController` y `CatalogoController` implementados |
+| Mappers | `RolMapper`, `EstacionamientoMapper`, `CajonMapper`, `UsuarioMapper` y `ReservaMapper` implementados |
+| Seguridad | Autenticación JWT implementada; autorización por rol implementada en `/api/v1/roles`, `/api/v1/usuarios`, `/api/v1/estacionamientos`, `/api/v1/cajones`, `/api/v1/reservas` y `/api/v1/catalogos` |
 | Observabilidad | Health Check público implementado mediante Spring Boot Actuator |
 | Documentación interactiva | OpenAPI y Swagger UI habilitados en `dev` y deshabilitados por defecto/prod |
 | Manejo global de errores | Implementado mediante `GlobalExceptionHandler` y `ApiError`, incluyendo `transactionId` |
@@ -157,7 +158,10 @@ parkio/
 │   │   │   │   └── service/
 │   │   │   ├── reserva/
 │   │   │   │   ├── config/
-│   │   │   │   └── entity/
+│   │   │   │   ├── dto/
+│   │   │   │   ├── entity/
+│   │   │   │   ├── mapper/
+│   │   │   │   └── repository/
 │   │   │   ├── shared/
 │   │   │   │   ├── entity/
 │   │   │   │   └── exception/
@@ -280,7 +284,7 @@ Campos propios:
 
 `estado` se almacena como `VARCHAR(30)` y se modela mediante el enum `EstadoReserva`. Los estados disponibles son `CREADA`, `CANCELADA`, `EXPIRADA` y `USADA`.
 
-La duración de reservas nuevas se parametriza mediante `parkio.reserva.expiracion-minutos` y puede cambiarse por ambiente con `PARKIO_RESERVA_EXPIRACION_MINUTOS`, sin modificar código del backend ni del frontend.
+La duración de reservas nuevas se parametriza mediante `parkio.reserva.expiracion-minutos` y puede cambiarse por ambiente con `PARKIO_RESERVA_EXPIRACION_MINUTOS`, sin modificar código del backend ni del frontend. La revisión automática de reservas vencidas se parametriza mediante `parkio.reserva.expiracion-check-ms` o `PARKIO_RESERVA_EXPIRACION_CHECK_MS`.
 
 ### Relaciones
 
@@ -418,19 +422,36 @@ El módulo implementa operaciones para listar de forma paginada, filtrar por est
 
 ### Reserva
 
-Preparación inicial del módulo de reservas.
+Módulo funcional para crear y consultar reservas temporales de cajones.
 
 Incluye:
 
 - Entidad `Reserva`.
+- `ReservaRequest` y `ReservaResponse`.
 - `EstadoReserva`.
+- `ReservaRepository`.
+- `ReservaMapper`.
+- `ReservaService`.
+- `ReservaServiceImpl`.
+- `ReservaController`.
 - `ReservaProperties`.
 - `ReservaConfig`.
+- `ReservaSchedulingConfig`.
+- `ReservaScheduler`.
 - Migración Flyway `V10__create_reserva.sql`.
+- Pruebas unitarias de mapper, servicio y controlador.
+- Prueba unitaria del scheduler.
+- Prueba de integración `ReservaIntegrationTest`.
 
-El enum `EstadoReserva` define los estados `CREADA`, `CANCELADA`, `EXPIRADA` y `USADA`. Todavía no existen DTOs, repositorio, servicio, controlador ni endpoints de reservas implementados.
+El enum `EstadoReserva` define los estados `CREADA`, `CANCELADA`, `EXPIRADA` y `USADA`.
 
-Para la creación futura de reservas se debe usar la propiedad `parkio.reserva.expiracion-minutos`, configurable mediante `PARKIO_RESERVA_EXPIRACION_MINUTOS`. El frontend no debe enviar la duración de la reserva; el backend debe calcular `fechaExpiracion` con la configuración vigente y guardar el tiempo aplicado en cada registro.
+El módulo expone endpoints para crear reservas, consultar las reservas del usuario autenticado, consultar por código público, consultar por identificador interno y cancelar reservas propias. La creación de una reserva valida usuario, estacionamiento, cajón disponible y ausencia de reserva vigente sobre el mismo cajón. Al crear una reserva, el cajón cambia a `RESERVADO`.
+
+Para la creación de reservas se usa la propiedad `parkio.reserva.expiracion-minutos`, configurable mediante `PARKIO_RESERVA_EXPIRACION_MINUTOS`. El frontend no debe enviar la duración de la reserva; el backend calcula `fechaExpiracion` con la configuración vigente y guarda el tiempo aplicado en cada registro.
+
+La cancelación manual permite que un usuario con rol `USER` cancele únicamente reservas propias que sigan en estado `CREADA` y vigentes. Al cancelar, la reserva cambia a `CANCELADA` y el cajón vuelve a `LIBRE` cuando no existe otra reserva vigente sobre el mismo cajón.
+
+La cancelación automática se ejecuta mediante un scheduler interno. El proceso busca reservas `CREADA` vencidas, las cambia a `EXPIRADA` y libera el cajón cuando corresponde. La frecuencia del proceso se configura con `parkio.reserva.expiracion-check-ms` o `PARKIO_RESERVA_EXPIRACION_CHECK_MS`.
 
 ### Auditoría
 
@@ -671,6 +692,7 @@ Variables soportadas:
 | `PARKIO_JWT_SECRET` | Secreto usado para firmar JWT |
 | `PARKIO_JWT_EXPIRATION_MINUTES` | Vigencia del token en minutos |
 | `PARKIO_RESERVA_EXPIRACION_MINUTOS` | Minutos de vigencia para nuevas reservas |
+| `PARKIO_RESERVA_EXPIRACION_CHECK_MS` | Frecuencia en milisegundos para revisar y expirar reservas vencidas |
 | `PARKIO_TEST_DB_URL` | URL JDBC para pruebas |
 | `PARKIO_TEST_DB_USERNAME` | Usuario PostgreSQL para pruebas |
 | `PARKIO_TEST_DB_PASSWORD` | Contraseña PostgreSQL para pruebas |
@@ -685,6 +707,7 @@ $env:PARKIO_DB_PASSWORD="123123"
 $env:PARKIO_CORS_ALLOWED_ORIGINS="http://localhost:4200,http://localhost:5173"
 $env:PARKIO_JWT_SECRET="clave-segura-local"
 $env:PARKIO_RESERVA_EXPIRACION_MINUTOS="20"
+$env:PARKIO_RESERVA_EXPIRACION_CHECK_MS="60000"
 ```
 
 `PARKIO_JWT_SECRET` no debe reutilizar el valor local por defecto fuera de desarrollo. En producción debe definirse como un secreto externo, suficientemente largo y no versionado en el repositorio.
@@ -787,7 +810,7 @@ Si la conexión con PostgreSQL y las migraciones son correctas, la aplicación i
 http://localhost:8023
 ```
 
-Actualmente está disponible el login bajo `/api/v1/auth/login`, la consulta del usuario autenticado bajo `/api/v1/auth/me` y la creación de usuarios mediante `POST /api/v1/usuarios` sin token. La creación pública asigna automáticamente el rol base `USER`. `/api/v1/auth/me` requiere JWT válido y devuelve los datos vigentes del usuario autenticado. Los endpoints CRUD de roles bajo `/api/v1/roles` requieren un token JWT válido con rol `ADMIN`. En `/api/v1/usuarios`, las operaciones administrativas requieren `ADMIN` y las operaciones sobre el propio usuario permiten `USER` u `OPERADOR` cuando el `usuarioId` de la ruta coincide con el claim del JWT. En `/api/v1/estacionamientos`, las consultas permiten `ADMIN`, `OWNER`, `OPERADOR` y `USER`; `ADMIN` administra todos los estacionamientos y `OWNER` administra solo los propios. En `/api/v1/cajones`, las consultas permiten `ADMIN`, `OWNER`, `OPERADOR` y `USER`; el cambio de estado permite `ADMIN`, `OWNER` y `OPERADOR`; y las operaciones de creación, actualización y eliminación requieren `ADMIN` global u `OWNER` limitado a sus estacionamientos.
+Actualmente está disponible el login bajo `/api/v1/auth/login`, la consulta del usuario autenticado bajo `/api/v1/auth/me` y la creación de usuarios mediante `POST /api/v1/usuarios` sin token. La creación pública asigna automáticamente el rol base `USER`. `/api/v1/auth/me` requiere JWT válido y devuelve los datos vigentes del usuario autenticado. Los endpoints CRUD de roles bajo `/api/v1/roles` requieren un token JWT válido con rol `ADMIN`. En `/api/v1/usuarios`, las operaciones administrativas requieren `ADMIN` y las operaciones sobre el propio usuario permiten `USER` u `OPERADOR` cuando el `usuarioId` de la ruta coincide con el claim del JWT. En `/api/v1/estacionamientos`, las consultas permiten `ADMIN`, `OWNER`, `OPERADOR` y `USER`; `ADMIN` administra todos los estacionamientos y `OWNER` administra solo los propios. En `/api/v1/cajones`, las consultas permiten `ADMIN`, `OWNER`, `OPERADOR` y `USER`; el cambio de estado permite `ADMIN`, `OWNER` y `OPERADOR`; y las operaciones de creación, actualización y eliminación requieren `ADMIN` global u `OWNER` limitado a sus estacionamientos. En `/api/v1/reservas`, `USER` puede crear, consultar y cancelar sus propias reservas, `ADMIN`, `OWNER` y `OPERADOR` pueden consultar por código, y `ADMIN` puede consultar por identificador interno.
 
 Los endpoints de Health Check están disponibles sin JWT:
 

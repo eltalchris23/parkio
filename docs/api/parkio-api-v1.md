@@ -109,6 +109,9 @@ GET /api/v1/auth/me
 GET /api/v1/roles
 GET /api/v1/estacionamientos
 GET /api/v1/cajones
+POST /api/v1/reservas
+GET /api/v1/reservas/mis-reservas
+PATCH /api/v1/reservas/{reservaId}/cancelar
 GET /api/v1/usuarios
 GET /api/v1/catalogos/cajones/tipos
 GET /api/v1/catalogos/cajones/estados
@@ -138,6 +141,7 @@ Roles base existentes en base de datos:
 | Rol | `ADMIN` | `ADMIN` |
 | Estacionamiento | `ADMIN`, `OWNER`, `OPERADOR`, `USER`; `OWNER` solo ve los propios | `ADMIN`; `OWNER` solo administra los propios |
 | Cajón | `ADMIN`, `OWNER`, `OPERADOR`, `USER`; `OWNER` solo ve cajones de estacionamientos propios | `ADMIN`; `OWNER` solo administra cajones propios; cambio de estado también permite `OPERADOR` |
+| Reserva | `USER` consulta sus propias reservas; `ADMIN`, `OWNER` y `OPERADOR` consultan por código; `ADMIN` consulta por ID | `USER` crea y cancela reservas propias |
 | Catálogos | `ADMIN`, `OPERADOR`, `USER` | No aplica |
 
 ### Identificador de transacción
@@ -1189,6 +1193,224 @@ Sin cuerpo. Realiza borrado lógico. Si el usuario autenticado tiene rol `OWNER`
 | `404` | Cajón o estacionamiento inexistente/inactivo |
 | `409` | Número duplicado dentro del estacionamiento |
 
+## Módulo Reserva
+
+El módulo Reserva permite apartar temporalmente un cajón disponible para un cliente final.
+
+Reglas actuales:
+
+- Requiere JWT válido.
+- `USER` puede crear reservas y consultar sus propias reservas.
+- `USER` puede cancelar únicamente sus propias reservas.
+- `ADMIN`, `OWNER` y `OPERADOR` pueden consultar una reserva por código público.
+- `ADMIN` puede consultar una reserva por identificador interno.
+- El frontend no envía la duración de la reserva.
+- El backend calcula la expiración usando `parkio.reserva.expiracion-minutos`.
+- El backend ejecuta una revisión automática de reservas vencidas usando `parkio.reserva.expiracion-check-ms`.
+- Al crear una reserva, el cajón cambia a estado `RESERVADO`.
+- No se permite crear una reserva si el cajón no está `LIBRE`.
+- No se permite crear una reserva si ya existe una reserva `CREADA` y vigente para el mismo cajón.
+- Solo se puede cancelar una reserva propia que esté en estado `CREADA` y que todavía no haya expirado.
+- Al cancelar o expirar una reserva, el cajón vuelve a `LIBRE` cuando no existe otra reserva vigente sobre el mismo cajón.
+
+### Crear reserva
+
+```http
+POST /api/v1/reservas
+```
+
+Requiere rol `USER`.
+
+#### Request
+
+```json
+{
+  "estacionamientoId": 1,
+  "cajonId": 1,
+  "placa": "ABC123"
+}
+```
+
+#### Response 201
+
+```json
+{
+  "timestamp": "2026-07-25T10:00:00",
+  "status": 201,
+  "message": "Reserva creada correctamente",
+  "transactionId": "0f5d5c9b-8dc1-4bd1-a173-08f16eb4f96e",
+  "data": {
+    "id": 1,
+    "codigo": "RSV-A1B2C3D4",
+    "placa": "ABC123",
+    "estado": "CREADA",
+    "fechaReserva": "2026-07-25T10:00:00",
+    "fechaExpiracion": "2026-07-25T10:20:00",
+    "tiempoExpiracionMinutos": 20,
+    "usuarioId": 1,
+    "estacionamientoId": 1,
+    "cajonId": 1,
+    "activo": true,
+    "fechaCreacion": "2026-07-25T10:00:00"
+  }
+}
+```
+
+### Consultar mis reservas
+
+```http
+GET /api/v1/reservas/mis-reservas?page=0&size=10&sort=fechaReserva,desc
+```
+
+Requiere rol `USER`.
+
+#### Response 200
+
+```json
+{
+  "timestamp": "2026-07-25T10:00:00",
+  "status": 200,
+  "message": "Reservas consultadas correctamente",
+  "transactionId": "0f5d5c9b-8dc1-4bd1-a173-08f16eb4f96e",
+  "data": {
+    "content": [
+      {
+        "id": 1,
+        "codigo": "RSV-A1B2C3D4",
+        "placa": "ABC123",
+        "estado": "CREADA",
+        "fechaReserva": "2026-07-25T10:00:00",
+        "fechaExpiracion": "2026-07-25T10:20:00",
+        "tiempoExpiracionMinutos": 20,
+        "usuarioId": 1,
+        "estacionamientoId": 1,
+        "cajonId": 1,
+        "activo": true,
+        "fechaCreacion": "2026-07-25T10:00:00"
+      }
+    ],
+    "page": 0,
+    "size": 10,
+    "totalElements": 1,
+    "totalPages": 1,
+    "first": true,
+    "last": true,
+    "empty": false
+  }
+}
+```
+
+### Consultar reserva por código
+
+```http
+GET /api/v1/reservas/codigo/{codigo}
+```
+
+Requiere rol `ADMIN`, `OWNER` u `OPERADOR`.
+
+#### Response 200
+
+```json
+{
+  "timestamp": "2026-07-25T10:00:00",
+  "status": 200,
+  "message": "Reserva consultada correctamente",
+  "transactionId": "0f5d5c9b-8dc1-4bd1-a173-08f16eb4f96e",
+  "data": {
+    "id": 1,
+    "codigo": "RSV-A1B2C3D4",
+    "placa": "ABC123",
+    "estado": "CREADA",
+    "fechaReserva": "2026-07-25T10:00:00",
+    "fechaExpiracion": "2026-07-25T10:20:00",
+    "tiempoExpiracionMinutos": 20,
+    "usuarioId": 1,
+    "estacionamientoId": 1,
+    "cajonId": 1,
+    "activo": true,
+    "fechaCreacion": "2026-07-25T10:00:00"
+  }
+}
+```
+
+### Cancelar reserva propia
+
+```http
+PATCH /api/v1/reservas/{reservaId}/cancelar
+```
+
+Requiere rol `USER`.
+
+La reserva debe pertenecer al usuario autenticado, estar en estado `CREADA` y seguir vigente. Si la reserva ya expiró o ya no está en estado cancelable, el backend responde `409 Conflict`.
+
+#### Response 200
+
+```json
+{
+  "timestamp": "2026-07-25T10:05:00",
+  "status": 200,
+  "message": "Reserva cancelada correctamente",
+  "transactionId": "0f5d5c9b-8dc1-4bd1-a173-08f16eb4f96e",
+  "data": {
+    "id": 1,
+    "codigo": "RSV-A1B2C3D4",
+    "placa": "ABC123",
+    "estado": "CANCELADA",
+    "fechaReserva": "2026-07-25T10:00:00",
+    "fechaExpiracion": "2026-07-25T10:20:00",
+    "tiempoExpiracionMinutos": 20,
+    "usuarioId": 1,
+    "estacionamientoId": 1,
+    "cajonId": 1,
+    "activo": true,
+    "fechaCreacion": "2026-07-25T10:00:00"
+  }
+}
+```
+
+### Consultar reserva por ID
+
+```http
+GET /api/v1/reservas/{reservaId}
+```
+
+Requiere rol `ADMIN`.
+
+#### Response 200
+
+```json
+{
+  "timestamp": "2026-07-25T10:00:00",
+  "status": 200,
+  "message": "Reserva consultada correctamente",
+  "transactionId": "0f5d5c9b-8dc1-4bd1-a173-08f16eb4f96e",
+  "data": {
+    "id": 1,
+    "codigo": "RSV-A1B2C3D4",
+    "placa": "ABC123",
+    "estado": "CREADA",
+    "fechaReserva": "2026-07-25T10:00:00",
+    "fechaExpiracion": "2026-07-25T10:20:00",
+    "tiempoExpiracionMinutos": 20,
+    "usuarioId": 1,
+    "estacionamientoId": 1,
+    "cajonId": 1,
+    "activo": true,
+    "fechaCreacion": "2026-07-25T10:00:00"
+  }
+}
+```
+
+#### Errores del módulo
+
+| HTTP | Causa |
+|---|---|
+| `400` | Datos inválidos en la solicitud |
+| `401` | JWT ausente o inválido |
+| `403` | Usuario sin permisos para la operación |
+| `404` | Usuario, estacionamiento, cajón o reserva inexistente/inactivo |
+| `409` | Cajón no disponible, cajón fuera del estacionamiento indicado, reserva vigente duplicada, reserva no cancelable o reserva vencida |
+
 ## Módulo Catálogos
 
 Seguridad:
@@ -1278,7 +1500,7 @@ GET /api/v1/catalogos/cajones/estados
 
 ## Pruebas automatizadas relacionadas
 
-El backend cuenta con pruebas unitarias de mapper, servicio y controlador para Rol, Estacionamiento, Cajón y Usuario, además de pruebas unitarias de servicio y controlador para Catálogos.
+El backend cuenta con pruebas unitarias de mapper, servicio y controlador para Rol, Estacionamiento, Cajón, Usuario y Reserva, prueba unitaria del scheduler de Reserva, además de pruebas unitarias de servicio y controlador para Catálogos.
 
 `SecurityConfigTest` cubre reglas de seguridad HTTP, autorización por roles, autenticación JWT simulada, validaciones CORS y acceso protegido a Catálogos. Las pruebas CORS validan preflight `OPTIONS` desde orígenes permitidos, rechazo de orígenes no configurados y exposición de `X-Transaction-Id` para consumo desde frontend.
 
@@ -1290,6 +1512,7 @@ También existen pruebas de integración con Spring Boot completo, PostgreSQL y 
 - `RolIntegrationTest`.
 - `EstacionamientoIntegrationTest`.
 - `CajonIntegrationTest`.
+- `ReservaIntegrationTest`.
 - `UsuarioIntegrationTest`.
 - `CatalogoIntegrationTest`.
 
@@ -1302,6 +1525,8 @@ Estas pruebas validan que la conexión use `parkio_test` antes de limpiar datos 
 `EstacionamientoIntegrationTest` cubre rechazo sin JWT, consulta con `USER`, administración global con `ADMIN`, borrado lógico con desactivación de cajones asociados, alcance de `OWNER` para crear, listar, consultar, actualizar y eliminar lógicamente únicamente sus propios estacionamientos, y alcance de `OPERADOR` para consultar solo estacionamientos asignados mediante `usuario_estacionamiento`. También valida que `owner_id` se asigne desde el JWT y que un `OWNER` no afecte estacionamientos ni cajones de otro `OWNER`.
 
 `CajonIntegrationTest` cubre rechazo sin JWT, consulta con `USER`, cambio de estado con `OPERADOR`, administración global con `ADMIN`, conflictos por número duplicado, borrado lógico, alcance de `OWNER` para operar únicamente cajones ubicados en sus propios estacionamientos y alcance de `OPERADOR` para consultar y cambiar estado solo en cajones de estacionamientos asignados.
+
+`ReservaIntegrationTest` cubre rechazo sin JWT, creación de reserva con `USER`, cambio del cajón a `RESERVADO`, bloqueo de doble reserva sobre el mismo cajón, consulta de reservas propias, consulta por código con `OPERADOR`, consulta por identificador interno con `ADMIN`, cancelación manual de reservas propias y expiración de reservas vencidas con liberación del cajón.
 
 `CatalogoIntegrationTest` cubre rechazo sin JWT, acceso con roles `ADMIN`, `OPERADOR` y `USER`, formato `ApiResponse`, presencia de `transactionId` y valores reales de los catálogos de tipos y estados de Cajón derivados de los enums `TipoCajon` y `EstadoCajon`.
 
