@@ -117,6 +117,7 @@ POST /api/v1/reservas
 GET /api/v1/reservas/mis-reservas
 PATCH /api/v1/reservas/{reservaId}/cancelar
 POST /api/v1/tickets/entrada
+PATCH /api/v1/tickets/{ticketId}/salida
 GET /api/v1/usuarios
 GET /api/v1/catalogos/cajones/tipos
 GET /api/v1/catalogos/cajones/estados
@@ -147,7 +148,7 @@ Roles base existentes en base de datos:
 | Estacionamiento | `ADMIN`, `OWNER`, `OPERADOR`, `USER`; `OWNER` solo ve los propios | `ADMIN`; `OWNER` solo administra los propios |
 | Cajón | `ADMIN`, `OWNER`, `OPERADOR`, `USER`; `OWNER` solo ve cajones de estacionamientos propios | `ADMIN`; `OWNER` solo administra cajones propios; cambio de estado también permite `OPERADOR` |
 | Reserva | `USER` consulta sus propias reservas; `ADMIN`, `OWNER` y `OPERADOR` consultan por código; `ADMIN` consulta por ID | `USER` crea y cancela reservas propias |
-| Ticket | No tiene consultas implementadas todavía | `OPERADOR` registra entrada desde una reserva vigente |
+| Ticket | No tiene consultas implementadas todavía | `ADMIN`, `OWNER` y `OPERADOR` registran entrada y salida según alcance |
 | Catálogos | `ADMIN`, `OPERADOR`, `USER` | No aplica |
 
 ### Identificador de transacción
@@ -503,8 +504,12 @@ Sin cuerpo. Realiza borrado lógico.
 Seguridad:
 
 - `POST /api/v1/usuarios` es público y asigna automáticamente rol base `USER`.
-- `GET /api/v1/usuarios`, `DELETE /api/v1/usuarios/{usuarioId}` y asignaciones/retiros requieren `ADMIN`.
-- `GET /api/v1/usuarios/{usuarioId}`, `PUT /api/v1/usuarios/{usuarioId}` y `PATCH /api/v1/usuarios/{usuarioId}/password` permiten `ADMIN`, o `USER`/`OPERADOR` cuando el `usuarioId` de la ruta coincide con el claim `usuarioId`.
+- `GET /api/v1/usuarios` y `DELETE /api/v1/usuarios/{usuarioId}` requieren `ADMIN`.
+- `GET /api/v1/usuarios/{usuarioId}` y `PUT /api/v1/usuarios/{usuarioId}` permiten `ADMIN`, el propio usuario autenticado o `OWNER` cuando el usuario objetivo es un `OPERADOR` asignado a uno de sus estacionamientos.
+- `PATCH /api/v1/usuarios/{usuarioId}/password` permite `ADMIN` o el propio usuario autenticado. `OWNER` no cambia contraseñas de operadores.
+- `POST /api/v1/usuarios/{usuarioId}/roles` y `DELETE /api/v1/usuarios/{usuarioId}/roles/{rolId}` requieren `ADMIN`. `OWNER` no asigna ni retira roles.
+- `POST /api/v1/usuarios/{usuarioId}/estacionamientos` permite `ADMIN` o `OWNER` cuando el estacionamiento pertenece al `OWNER` autenticado y el usuario objetivo ya tiene rol `OPERADOR`.
+- `DELETE /api/v1/usuarios/{usuarioId}/estacionamientos/{estacionamientoId}` permite `ADMIN` o `OWNER` cuando retira uno de sus propios estacionamientos de un usuario con rol `OPERADOR`.
 
 Las respuestas nunca incluyen `passwordHash`.
 
@@ -605,6 +610,8 @@ Validaciones:
 GET /api/v1/usuarios/{usuarioId}
 ```
 
+Permisos: `ADMIN` puede consultar cualquier usuario; cualquier usuario autenticado puede consultarse a sí mismo; `OWNER` puede consultar operadores asignados a sus propios estacionamientos.
+
 #### Response 200
 
 ```json
@@ -633,6 +640,8 @@ GET /api/v1/usuarios/{usuarioId}
 ```http
 PUT /api/v1/usuarios/{usuarioId}
 ```
+
+Permisos: `ADMIN` puede actualizar cualquier usuario; cualquier usuario autenticado puede actualizarse a sí mismo; `OWNER` puede actualizar operadores asignados a sus propios estacionamientos.
 
 #### Request
 
@@ -675,6 +684,8 @@ La actualización general no exige contraseña.
 PATCH /api/v1/usuarios/{usuarioId}/password
 ```
 
+Permisos: `ADMIN` puede cambiar la contraseña de cualquier usuario; cualquier usuario autenticado puede cambiar su propia contraseña. `OWNER` no cambia contraseñas de operadores salvo que sea su propia cuenta.
+
 #### Request
 
 ```json
@@ -693,6 +704,8 @@ Sin cuerpo.
 DELETE /api/v1/usuarios/{usuarioId}
 ```
 
+Requiere rol `ADMIN`. `OWNER` no realiza borrado lógico global de operadores; para quitar a un operador de un estacionamiento debe usar el retiro de estacionamiento.
+
 #### Response 204
 
 Sin cuerpo. Realiza borrado lógico.
@@ -702,6 +715,8 @@ Sin cuerpo. Realiza borrado lógico.
 ```http
 POST /api/v1/usuarios/{usuarioId}/roles
 ```
+
+Requiere rol `ADMIN`. `OWNER` no puede asignar roles para evitar elevación de privilegios.
 
 #### Request
 
@@ -741,6 +756,8 @@ POST /api/v1/usuarios/{usuarioId}/roles
 DELETE /api/v1/usuarios/{usuarioId}/roles/{rolId}
 ```
 
+Requiere rol `ADMIN`. `OWNER` no puede retirar roles.
+
 #### Response 204
 
 Sin cuerpo.
@@ -750,6 +767,8 @@ Sin cuerpo.
 ```http
 POST /api/v1/usuarios/{usuarioId}/estacionamientos
 ```
+
+Permisos: `ADMIN` puede asignar cualquier estacionamiento activo. `OWNER` solo puede asignar estacionamientos propios a usuarios activos que ya tengan rol `OPERADOR`.
 
 #### Request
 
@@ -789,6 +808,8 @@ POST /api/v1/usuarios/{usuarioId}/estacionamientos
 ```http
 DELETE /api/v1/usuarios/{usuarioId}/estacionamientos/{estacionamientoId}
 ```
+
+Permisos: `ADMIN` puede retirar cualquier relación. `OWNER` solo puede retirar estacionamientos propios de usuarios activos con rol `OPERADOR`.
 
 #### Response 204
 
@@ -1419,24 +1440,28 @@ Requiere rol `ADMIN`.
 
 ## Módulo Ticket
 
-El módulo Ticket permite registrar la entrada real de un vehículo al estacionamiento usando una reserva vigente.
+El módulo Ticket permite registrar la entrada real de un vehículo al estacionamiento usando una reserva vigente y registrar la salida para cerrar el ticket.
 
 Reglas actuales:
 
 - Requiere JWT válido.
-- `OPERADOR` puede registrar entradas mediante código de reserva.
-- El operador se obtiene desde el claim `usuarioId` del JWT.
-- El frontend no envía el identificador del operador.
+- `ADMIN`, `OWNER` y `OPERADOR` pueden registrar entradas y salidas según alcance.
+- `ADMIN` puede operar tickets de cualquier estacionamiento.
+- `OWNER` solo puede operar tickets de estacionamientos propios.
+- `OPERADOR` solo puede operar tickets de estacionamientos asignados mediante `usuario_estacionamiento`.
+- El usuario autenticado se obtiene desde el claim `usuarioId` del JWT.
+- El frontend no envía el identificador del operador, owner o admin.
 - La reserva debe existir, estar activa, estar en estado `CREADA` y seguir vigente.
-- El operador debe tener rol `OPERADOR`.
-- El operador debe estar asignado al estacionamiento de la reserva mediante `usuario_estacionamiento`.
 - Una reserva solo puede convertirse en un ticket activo.
 - Un cajón no puede tener más de un ticket `ABIERTO` activo.
 - Al registrar entrada, la reserva cambia a `USADA`.
 - Al registrar entrada, el cajón cambia a `OCUPADO`.
 - El ticket se crea en estado `ABIERTO`.
+- Al registrar salida, el ticket cambia a `CERRADO`.
+- Al registrar salida, se asigna `fechaSalida`.
+- Al registrar salida, el cajón cambia a `LIBRE`.
 
-Todavía no está implementado el cierre de ticket, la salida del vehículo, el cálculo de cobro ni la facturación.
+Todavía no está implementado el cálculo de cobro ni la facturación.
 
 ### Registrar entrada con reserva
 
@@ -1444,7 +1469,7 @@ Todavía no está implementado el cierre de ticket, la salida del vehículo, el 
 POST /api/v1/tickets/entrada
 ```
 
-Requiere rol `OPERADOR`.
+Requiere rol `ADMIN`, `OWNER` u `OPERADOR`.
 
 #### Request
 
@@ -1494,9 +1519,60 @@ Después de una respuesta `201 Created`:
 |---|---|
 | `400` | Datos inválidos en la solicitud |
 | `401` | JWT ausente o inválido |
-| `403` | Usuario sin rol `OPERADOR` |
-| `404` | Operador o reserva inexistente/inactiva |
-| `409` | Reserva no está en `CREADA`, reserva vencida, operador no asignado al estacionamiento, reserva ya convertida o cajón con ticket abierto |
+| `403` | Usuario sin rol permitido para operar tickets |
+| `404` | Usuario autenticado o reserva inexistente/inactiva |
+| `409` | Reserva no está en `CREADA`, reserva vencida, usuario sin alcance sobre el estacionamiento, reserva ya convertida o cajón con ticket abierto |
+
+### Registrar salida
+
+```http
+PATCH /api/v1/tickets/{ticketId}/salida
+```
+
+Requiere rol `ADMIN`, `OWNER` u `OPERADOR`.
+
+#### Response 200
+
+```json
+{
+  "timestamp": "2026-07-25T11:00:00",
+  "status": 200,
+  "message": "Salida registrada correctamente",
+  "transactionId": "0f5d5c9b-8dc1-4bd1-a173-08f16eb4f96e",
+  "data": {
+    "id": 1,
+    "codigo": "TCK-A1B2C3D4",
+    "estado": "CERRADO",
+    "placa": "ABC123",
+    "fechaEntrada": "2026-07-25T10:10:00",
+    "fechaSalida": "2026-07-25T11:00:00",
+    "reservaId": 1,
+    "usuarioId": 1,
+    "operadorEntradaId": 2,
+    "estacionamientoId": 1,
+    "cajonId": 1,
+    "activo": true,
+    "fechaCreacion": "2026-07-25T10:10:00"
+  }
+}
+```
+
+#### Efectos de negocio
+
+Después de una respuesta `200 OK`:
+
+- El ticket queda en estado `CERRADO`.
+- El ticket tiene `fechaSalida`.
+- El cajón queda en estado `LIBRE`.
+
+#### Errores de salida
+
+| HTTP | Causa |
+|---|---|
+| `401` | JWT ausente o inválido |
+| `403` | Usuario sin rol permitido para operar tickets |
+| `404` | Usuario autenticado o ticket inexistente/inactivo |
+| `409` | Ticket distinto de `ABIERTO` o usuario sin alcance sobre el estacionamiento |
 
 ## Módulo Catálogos
 
@@ -1616,7 +1692,7 @@ Estas pruebas validan que la conexión use `parkio_test` antes de limpiar datos 
 
 `ReservaIntegrationTest` cubre rechazo sin JWT, creación de reserva con `USER`, cambio del cajón a `RESERVADO`, bloqueo de doble reserva sobre el mismo cajón, consulta de reservas propias, consulta por código con `OPERADOR`, consulta por identificador interno con `ADMIN`, cancelación manual de reservas propias y expiración de reservas vencidas con liberación del cajón.
 
-`TicketIntegrationTest` cubre rechazo sin JWT, rechazo con rol `USER`, creación de ticket con `OPERADOR` asignado al estacionamiento, cambio de reserva a `USADA`, cambio de cajón a `OCUPADO`, bloqueo de doble ticket para la misma reserva y rechazo de operador no asignado al estacionamiento.
+`TicketIntegrationTest` cubre rechazo sin JWT, rechazo con rol `USER`, creación de ticket con `OPERADOR` asignado al estacionamiento, creación con `ADMIN`, creación con `OWNER` sobre estacionamiento propio, cambio de reserva a `USADA`, cambio de cajón a `OCUPADO`, cierre de ticket con cambio a `CERRADO` y cajón `LIBRE`, bloqueo de doble ticket para la misma reserva y rechazo de operador no asignado al estacionamiento.
 
 `CatalogoIntegrationTest` cubre rechazo sin JWT, acceso con roles `ADMIN`, `OPERADOR` y `USER`, formato `ApiResponse`, presencia de `transactionId` y valores reales de los catálogos de tipos y estados de Cajón derivados de los enums `TipoCajon` y `EstadoCajon`.
 

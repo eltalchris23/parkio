@@ -11,9 +11,18 @@ public interface TicketService {
     /**
      * Registra la entrada de un vehiculo convirtiendo una reserva vigente en ticket.
      *
-     * @param operadorId identificador del operador autenticado tomado desde el JWT.
+     * @param usuarioAutenticadoId identificador del usuario autenticado tomado desde el JWT.
      * @param request datos necesarios para registrar la entrada.
      * @return ticket generado para la estancia del vehiculo.
      */
-    TicketResponse registrarEntrada(Long operadorId, TicketEntradaRequest request);
+    TicketResponse registrarEntrada(Long usuarioAutenticadoId, TicketEntradaRequest request);
+
+    /**
+     * Registra la salida de un vehiculo cerrando un ticket abierto.
+     *
+     * @param usuarioAutenticadoId identificador del usuario autenticado tomado desde el JWT.
+     * @param ticketId identificador interno del ticket que se desea cerrar.
+     * @return ticket cerrado con fecha de salida.
+     */
+    TicketResponse registrarSalida(Long usuarioAutenticadoId, Long ticketId);
 }

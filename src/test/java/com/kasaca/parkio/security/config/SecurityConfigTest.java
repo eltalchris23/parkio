@@ -18,6 +18,7 @@ import com.kasaca.parkio.cajon.service.CajonService;
 import com.kasaca.parkio.estacionamiento.controller.EstacionamientoController;
 import com.kasaca.parkio.estacionamiento.dto.EstacionamientoRequest;
 import com.kasaca.parkio.estacionamiento.dto.EstacionamientoResponse;
+import com.kasaca.parkio.estacionamiento.repository.EstacionamientoRepository;
 import com.kasaca.parkio.estacionamiento.service.EstacionamientoService;
 import com.kasaca.parkio.rol.controller.RolController;
 import com.kasaca.parkio.rol.dto.RolResponse;
@@ -29,6 +30,7 @@ import com.kasaca.parkio.shared.exception.GlobalExceptionHandler;
 import com.kasaca.parkio.usuario.controller.UsuarioController;
 import com.kasaca.parkio.usuario.dto.UsuarioCreateRequest;
 import com.kasaca.parkio.usuario.dto.UsuarioResponse;
+import com.kasaca.parkio.usuario.repository.UsuarioRepository;
 import com.kasaca.parkio.usuario.service.UsuarioService;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -110,6 +112,12 @@ class SecurityConfigTest {
 
     @MockitoBean
     private UsuarioService usuarioService;
+
+    @MockitoBean
+    private UsuarioRepository usuarioRepository;
+
+    @MockitoBean
+    private EstacionamientoRepository estacionamientoRepository;
 
     @MockitoBean
     private RolService rolService;

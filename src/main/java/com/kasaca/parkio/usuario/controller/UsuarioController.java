@@ -110,6 +110,7 @@ public class UsuarioController {
             description = """
                     Devuelve la información pública de un usuario activo.
                     ADMIN puede consultar cualquier usuario.
+                    OWNER puede consultar su propio usuario o sus operadores asignados a estacionamientos propios.
                     USER y OPERADOR solo pueden consultar su propio usuario.
                     """,
             security = @SecurityRequirement(name = "bearerAuth")
@@ -132,7 +133,7 @@ public class UsuarioController {
                     description = "Usuario no encontrado"
             )
     })
-    @PreAuthorize("hasRole('ADMIN') or (hasAnyRole('USER', 'OPERADOR') and @usuarioSecurity.isSelf(authentication, #usuarioId))")
+    @PreAuthorize("hasRole('ADMIN') or @usuarioSecurity.isSelf(authentication, #usuarioId) or @usuarioSecurity.canManageOperador(authentication, #usuarioId)")
     @GetMapping(value = "/{usuarioId}", produces = MediaType.APPLICATION_JSON_VALUE)
     public ResponseEntity<ApiResponse<UsuarioResponse>> getUserById(
             @Parameter(description = "Identificador del usuario", example = "1")
@@ -220,6 +221,7 @@ public class UsuarioController {
                     Actualiza nombre, apellido y correo electrónico de un usuario.
                     No modifica la contraseña ni las asociaciones de roles o estacionamientos.
                     ADMIN puede actualizar cualquier usuario.
+                    OWNER puede actualizar su propio usuario o sus operadores asignados a estacionamientos propios.
                     USER y OPERADOR solo pueden actualizar su propio usuario.
                     """,
             security = @SecurityRequirement(name = "bearerAuth")
@@ -250,7 +252,7 @@ public class UsuarioController {
                     description = "Ya existe otro usuario con el mismo correo electrónico"
             )
     })
-    @PreAuthorize("hasRole('ADMIN') or (hasAnyRole('USER', 'OPERADOR') and @usuarioSecurity.isSelf(authentication, #usuarioId))")
+    @PreAuthorize("hasRole('ADMIN') or @usuarioSecurity.isSelf(authentication, #usuarioId) or @usuarioSecurity.canManageOperador(authentication, #usuarioId)")
     @PutMapping(
             value = "/{usuarioId}",
             consumes = MediaType.APPLICATION_JSON_VALUE,
@@ -289,7 +291,7 @@ public class UsuarioController {
                     Reemplaza únicamente la contraseña de un usuario.
                     La nueva contraseña se almacena como hash BCrypt.
                     ADMIN puede cambiar la contraseña de cualquier usuario.
-                    USER y OPERADOR solo pueden cambiar su propia contraseña.
+                    OWNER, USER y OPERADOR solo pueden cambiar su propia contraseña.
                     """,
             security = @SecurityRequirement(name = "bearerAuth")
     )
@@ -315,7 +317,7 @@ public class UsuarioController {
                     description = "Usuario no encontrado"
             )
     })
-    @PreAuthorize("hasRole('ADMIN') or (hasAnyRole('USER', 'OPERADOR') and @usuarioSecurity.isSelf(authentication, #usuarioId))")
+    @PreAuthorize("hasRole('ADMIN') or @usuarioSecurity.isSelf(authentication, #usuarioId)")
     @PatchMapping(
             value = "/{usuarioId}/password",
             consumes = MediaType.APPLICATION_JSON_VALUE
@@ -499,7 +501,8 @@ public class UsuarioController {
             summary = "Asignar estacionamiento a usuario",
             description = """
                     Asigna un estacionamiento existente a un usuario activo.
-                    Requiere rol ADMIN.
+                    ADMIN puede asignar cualquier estacionamiento.
+                    OWNER solo puede asignar estacionamientos propios a usuarios con rol OPERADOR.
                     """,
             security = @SecurityRequirement(name = "bearerAuth")
     )
@@ -529,7 +532,7 @@ public class UsuarioController {
                     description = "El usuario ya tiene asignado el estacionamiento"
             )
     })
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasRole('ADMIN') or @usuarioSecurity.canAssignOwnEstacionamientoToOperador(authentication, #usuarioId, #request.estacionamientoId())")
     @PostMapping(
             value = "/{usuarioId}/estacionamientos",
             consumes = MediaType.APPLICATION_JSON_VALUE,
@@ -566,7 +569,8 @@ public class UsuarioController {
             summary = "Retirar estacionamiento de usuario",
             description = """
                     Retira un estacionamiento previamente asignado a un usuario.
-                    Requiere rol ADMIN.
+                    ADMIN puede retirar cualquier estacionamiento.
+                    OWNER solo puede retirar estacionamientos propios de usuarios con rol OPERADOR.
                     """,
             security = @SecurityRequirement(name = "bearerAuth")
     )
@@ -588,7 +592,7 @@ public class UsuarioController {
                     description = "Usuario, estacionamiento o asignación no encontrada"
             )
     })
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasRole('ADMIN') or @usuarioSecurity.canRemoveOwnEstacionamientoFromOperador(authentication, #usuarioId, #estacionamientoId)")
     @DeleteMapping("/{usuarioId}/estacionamientos/{estacionamientoId}")
     @ResponseStatus(HttpStatus.NO_CONTENT)
     public void removeEstacionamiento(

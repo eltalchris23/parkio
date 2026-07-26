@@ -37,6 +37,9 @@ class UsuarioIntegrationTest {
 
     private static final String TEST_DATABASE_NAME = "parkio_test";
     private static final String ADMIN_EMAIL = "integration.admin.usuario@parkio.com";
+    private static final String OWNER_EMAIL = "integration.owner.usuario@parkio.com";
+    private static final String OTHER_OWNER_EMAIL = "integration.other.owner.usuario@parkio.com";
+    private static final String OPERADOR_EMAIL = "integration.operador.usuario@parkio.com";
     private static final String USER_EMAIL = "integration.user.usuario@parkio.com";
     private static final String OTHER_USER_EMAIL = "integration.other.usuario@parkio.com";
     private static final String PASSWORD = "clave-integracion";
@@ -231,6 +234,72 @@ class UsuarioIntegrationTest {
 
         assertThat(retirarRolResponse.getStatusCode()).isEqualTo(HttpStatus.NO_CONTENT);
         assertThat(retirarEstacionamientoResponse.getStatusCode()).isEqualTo(HttpStatus.NO_CONTENT);
+    }
+
+    /**
+     * Valida que OWNER pueda administrar operadores solo dentro de sus estacionamientos.
+     *
+     * <p>OWNER no puede asignar roles, no puede asignar estacionamientos ajenos y
+     * no puede asignar estacionamientos propios a usuarios que no tengan rol OPERADOR.</p>
+     */
+    @Test
+    void debePermitirOwnerAdministrarSoloOperadoresDeSusEstacionamientos() throws Exception {
+        Long ownerId = registrarUsuario("Owner", OWNER_EMAIL, PASSWORD);
+        Long otroOwnerId = registrarUsuario("Otro Owner", OTHER_OWNER_EMAIL, PASSWORD);
+        Long operadorId = registrarUsuario("Operador", OPERADOR_EMAIL, PASSWORD);
+        Long usuarioFinalId = registrarUsuario("Usuario", USER_EMAIL, PASSWORD);
+        Long estacionamientoPropioId = crearEstacionamientoActivoEnBaseDeDatos(ownerId);
+        Long estacionamientoAjenoId = crearEstacionamientoActivoEnBaseDeDatos(otroOwnerId);
+        Long operadorRolId = consultarRolId("OPERADOR");
+
+        asignarRol(ownerId, "OWNER");
+        asignarRol(otroOwnerId, "OWNER");
+        asignarRol(operadorId, "OPERADOR");
+
+        String ownerToken = iniciarSesion(OWNER_EMAIL, PASSWORD);
+
+        ResponseEntity<String> asignarPropioResponse = asignarEstacionamiento(
+                ownerToken,
+                operadorId,
+                estacionamientoPropioId
+        );
+        ResponseEntity<String> consultarOperadorResponse = consultarUsuario(ownerToken, operadorId);
+        ResponseEntity<String> actualizarOperadorResponse = actualizarUsuario(
+                ownerToken,
+                operadorId,
+                "Operador Actualizado",
+                OPERADOR_EMAIL
+        );
+        ResponseEntity<String> asignarAjenoResponse = asignarEstacionamiento(
+                ownerToken,
+                operadorId,
+                estacionamientoAjenoId
+        );
+        ResponseEntity<String> asignarAUsuarioFinalResponse = asignarEstacionamiento(
+                ownerToken,
+                usuarioFinalId,
+                estacionamientoPropioId
+        );
+        ResponseEntity<String> asignarRolResponse = asignarRolPorEndpoint(
+                ownerToken,
+                usuarioFinalId,
+                operadorRolId
+        );
+        ResponseEntity<String> retirarPropioResponse = retirarEstacionamiento(
+                ownerToken,
+                operadorId,
+                estacionamientoPropioId
+        );
+        ResponseEntity<String> consultarOperadorSinRelacionResponse = consultarUsuario(ownerToken, operadorId);
+
+        assertThat(asignarPropioResponse.getStatusCode()).isEqualTo(HttpStatus.OK);
+        assertThat(consultarOperadorResponse.getStatusCode()).isEqualTo(HttpStatus.OK);
+        assertThat(actualizarOperadorResponse.getStatusCode()).isEqualTo(HttpStatus.OK);
+        assertThat(asignarAjenoResponse.getStatusCode()).isEqualTo(HttpStatus.FORBIDDEN);
+        assertThat(asignarAUsuarioFinalResponse.getStatusCode()).isEqualTo(HttpStatus.FORBIDDEN);
+        assertThat(asignarRolResponse.getStatusCode()).isEqualTo(HttpStatus.FORBIDDEN);
+        assertThat(retirarPropioResponse.getStatusCode()).isEqualTo(HttpStatus.NO_CONTENT);
+        assertThat(consultarOperadorSinRelacionResponse.getStatusCode()).isEqualTo(HttpStatus.FORBIDDEN);
     }
 
     /**
@@ -468,6 +537,30 @@ class UsuarioIntegrationTest {
                 RETURNING id
                 """,
                 Long.class
+        );
+    }
+
+    /**
+     * Crea un estacionamiento activo asociado a un owner especifico para probar
+     * reglas de autorizacion limitadas a los estacionamientos propios de OWNER.
+     */
+    private Long crearEstacionamientoActivoEnBaseDeDatos(Long ownerId) {
+        return jdbcTemplate.queryForObject(
+                """
+                INSERT INTO estacionamiento (nombre, descripcion, latitud, longitud, owner_id, activo)
+                VALUES (
+                    'Estacionamiento Owner ' || ?,
+                    'Dato de apoyo para pruebas de owner',
+                    19.43260800,
+                    -99.13320900,
+                    ?,
+                    TRUE
+                )
+                RETURNING id
+                """,
+                Long.class,
+                ownerId,
+                ownerId
         );
     }
 

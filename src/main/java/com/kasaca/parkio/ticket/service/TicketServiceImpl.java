@@ -33,6 +33,8 @@ import java.util.UUID;
 public class TicketServiceImpl implements TicketService {
 
     private static final String PREFIJO_CODIGO_TICKET = "TCK-";
+    private static final String ROL_ADMIN = "ADMIN";
+    private static final String ROL_OWNER = "OWNER";
     private static final String ROL_OPERADOR = "OPERADOR";
 
     private final TicketRepository ticketRepository;
@@ -45,20 +47,21 @@ public class TicketServiceImpl implements TicketService {
      * Registra la entrada de un vehiculo al estacionamiento.
      *
      * <p>Convierte una reserva activa, vigente y en estado CREADA en un ticket
-     * ABIERTO. Tambien marca la reserva como USADA y cambia el cajon a OCUPADO.</p>
+     * ABIERTO. Tambien marca la reserva como USADA y cambia el cajon a OCUPADO.
+     * ADMIN puede operar cualquier estacionamiento, OWNER solo los propios y
+     * OPERADOR solo los estacionamientos asignados.</p>
      */
     @Override
     @Transactional
-    public TicketResponse registrarEntrada(Long operadorId, TicketEntradaRequest request) {
+    public TicketResponse registrarEntrada(Long usuarioAutenticadoId, TicketEntradaRequest request) {
         LocalDateTime fechaActual = LocalDateTime.now();
 
-        Usuario operador = findOperadorById(operadorId);
+        Usuario usuarioAutenticado = findUsuarioAutenticadoById(usuarioAutenticadoId);
         Reserva reserva = findReservaByCodigo(request.codigoReserva());
 
         validarReservaCreada(reserva);
         validarReservaVigente(reserva, fechaActual);
-        validarOperadorTieneRolOperador(operador);
-        validarOperadorAsignadoAlEstacionamiento(operador, reserva.getEstacionamiento());
+        validarUsuarioPuedeOperarTicket(usuarioAutenticado, reserva.getEstacionamiento());
         validarReservaSinTicket(reserva.getId());
         validarCajonSinTicketAbierto(reserva.getCajon().getId());
 
@@ -70,7 +73,7 @@ public class TicketServiceImpl implements TicketService {
                 fechaActual,
                 reserva,
                 reserva.getUsuario(),
-                operador,
+                usuarioAutenticado,
                 reserva.getEstacionamiento(),
                 reserva.getCajon()
         );
@@ -89,13 +92,54 @@ public class TicketServiceImpl implements TicketService {
     }
 
     /**
-     * Busca al operador activo por identificador.
+     * Registra la salida de un vehiculo del estacionamiento.
+     *
+     * <p>Cierra un ticket ABIERTO, asigna fecha de salida y libera el cajon
+     * cambiandolo a LIBRE. ADMIN puede operar cualquier estacionamiento, OWNER
+     * solo los propios y OPERADOR solo los estacionamientos asignados.</p>
+     */
+    @Override
+    @Transactional
+    public TicketResponse registrarSalida(Long usuarioAutenticadoId, Long ticketId) {
+        LocalDateTime fechaActual = LocalDateTime.now();
+
+        Usuario usuarioAutenticado = findUsuarioAutenticadoById(usuarioAutenticadoId);
+        Ticket ticket = findTicketById(ticketId);
+
+        validarTicketAbierto(ticket);
+        validarUsuarioPuedeOperarTicket(usuarioAutenticado, ticket.getEstacionamiento());
+
+        ticket.setEstado(EstadoTicket.CERRADO);
+        ticket.setFechaSalida(fechaActual);
+
+        Cajon cajon = ticket.getCajon();
+        cajon.setEstado(EstadoCajon.LIBRE);
+
+        cajonRepository.save(cajon);
+
+        Ticket ticketGuardado = ticketRepository.save(ticket);
+
+        return ticketMapper.toResponse(ticketGuardado);
+    }
+
+    /**
+     * Busca al usuario autenticado activo por identificador.
      *
      * <p>Si el usuario no existe o esta inactivo, se responde como recurso no encontrado.</p>
      */
-    private Usuario findOperadorById(Long operadorId) {
-        return usuarioRepository.findByIdAndActivoTrue(operadorId)
-                .orElseThrow(() -> new ResourceNotFoundException("Usuario", operadorId));
+    private Usuario findUsuarioAutenticadoById(Long usuarioAutenticadoId) {
+        return usuarioRepository.findByIdAndActivoTrue(usuarioAutenticadoId)
+                .orElseThrow(() -> new ResourceNotFoundException("Usuario", usuarioAutenticadoId));
+    }
+
+    /**
+     * Busca un ticket activo por identificador interno.
+     *
+     * <p>Los tickets inactivos se tratan como inexistentes para la API.</p>
+     */
+    private Ticket findTicketById(Long ticketId) {
+        return ticketRepository.findByIdAndActivoTrue(ticketId)
+                .orElseThrow(() -> new ResourceNotFoundException("Ticket", ticketId));
     }
 
     /**
@@ -129,43 +173,6 @@ public class TicketServiceImpl implements TicketService {
     }
 
     /**
-     * Valida que el usuario autenticado tenga el rol OPERADOR.
-     *
-     * <p>La FK del ticket solo garantiza que el usuario exista; el rol funcional
-     * se valida en la capa de negocio usando la relacion usuario_rol.</p>
-     */
-    private void validarOperadorTieneRolOperador(Usuario operador) {
-        boolean tieneRolOperador = operador.getRoles()
-                .stream()
-                .anyMatch(rol -> ROL_OPERADOR.equals(rol.getNombre()));
-
-        if (!tieneRolOperador) {
-            throw new ConflictException("El usuario autenticado no tiene rol OPERADOR.");
-        }
-    }
-
-    /**
-     * Valida que el operador este asignado al estacionamiento de la reserva.
-     *
-     * <p>Esto evita que un operador de otro estacionamiento registre entradas
-     * sobre reservas que no le corresponden.</p>
-     */
-    private void validarOperadorAsignadoAlEstacionamiento(
-            Usuario operador,
-            Estacionamiento estacionamiento
-    ) {
-        boolean asignadoAlEstacionamiento = operador.getEstacionamientos()
-                .stream()
-                .anyMatch(estacionamientoAsignado ->
-                        estacionamientoAsignado.getId().equals(estacionamiento.getId())
-                );
-
-        if (!asignadoAlEstacionamiento) {
-            throw new ConflictException("El operador no esta asignado al estacionamiento de la reserva.");
-        }
-    }
-
-    /**
      * Valida que la reserva no tenga ya un ticket activo.
      *
      * <p>Esta regla protege la relacion uno a uno entre reserva y ticket.</p>
@@ -190,6 +197,72 @@ public class TicketServiceImpl implements TicketService {
         if (existeTicketAbierto) {
             throw new ConflictException("El cajon ya tiene un ticket abierto.");
         }
+    }
+
+    /**
+     * Valida que el ticket se encuentre abierto antes de registrar salida.
+     *
+     * <p>Un ticket CERRADO no puede cerrarse nuevamente porque ya tiene salida registrada.</p>
+     */
+    private void validarTicketAbierto(Ticket ticket) {
+        if (ticket.getEstado() != EstadoTicket.ABIERTO) {
+            throw new ConflictException("Solo se puede registrar salida para tickets en estado ABIERTO.");
+        }
+    }
+
+    /**
+     * Valida que el usuario autenticado pueda operar tickets del estacionamiento indicado.
+     *
+     * <p>ADMIN tiene alcance global, OWNER solo puede operar estacionamientos
+     * donde sea dueño y OPERADOR solo estacionamientos asignados.</p>
+     */
+    private void validarUsuarioPuedeOperarTicket(
+            Usuario usuarioAutenticado,
+            Estacionamiento estacionamiento
+    ) {
+        if (tieneRol(usuarioAutenticado, ROL_ADMIN)) {
+            return;
+        }
+
+        if (tieneRol(usuarioAutenticado, ROL_OWNER)
+                && esOwnerDelEstacionamiento(usuarioAutenticado, estacionamiento)) {
+            return;
+        }
+
+        if (tieneRol(usuarioAutenticado, ROL_OPERADOR)
+                && estaAsignadoAlEstacionamiento(usuarioAutenticado, estacionamiento)) {
+            return;
+        }
+
+        throw new ConflictException("El usuario autenticado no puede operar tickets de este estacionamiento.");
+    }
+
+    /**
+     * Indica si el usuario tiene asignado un rol por nombre.
+     */
+    private boolean tieneRol(Usuario usuario, String rolNombre) {
+        return usuario.getRoles()
+                .stream()
+                .anyMatch(rol -> rolNombre.equals(rol.getNombre()));
+    }
+
+    /**
+     * Indica si el usuario autenticado es owner del estacionamiento indicado.
+     */
+    private boolean esOwnerDelEstacionamiento(Usuario usuario, Estacionamiento estacionamiento) {
+        return estacionamiento.getOwner() != null
+                && estacionamiento.getOwner().getId().equals(usuario.getId());
+    }
+
+    /**
+     * Indica si el usuario autenticado esta asignado al estacionamiento indicado.
+     */
+    private boolean estaAsignadoAlEstacionamiento(Usuario usuario, Estacionamiento estacionamiento) {
+        return usuario.getEstacionamientos()
+                .stream()
+                .anyMatch(estacionamientoAsignado ->
+                        estacionamientoAsignado.getId().equals(estacionamiento.getId())
+                );
     }
 
     /**

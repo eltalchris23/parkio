@@ -17,6 +17,8 @@ public interface EstacionamientoRepository extends JpaRepository<Estacionamiento
 
     Optional<Estacionamiento> findByIdAndOwnerIdAndActivoTrue(Long id, Long ownerId);
 
+    boolean existsByIdAndOwnerIdAndActivoTrue(Long id, Long ownerId);
+
     Page<Estacionamiento> findByUsuariosIdAndActivoTrue(Long usuarioId, Pageable pageable);
 
     Optional<Estacionamiento> findByIdAndUsuariosIdAndActivoTrue(Long id, Long usuarioId);

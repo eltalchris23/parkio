@@ -199,10 +199,10 @@ class TicketServiceImplTest {
     }
 
     /**
-     * Verifica que un usuario sin rol OPERADOR no pueda registrar entradas.
+     * Verifica que un usuario sin rol operativo no pueda registrar entradas.
      */
     @Test
-    void debeRechazarCuandoUsuarioNoTieneRolOperador() {
+    void debeRechazarCuandoUsuarioNoTieneRolOperativo() {
         Estacionamiento estacionamiento = crearEstacionamiento(10L);
         Usuario cliente = crearUsuario(1L, "USER");
         Usuario operador = crearUsuario(2L, "USER");
@@ -216,7 +216,7 @@ class TicketServiceImplTest {
                 ticketService.registrarEntrada(2L, new TicketEntradaRequest("RSV-ABC12345"))
         )
                 .isInstanceOf(ConflictException.class)
-                .hasMessage("El usuario autenticado no tiene rol OPERADOR.");
+                .hasMessage("El usuario autenticado no puede operar tickets de este estacionamiento.");
 
         verify(ticketRepository, never()).save(any());
     }
@@ -239,7 +239,7 @@ class TicketServiceImplTest {
                 ticketService.registrarEntrada(2L, new TicketEntradaRequest("RSV-ABC12345"))
         )
                 .isInstanceOf(ConflictException.class)
-                .hasMessage("El operador no esta asignado al estacionamiento de la reserva.");
+                .hasMessage("El usuario autenticado no puede operar tickets de este estacionamiento.");
 
         verify(ticketRepository, never()).save(any());
     }
@@ -293,6 +293,168 @@ class TicketServiceImplTest {
                 .isInstanceOf(ConflictException.class)
                 .hasMessage("El cajon ya tiene un ticket abierto.");
 
+        verify(ticketRepository, never()).save(any());
+    }
+
+    /**
+     * Verifica que ADMIN pueda registrar entrada en cualquier estacionamiento.
+     */
+    @Test
+    void debeRegistrarEntradaConAdmin() {
+        Estacionamiento estacionamiento = crearEstacionamiento(10L);
+        Usuario cliente = crearUsuario(1L, "USER");
+        Usuario admin = crearUsuario(2L, "ADMIN");
+        Cajon cajon = crearCajon(20L, estacionamiento);
+        Reserva reserva = crearReserva(cliente, estacionamiento, cajon, EstadoReserva.CREADA);
+        Ticket ticket = crearTicket(40L, reserva, cliente, admin, estacionamiento, cajon);
+        TicketResponse response = crearResponse();
+
+        when(usuarioRepository.findByIdAndActivoTrue(2L)).thenReturn(Optional.of(admin));
+        when(reservaRepository.findByCodigoAndActivoTrue("RSV-ABC12345")).thenReturn(Optional.of(reserva));
+        when(ticketRepository.existsByReservaIdAndActivoTrue(30L)).thenReturn(false);
+        when(ticketRepository.existsByCajonIdAndEstadoAndActivoTrue(20L, EstadoTicket.ABIERTO)).thenReturn(false);
+        when(ticketRepository.findByCodigoAndActivoTrue(anyString())).thenReturn(Optional.empty());
+        when(ticketMapper.toEntity(
+                anyString(),
+                eq("ABC123"),
+                any(LocalDateTime.class),
+                eq(reserva),
+                eq(cliente),
+                eq(admin),
+                eq(estacionamiento),
+                eq(cajon)
+        )).thenReturn(ticket);
+        when(cajonRepository.save(cajon)).thenReturn(cajon);
+        when(reservaRepository.save(reserva)).thenReturn(reserva);
+        when(ticketRepository.save(ticket)).thenReturn(ticket);
+        when(ticketMapper.toResponse(ticket)).thenReturn(response);
+
+        TicketResponse resultado =
+                ticketService.registrarEntrada(2L, new TicketEntradaRequest("RSV-ABC12345"));
+
+        assertThat(resultado).isEqualTo(response);
+        assertThat(reserva.getEstado()).isEqualTo(EstadoReserva.USADA);
+        assertThat(cajon.getEstado()).isEqualTo(EstadoCajon.OCUPADO);
+    }
+
+    /**
+     * Verifica que OWNER pueda registrar entrada solo en un estacionamiento propio.
+     */
+    @Test
+    void debeRegistrarEntradaConOwnerDelEstacionamiento() {
+        Usuario owner = crearUsuario(2L, "OWNER");
+        Estacionamiento estacionamiento = crearEstacionamiento(10L);
+        estacionamiento.setOwner(owner);
+        Usuario cliente = crearUsuario(1L, "USER");
+        Cajon cajon = crearCajon(20L, estacionamiento);
+        Reserva reserva = crearReserva(cliente, estacionamiento, cajon, EstadoReserva.CREADA);
+        Ticket ticket = crearTicket(40L, reserva, cliente, owner, estacionamiento, cajon);
+        TicketResponse response = crearResponse();
+
+        when(usuarioRepository.findByIdAndActivoTrue(2L)).thenReturn(Optional.of(owner));
+        when(reservaRepository.findByCodigoAndActivoTrue("RSV-ABC12345")).thenReturn(Optional.of(reserva));
+        when(ticketRepository.existsByReservaIdAndActivoTrue(30L)).thenReturn(false);
+        when(ticketRepository.existsByCajonIdAndEstadoAndActivoTrue(20L, EstadoTicket.ABIERTO)).thenReturn(false);
+        when(ticketRepository.findByCodigoAndActivoTrue(anyString())).thenReturn(Optional.empty());
+        when(ticketMapper.toEntity(
+                anyString(),
+                eq("ABC123"),
+                any(LocalDateTime.class),
+                eq(reserva),
+                eq(cliente),
+                eq(owner),
+                eq(estacionamiento),
+                eq(cajon)
+        )).thenReturn(ticket);
+        when(cajonRepository.save(cajon)).thenReturn(cajon);
+        when(reservaRepository.save(reserva)).thenReturn(reserva);
+        when(ticketRepository.save(ticket)).thenReturn(ticket);
+        when(ticketMapper.toResponse(ticket)).thenReturn(response);
+
+        TicketResponse resultado =
+                ticketService.registrarEntrada(2L, new TicketEntradaRequest("RSV-ABC12345"));
+
+        assertThat(resultado).isEqualTo(response);
+        assertThat(reserva.getEstado()).isEqualTo(EstadoReserva.USADA);
+        assertThat(cajon.getEstado()).isEqualTo(EstadoCajon.OCUPADO);
+    }
+
+    /**
+     * Verifica que se cierre un ticket abierto y se libere el cajon.
+     */
+    @Test
+    void debeRegistrarSalidaYCambiarEstados() {
+        Estacionamiento estacionamiento = crearEstacionamiento(10L);
+        Usuario cliente = crearUsuario(1L, "USER");
+        Usuario operador = crearUsuario(2L, "OPERADOR");
+        operador.getEstacionamientos().add(estacionamiento);
+        Cajon cajon = crearCajon(20L, estacionamiento);
+        cajon.setEstado(EstadoCajon.OCUPADO);
+        Reserva reserva = crearReserva(cliente, estacionamiento, cajon, EstadoReserva.USADA);
+        Ticket ticket = crearTicket(40L, reserva, cliente, operador, estacionamiento, cajon);
+        TicketResponse response = crearResponseCerrado();
+
+        when(usuarioRepository.findByIdAndActivoTrue(2L)).thenReturn(Optional.of(operador));
+        when(ticketRepository.findByIdAndActivoTrue(40L)).thenReturn(Optional.of(ticket));
+        when(cajonRepository.save(cajon)).thenReturn(cajon);
+        when(ticketRepository.save(ticket)).thenReturn(ticket);
+        when(ticketMapper.toResponse(ticket)).thenReturn(response);
+
+        TicketResponse resultado = ticketService.registrarSalida(2L, 40L);
+
+        assertThat(resultado).isEqualTo(response);
+        assertThat(ticket.getEstado()).isEqualTo(EstadoTicket.CERRADO);
+        assertThat(ticket.getFechaSalida()).isNotNull();
+        assertThat(cajon.getEstado()).isEqualTo(EstadoCajon.LIBRE);
+        verify(cajonRepository).save(cajon);
+        verify(ticketRepository).save(ticket);
+    }
+
+    /**
+     * Verifica que no se pueda cerrar dos veces el mismo ticket.
+     */
+    @Test
+    void debeRechazarSalidaCuandoTicketYaEstaCerrado() {
+        Estacionamiento estacionamiento = crearEstacionamiento(10L);
+        Usuario cliente = crearUsuario(1L, "USER");
+        Usuario operador = crearUsuario(2L, "OPERADOR");
+        operador.getEstacionamientos().add(estacionamiento);
+        Cajon cajon = crearCajon(20L, estacionamiento);
+        Reserva reserva = crearReserva(cliente, estacionamiento, cajon, EstadoReserva.USADA);
+        Ticket ticket = crearTicket(40L, reserva, cliente, operador, estacionamiento, cajon);
+        ticket.setEstado(EstadoTicket.CERRADO);
+
+        when(usuarioRepository.findByIdAndActivoTrue(2L)).thenReturn(Optional.of(operador));
+        when(ticketRepository.findByIdAndActivoTrue(40L)).thenReturn(Optional.of(ticket));
+
+        assertThatThrownBy(() -> ticketService.registrarSalida(2L, 40L))
+                .isInstanceOf(ConflictException.class)
+                .hasMessage("Solo se puede registrar salida para tickets en estado ABIERTO.");
+
+        verify(cajonRepository, never()).save(any());
+        verify(ticketRepository, never()).save(any());
+    }
+
+    /**
+     * Verifica que un usuario sin alcance no pueda registrar la salida.
+     */
+    @Test
+    void debeRechazarSalidaCuandoUsuarioNoPuedeOperarTicket() {
+        Estacionamiento estacionamiento = crearEstacionamiento(10L);
+        Usuario cliente = crearUsuario(1L, "USER");
+        Usuario operador = crearUsuario(2L, "OPERADOR");
+        Cajon cajon = crearCajon(20L, estacionamiento);
+        Reserva reserva = crearReserva(cliente, estacionamiento, cajon, EstadoReserva.USADA);
+        Ticket ticket = crearTicket(40L, reserva, cliente, operador, estacionamiento, cajon);
+
+        when(usuarioRepository.findByIdAndActivoTrue(2L)).thenReturn(Optional.of(operador));
+        when(ticketRepository.findByIdAndActivoTrue(40L)).thenReturn(Optional.of(ticket));
+
+        assertThatThrownBy(() -> ticketService.registrarSalida(2L, 40L))
+                .isInstanceOf(ConflictException.class)
+                .hasMessage("El usuario autenticado no puede operar tickets de este estacionamiento.");
+
+        verify(cajonRepository, never()).save(any());
         verify(ticketRepository, never()).save(any());
     }
 
@@ -407,6 +569,27 @@ class TicketServiceImplTest {
                 "ABC123",
                 LocalDateTime.of(2026, 7, 25, 10, 0),
                 null,
+                30L,
+                1L,
+                2L,
+                10L,
+                20L,
+                true,
+                LocalDateTime.of(2026, 7, 25, 10, 1)
+        );
+    }
+
+    /**
+     * Crea el DTO esperado cuando el ticket queda cerrado.
+     */
+    private TicketResponse crearResponseCerrado() {
+        return new TicketResponse(
+                40L,
+                "TCK-ABC12345",
+                EstadoTicket.CERRADO,
+                "ABC123",
+                LocalDateTime.of(2026, 7, 25, 10, 0),
+                LocalDateTime.of(2026, 7, 25, 11, 0),
                 30L,
                 1L,
                 2L,

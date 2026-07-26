@@ -36,6 +36,8 @@ class TicketIntegrationTest {
     private static final String USER_EMAIL = "integration.user.ticket@parkio.com";
     private static final String OPERADOR_EMAIL = "integration.operador.ticket@parkio.com";
     private static final String OTRO_OPERADOR_EMAIL = "integration.otro.operador.ticket@parkio.com";
+    private static final String ADMIN_EMAIL = "integration.admin.ticket@parkio.com";
+    private static final String OWNER_EMAIL = "integration.owner.ticket@parkio.com";
     private static final String PASSWORD = "clave-integracion";
 
     @Autowired
@@ -104,10 +106,11 @@ class TicketIntegrationTest {
     }
 
     /**
-     * Valida el flujo principal: OPERADOR convierte una reserva vigente en ticket abierto.
+     * Valida el flujo principal: OPERADOR convierte una reserva vigente en ticket abierto
+     * y despues registra la salida para cerrar el ticket y liberar el cajon.
      */
     @Test
-    void debeRegistrarEntradaConOperadorAsignado() throws Exception {
+    void debeRegistrarEntradaYSalidaConOperadorAsignado() throws Exception {
         Long estacionamientoId = crearEstacionamientoActivoEnBaseDeDatos();
         Long cajonId = crearCajonActivoEnBaseDeDatos(estacionamientoId);
         registrarUsuario("Cliente", USER_EMAIL);
@@ -134,6 +137,62 @@ class TicketIntegrationTest {
         assertThat(consultarEstadoReservaEnBaseDeDatos(reservaId)).isEqualTo("USADA");
         assertThat(consultarEstadoCajonEnBaseDeDatos(cajonId)).isEqualTo("OCUPADO");
         assertThat(consultarEstadoTicketEnBaseDeDatos(ticketId)).isEqualTo("ABIERTO");
+
+        ResponseEntity<String> salidaResponse = registrarSalida(operadorToken, ticketId);
+        JsonNode salidaBody = objectMapper.readTree(salidaResponse.getBody());
+
+        assertThat(salidaResponse.getStatusCode()).isEqualTo(HttpStatus.OK);
+        assertThat(salidaBody.path("status").asInt()).isEqualTo(200);
+        assertThat(salidaBody.path("message").asText()).isEqualTo("Salida registrada correctamente");
+        assertThat(salidaBody.path("data").path("estado").asText()).isEqualTo("CERRADO");
+        assertThat(salidaBody.path("data").path("fechaSalida").asText()).isNotBlank();
+        assertThat(consultarEstadoTicketEnBaseDeDatos(ticketId)).isEqualTo("CERRADO");
+        assertThat(consultarEstadoCajonEnBaseDeDatos(cajonId)).isEqualTo("LIBRE");
+    }
+
+    /**
+     * Verifica que ADMIN pueda registrar entrada sin estar asignado al estacionamiento.
+     */
+    @Test
+    void debeRegistrarEntradaConAdmin() throws Exception {
+        Long estacionamientoId = crearEstacionamientoActivoEnBaseDeDatos();
+        Long cajonId = crearCajonActivoEnBaseDeDatos(estacionamientoId);
+        registrarUsuario("Cliente", USER_EMAIL);
+        String userToken = iniciarSesion(USER_EMAIL);
+        String codigoReserva = crearReservaYObtenerCodigo(userToken, estacionamientoId, cajonId, "ABC123");
+
+        Long adminId = registrarUsuario("Administrador", ADMIN_EMAIL);
+        asignarRol(adminId, "ADMIN");
+        String adminToken = iniciarSesion(ADMIN_EMAIL);
+
+        ResponseEntity<String> response = registrarEntrada(adminToken, codigoReserva);
+        JsonNode body = objectMapper.readTree(response.getBody());
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.CREATED);
+        assertThat(body.path("data").path("estado").asText()).isEqualTo("ABIERTO");
+        assertThat(body.path("data").path("operadorEntradaId").asLong()).isEqualTo(adminId);
+    }
+
+    /**
+     * Verifica que OWNER pueda registrar entrada cuando el estacionamiento es propio.
+     */
+    @Test
+    void debeRegistrarEntradaConOwnerDelEstacionamiento() throws Exception {
+        Long ownerId = registrarUsuario("Owner", OWNER_EMAIL);
+        asignarRol(ownerId, "OWNER");
+        Long estacionamientoId = crearEstacionamientoActivoEnBaseDeDatosConOwner(ownerId);
+        Long cajonId = crearCajonActivoEnBaseDeDatos(estacionamientoId);
+        registrarUsuario("Cliente", USER_EMAIL);
+        String userToken = iniciarSesion(USER_EMAIL);
+        String codigoReserva = crearReservaYObtenerCodigo(userToken, estacionamientoId, cajonId, "ABC123");
+        String ownerToken = iniciarSesion(OWNER_EMAIL);
+
+        ResponseEntity<String> response = registrarEntrada(ownerToken, codigoReserva);
+        JsonNode body = objectMapper.readTree(response.getBody());
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.CREATED);
+        assertThat(body.path("data").path("estado").asText()).isEqualTo("ABIERTO");
+        assertThat(body.path("data").path("operadorEntradaId").asLong()).isEqualTo(ownerId);
     }
 
     /**
@@ -257,6 +316,18 @@ class TicketIntegrationTest {
     }
 
     /**
+     * Registra la salida consumiendo el endpoint real de tickets.
+     */
+    private ResponseEntity<String> registrarSalida(String accessToken, Long ticketId) {
+        return restTemplate.exchange(
+                "/api/v1/tickets/" + ticketId + "/salida",
+                HttpMethod.PATCH,
+                new HttpEntity<>(crearHeadersConJwt(accessToken)),
+                String.class
+        );
+    }
+
+    /**
      * Asigna el rol indicado directamente para preparar escenarios de autorizacion.
      */
     private void asignarRol(Long usuarioId, String rolNombre) {
@@ -297,6 +368,21 @@ class TicketIntegrationTest {
                 RETURNING id
                 """,
                 Long.class
+        );
+    }
+
+    /**
+     * Crea un estacionamiento activo con owner para probar alcance de dueño.
+     */
+    private Long crearEstacionamientoActivoEnBaseDeDatosConOwner(Long ownerId) {
+        return jdbcTemplate.queryForObject(
+                """
+                INSERT INTO estacionamiento (nombre, descripcion, latitud, longitud, owner_id, activo)
+                VALUES ('Estacionamiento Ticket Owner', 'Dato de apoyo para pruebas', 19.43260800, -99.13320900, ?, TRUE)
+                RETURNING id
+                """,
+                Long.class,
+                ownerId
         );
     }
 

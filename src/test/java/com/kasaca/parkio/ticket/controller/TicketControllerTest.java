@@ -32,6 +32,7 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -178,6 +179,87 @@ class TicketControllerTest {
     }
 
     /**
+     * Verifica que el endpoint registre la salida y responda con HTTP 200.
+     */
+    @Test
+    void debeRegistrarSalida() throws Exception {
+        Jwt jwt = crearJwtOperador();
+        TicketResponse response = crearResponseCerrado();
+
+        when(ticketService.registrarSalida(2L, 40L)).thenReturn(response);
+
+        try {
+            SecurityContextHolder.getContext()
+                    .setAuthentication(new JwtAuthenticationToken(jwt));
+
+            mockMvc.perform(patch("/tickets/40/salida"))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.status").value(200))
+                    .andExpect(jsonPath("$.message").value("Salida registrada correctamente"))
+                    .andExpect(jsonPath("$.transactionId").isNotEmpty())
+                    .andExpect(jsonPath("$.data.id").value(40L))
+                    .andExpect(jsonPath("$.data.estado").value("CERRADO"))
+                    .andExpect(jsonPath("$.data.fechaSalida").isNotEmpty());
+        } finally {
+            SecurityContextHolder.clearContext();
+        }
+
+        verify(ticketService).registrarSalida(2L, 40L);
+    }
+
+    /**
+     * Verifica que el controller traduzca un ticket inexistente a HTTP 404.
+     */
+    @Test
+    void debeResponderNotFoundCuandoTicketNoExisteAlRegistrarSalida() throws Exception {
+        Jwt jwt = crearJwtOperador();
+
+        when(ticketService.registrarSalida(2L, 99L))
+                .thenThrow(new ResourceNotFoundException("Ticket", 99L));
+
+        try {
+            SecurityContextHolder.getContext()
+                    .setAuthentication(new JwtAuthenticationToken(jwt));
+
+            mockMvc.perform(patch("/tickets/99/salida"))
+                    .andExpect(status().isNotFound())
+                    .andExpect(jsonPath("$.status").value(404))
+                    .andExpect(jsonPath("$.message").value(
+                            "Ticket con identificador '99' no fue encontrado"
+                    ));
+        } finally {
+            SecurityContextHolder.clearContext();
+        }
+    }
+
+    /**
+     * Verifica que el controller traduzca conflictos de salida a HTTP 409.
+     */
+    @Test
+    void debeResponderConflictCuandoTicketNoPuedeCerrarse() throws Exception {
+        Jwt jwt = crearJwtOperador();
+
+        when(ticketService.registrarSalida(2L, 40L))
+                .thenThrow(new ConflictException(
+                        "Solo se puede registrar salida para tickets en estado ABIERTO."
+                ));
+
+        try {
+            SecurityContextHolder.getContext()
+                    .setAuthentication(new JwtAuthenticationToken(jwt));
+
+            mockMvc.perform(patch("/tickets/40/salida"))
+                    .andExpect(status().isConflict())
+                    .andExpect(jsonPath("$.status").value(409))
+                    .andExpect(jsonPath("$.message").value(
+                            "Solo se puede registrar salida para tickets en estado ABIERTO."
+                    ));
+        } finally {
+            SecurityContextHolder.clearContext();
+        }
+    }
+
+    /**
      * Crea un JWT simulado con usuarioId de operador para pruebas de controller.
      */
     private Jwt crearJwtOperador() {
@@ -205,6 +287,27 @@ class TicketControllerTest {
                 "ABC123",
                 LocalDateTime.of(2026, 7, 25, 10, 0),
                 null,
+                30L,
+                1L,
+                2L,
+                10L,
+                20L,
+                true,
+                LocalDateTime.of(2026, 7, 25, 10, 1)
+        );
+    }
+
+    /**
+     * Crea un response fijo para validar la salida cerrada del ticket.
+     */
+    private TicketResponse crearResponseCerrado() {
+        return new TicketResponse(
+                40L,
+                "TCK-ABC12345",
+                EstadoTicket.CERRADO,
+                "ABC123",
+                LocalDateTime.of(2026, 7, 25, 10, 0),
+                LocalDateTime.of(2026, 7, 25, 11, 0),
                 30L,
                 1L,
                 2L,
