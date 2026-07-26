@@ -17,6 +17,8 @@ Este documento describe el contrato implementado actualmente para los módulos:
 - Rol.
 - Estacionamiento.
 - Cajón.
+- Reserva.
+- Ticket.
 - Catálogos.
 
 No describe funcionalidades futuras salvo que se indiquen explícitamente como pendientes.
@@ -84,6 +86,8 @@ Los controladores principales ya incluyen anotaciones OpenAPI:
 - `EstacionamientoController`.
 - `CajonController`.
 - `UsuarioController`.
+- `ReservaController`.
+- `TicketController`.
 - `CatalogoController`.
 
 En ambiente de desarrollo:
@@ -112,6 +116,7 @@ GET /api/v1/cajones
 POST /api/v1/reservas
 GET /api/v1/reservas/mis-reservas
 PATCH /api/v1/reservas/{reservaId}/cancelar
+POST /api/v1/tickets/entrada
 GET /api/v1/usuarios
 GET /api/v1/catalogos/cajones/tipos
 GET /api/v1/catalogos/cajones/estados
@@ -142,6 +147,7 @@ Roles base existentes en base de datos:
 | Estacionamiento | `ADMIN`, `OWNER`, `OPERADOR`, `USER`; `OWNER` solo ve los propios | `ADMIN`; `OWNER` solo administra los propios |
 | Cajón | `ADMIN`, `OWNER`, `OPERADOR`, `USER`; `OWNER` solo ve cajones de estacionamientos propios | `ADMIN`; `OWNER` solo administra cajones propios; cambio de estado también permite `OPERADOR` |
 | Reserva | `USER` consulta sus propias reservas; `ADMIN`, `OWNER` y `OPERADOR` consultan por código; `ADMIN` consulta por ID | `USER` crea y cancela reservas propias |
+| Ticket | No tiene consultas implementadas todavía | `OPERADOR` registra entrada desde una reserva vigente |
 | Catálogos | `ADMIN`, `OPERADOR`, `USER` | No aplica |
 
 ### Identificador de transacción
@@ -1411,6 +1417,87 @@ Requiere rol `ADMIN`.
 | `404` | Usuario, estacionamiento, cajón o reserva inexistente/inactivo |
 | `409` | Cajón no disponible, cajón fuera del estacionamiento indicado, reserva vigente duplicada, reserva no cancelable o reserva vencida |
 
+## Módulo Ticket
+
+El módulo Ticket permite registrar la entrada real de un vehículo al estacionamiento usando una reserva vigente.
+
+Reglas actuales:
+
+- Requiere JWT válido.
+- `OPERADOR` puede registrar entradas mediante código de reserva.
+- El operador se obtiene desde el claim `usuarioId` del JWT.
+- El frontend no envía el identificador del operador.
+- La reserva debe existir, estar activa, estar en estado `CREADA` y seguir vigente.
+- El operador debe tener rol `OPERADOR`.
+- El operador debe estar asignado al estacionamiento de la reserva mediante `usuario_estacionamiento`.
+- Una reserva solo puede convertirse en un ticket activo.
+- Un cajón no puede tener más de un ticket `ABIERTO` activo.
+- Al registrar entrada, la reserva cambia a `USADA`.
+- Al registrar entrada, el cajón cambia a `OCUPADO`.
+- El ticket se crea en estado `ABIERTO`.
+
+Todavía no está implementado el cierre de ticket, la salida del vehículo, el cálculo de cobro ni la facturación.
+
+### Registrar entrada con reserva
+
+```http
+POST /api/v1/tickets/entrada
+```
+
+Requiere rol `OPERADOR`.
+
+#### Request
+
+```json
+{
+  "codigoReserva": "RSV-A1B2C3D4"
+}
+```
+
+#### Response 201
+
+```json
+{
+  "timestamp": "2026-07-25T10:10:00",
+  "status": 201,
+  "message": "Ticket creado correctamente",
+  "transactionId": "0f5d5c9b-8dc1-4bd1-a173-08f16eb4f96e",
+  "data": {
+    "id": 1,
+    "codigo": "TCK-A1B2C3D4",
+    "estado": "ABIERTO",
+    "placa": "ABC123",
+    "fechaEntrada": "2026-07-25T10:10:00",
+    "fechaSalida": null,
+    "reservaId": 1,
+    "usuarioId": 1,
+    "operadorEntradaId": 2,
+    "estacionamientoId": 1,
+    "cajonId": 1,
+    "activo": true,
+    "fechaCreacion": "2026-07-25T10:10:00"
+  }
+}
+```
+
+#### Efectos de negocio
+
+Después de una respuesta `201 Created`:
+
+- La reserva queda en estado `USADA`.
+- El cajón queda en estado `OCUPADO`.
+- El ticket queda en estado `ABIERTO`.
+
+#### Errores del módulo
+
+| HTTP | Causa |
+|---|---|
+| `400` | Datos inválidos en la solicitud |
+| `401` | JWT ausente o inválido |
+| `403` | Usuario sin rol `OPERADOR` |
+| `404` | Operador o reserva inexistente/inactiva |
+| `409` | Reserva no está en `CREADA`, reserva vencida, operador no asignado al estacionamiento, reserva ya convertida o cajón con ticket abierto |
+
 ## Módulo Catálogos
 
 Seguridad:
@@ -1500,7 +1587,7 @@ GET /api/v1/catalogos/cajones/estados
 
 ## Pruebas automatizadas relacionadas
 
-El backend cuenta con pruebas unitarias de mapper, servicio y controlador para Rol, Estacionamiento, Cajón, Usuario y Reserva, prueba unitaria del scheduler de Reserva, además de pruebas unitarias de servicio y controlador para Catálogos.
+El backend cuenta con pruebas unitarias de mapper, servicio y controlador para Rol, Estacionamiento, Cajón, Usuario, Reserva y Ticket, prueba unitaria del scheduler de Reserva, además de pruebas unitarias de servicio y controlador para Catálogos.
 
 `SecurityConfigTest` cubre reglas de seguridad HTTP, autorización por roles, autenticación JWT simulada, validaciones CORS y acceso protegido a Catálogos. Las pruebas CORS validan preflight `OPTIONS` desde orígenes permitidos, rechazo de orígenes no configurados y exposición de `X-Transaction-Id` para consumo desde frontend.
 
@@ -1513,6 +1600,7 @@ También existen pruebas de integración con Spring Boot completo, PostgreSQL y 
 - `EstacionamientoIntegrationTest`.
 - `CajonIntegrationTest`.
 - `ReservaIntegrationTest`.
+- `TicketIntegrationTest`.
 - `UsuarioIntegrationTest`.
 - `CatalogoIntegrationTest`.
 
@@ -1527,6 +1615,8 @@ Estas pruebas validan que la conexión use `parkio_test` antes de limpiar datos 
 `CajonIntegrationTest` cubre rechazo sin JWT, consulta con `USER`, cambio de estado con `OPERADOR`, administración global con `ADMIN`, conflictos por número duplicado, borrado lógico, alcance de `OWNER` para operar únicamente cajones ubicados en sus propios estacionamientos y alcance de `OPERADOR` para consultar y cambiar estado solo en cajones de estacionamientos asignados.
 
 `ReservaIntegrationTest` cubre rechazo sin JWT, creación de reserva con `USER`, cambio del cajón a `RESERVADO`, bloqueo de doble reserva sobre el mismo cajón, consulta de reservas propias, consulta por código con `OPERADOR`, consulta por identificador interno con `ADMIN`, cancelación manual de reservas propias y expiración de reservas vencidas con liberación del cajón.
+
+`TicketIntegrationTest` cubre rechazo sin JWT, rechazo con rol `USER`, creación de ticket con `OPERADOR` asignado al estacionamiento, cambio de reserva a `USADA`, cambio de cajón a `OCUPADO`, bloqueo de doble ticket para la misma reserva y rechazo de operador no asignado al estacionamiento.
 
 `CatalogoIntegrationTest` cubre rechazo sin JWT, acceso con roles `ADMIN`, `OPERADOR` y `USER`, formato `ApiResponse`, presencia de `transactionId` y valores reales de los catálogos de tipos y estados de Cajón derivados de los enums `TipoCajon` y `EstadoCajon`.
 

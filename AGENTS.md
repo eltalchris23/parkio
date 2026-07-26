@@ -24,22 +24,22 @@ Parkio es un backend en desarrollo para administrar:
 - Cajones pertenecientes a un estacionamiento.
 - Estado y tipo de los cajones.
 
-El proyecto contiene actualmente el modelo persistente, DTOs, repositorios, contratos de servicio, migraciones y documentación de arquitectura. Los módulos Rol, Estacionamiento, Cajón, Usuario y Reserva cuentan además con mapper, servicio transaccional, controlador REST y pruebas unitarias. El módulo Catálogos cuenta con DTO, servicio, controlador REST, pruebas unitarias y prueba de integración para exponer valores derivados de enums. El módulo Auth implementa login, emisión de JWT y consulta del usuario autenticado mediante `/api/v1/auth/me`.
+El proyecto contiene actualmente el modelo persistente, DTOs, repositorios, contratos de servicio, migraciones y documentación de arquitectura. Los módulos Rol, Estacionamiento, Cajón, Usuario, Reserva y Ticket cuentan además con mapper, servicio transaccional, controlador REST y pruebas unitarias. El módulo Catálogos cuenta con DTO, servicio, controlador REST, pruebas unitarias y prueba de integración para exponer valores derivados de enums. El módulo Auth implementa login, emisión de JWT y consulta del usuario autenticado mediante `/api/v1/auth/me`.
 
-La API REST está implementada para Auth, Rol, Estacionamiento, Cajón, Usuario, Reserva y Catálogos. Usuario permite asignar y retirar roles y estacionamientos. La autenticación JWT está implementada. La autorización granular por roles ya inició en Rol, Usuario, Estacionamiento, Cajón, Reserva y Catálogos: `/api/v1/roles` requiere rol `ADMIN`; `/api/v1/usuarios` distingue entre operaciones administrativas de `ADMIN` y operaciones propias de `USER` u `OPERADOR`; `/api/v1/estacionamientos` permite consulta a `ADMIN`, `OWNER`, `OPERADOR` y `USER`, escritura global a `ADMIN` y escritura propia a `OWNER`; `/api/v1/cajones` permite consulta a `ADMIN`, `OWNER`, `OPERADOR` y `USER`, cambios de estado a `ADMIN`, `OWNER` y `OPERADOR`, escritura global a `ADMIN` y escritura propia a `OWNER`; `/api/v1/reservas` permite crear, consultar y cancelar reservas propias a `USER`, consultar por código a `ADMIN`, `OWNER` y `OPERADOR`, y consultar por identificador a `ADMIN`; `/api/v1/catalogos` permite consulta a `ADMIN`, `OPERADOR` y `USER`.
+La API REST está implementada para Auth, Rol, Estacionamiento, Cajón, Usuario, Reserva, Ticket y Catálogos. Usuario permite asignar y retirar roles y estacionamientos. La autenticación JWT está implementada. La autorización granular por roles ya inició en Rol, Usuario, Estacionamiento, Cajón, Reserva, Ticket y Catálogos: `/api/v1/roles` requiere rol `ADMIN`; `/api/v1/usuarios` distingue entre operaciones administrativas de `ADMIN` y operaciones propias de `USER` u `OPERADOR`; `/api/v1/estacionamientos` permite consulta a `ADMIN`, `OWNER`, `OPERADOR` y `USER`, escritura global a `ADMIN` y escritura propia a `OWNER`; `/api/v1/cajones` permite consulta a `ADMIN`, `OWNER`, `OPERADOR` y `USER`, cambios de estado a `ADMIN`, `OWNER` y `OPERADOR`, escritura global a `ADMIN` y escritura propia a `OWNER`; `/api/v1/reservas` permite crear, consultar y cancelar reservas propias a `USER`, consultar por código a `ADMIN`, `OWNER` y `OPERADOR`, y consultar por identificador a `ADMIN`; `/api/v1/tickets/entrada` permite a `OPERADOR` convertir una reserva vigente en ticket abierto; `/api/v1/catalogos` permite consulta a `ADMIN`, `OPERADOR` y `USER`.
 
 ## Estado Actual
 
 Antes de realizar cambios, considerar lo siguiente:
 
-- `RolController`, `EstacionamientoController`, `CajonController`, `UsuarioController`, `ReservaController` y `CatalogoController` exponen los recursos `/api/v1/roles`, `/api/v1/estacionamientos`, `/api/v1/cajones`, `/api/v1/usuarios`, `/api/v1/reservas` y `/api/v1/catalogos`.
+- `RolController`, `EstacionamientoController`, `CajonController`, `UsuarioController`, `ReservaController`, `TicketController` y `CatalogoController` exponen los recursos `/api/v1/roles`, `/api/v1/estacionamientos`, `/api/v1/cajones`, `/api/v1/usuarios`, `/api/v1/reservas`, `/api/v1/tickets` y `/api/v1/catalogos`.
 - Existe Spring Security HTTP con OAuth2 Resource Server para proteger endpoints mediante JWT.
 - Existen `AuthController`, `AuthService`, `AuthServiceImpl`, `JwtService`, `JwtProperties` y `SecurityConfig`.
 - `AuthController` expone `POST /api/v1/auth/login` como endpoint público y `GET /api/v1/auth/me` como endpoint protegido por JWT.
 - Existe configuración CORS mediante `CorsConfig` y `CorsProperties`, usando propiedades bajo `parkio.cors`.
 - Existe Spring Boot Actuator para Health Check operativo.
 - Existe Springdoc OpenAPI para generar contrato OpenAPI y Swagger UI en ambiente de desarrollo.
-- Los controladores principales Auth, Rol, Estacionamiento, Cajón, Usuario, Reserva y Catálogos ya tienen anotaciones OpenAPI para Swagger UI.
+- Los controladores principales Auth, Rol, Estacionamiento, Cajón, Usuario, Reserva, Ticket y Catálogos ya tienen anotaciones OpenAPI para Swagger UI.
 - Solo se expone `health` bajo `/actuator`; no se deben exponer endpoints sensibles sin autorización explícita.
 - `/actuator/health`, `/actuator/health/liveness` y `/actuator/health/readiness` son públicos y no requieren JWT.
 - La base global de los controllers se configura mediante `spring.mvc.servlet.path=/api/v1`.
@@ -52,6 +52,7 @@ Antes de realizar cambios, considerar lo siguiente:
 - `EstacionamientoController` utiliza `@PreAuthorize` para permitir consultas a `ADMIN`, `OWNER`, `OPERADOR` y `USER`; escritura a `ADMIN`; y escritura de estacionamientos propios a `OWNER`.
 - `CajonController` utiliza `@PreAuthorize` para permitir consultas a `ADMIN`, `OWNER`, `OPERADOR` y `USER`; cambios de estado a `ADMIN`, `OWNER` y `OPERADOR`; y creación, actualización o eliminación a `ADMIN` de forma global y a `OWNER` solo sobre cajones de sus propios estacionamientos.
 - `ReservaController` utiliza `@PreAuthorize` para permitir creación, consulta y cancelación de reservas propias a `USER`, consulta por código a `ADMIN`, `OWNER` y `OPERADOR`, y consulta por identificador interno a `ADMIN`.
+- `TicketController` utiliza `@PreAuthorize` para permitir a `OPERADOR` registrar entradas mediante `POST /api/v1/tickets/entrada`.
 - `CatalogoController` utiliza `@PreAuthorize` para permitir consultas a `ADMIN`, `OPERADOR` y `USER`.
 - `UsuarioSecurity` compara el `usuarioId` de la ruta con el claim `usuarioId` del JWT.
 - Los roles del claim `roles` del JWT se convierten a authorities de Spring Security con prefijo `ROLE_`.
@@ -65,28 +66,32 @@ Antes de realizar cambios, considerar lo siguiente:
 - Las operaciones no paginadas de Cajón para consultar, crear, actualizar y cambiar estado devuelven una respuesta estandarizada mediante `ApiResponse<CajonResponse>`. `OWNER` puede operar solo cajones ubicados en sus propios estacionamientos.
 - El listado de reservas propias `GET /api/v1/reservas/mis-reservas` devuelve una respuesta estandarizada mediante `ApiResponse<PageResponse<ReservaResponse>>` y acepta `page`, `size` y `sort`.
 - Las operaciones no paginadas de Reserva para crear, consultar por código, consultar por identificador y cancelar devuelven una respuesta estandarizada mediante `ApiResponse<ReservaResponse>`.
+- La operación no paginada de Ticket para registrar entrada mediante `POST /api/v1/tickets/entrada` devuelve una respuesta estandarizada mediante `ApiResponse<TicketResponse>`.
 - El listado de usuarios `GET /api/v1/usuarios` devuelve una respuesta estandarizada mediante `ApiResponse<PageResponse<UsuarioResponse>>` y acepta `page`, `size` y `sort`.
 - Las operaciones no paginadas de Usuario para consultar, crear, actualizar, asignar rol y asignar estacionamiento devuelven una respuesta estandarizada mediante `ApiResponse<UsuarioResponse>`.
 - Existe `TransactionIdFilter`, que genera o reutiliza el header `X-Transaction-Id`, lo agrega al response, lo deja disponible para logs mediante MDC y lo incluye en respuestas exitosas estandarizadas y errores.
 - Al desactivar un estacionamiento, también se desactivan lógicamente sus cajones activos.
 - Los usuarios inactivos no pueden iniciar sesión.
 - `spring.jpa.open-in-view` está desactivado globalmente mediante `open-in-view: false`.
-- `RolMapper`, `EstacionamientoMapper`, `CajonMapper`, `UsuarioMapper` y `ReservaMapper` están implementados.
+- `RolMapper`, `EstacionamientoMapper`, `CajonMapper`, `UsuarioMapper`, `ReservaMapper` y `TicketMapper` están implementados.
 - Existe `Reserva`, `EstadoReserva`, `ReservaRequest`, `ReservaResponse`, `ReservaRepository`, `ReservaMapper`, `ReservaService`, `ReservaServiceImpl`, `ReservaController`, `ReservaProperties`, `ReservaConfig`, `ReservaSchedulingConfig`, `ReservaScheduler` y la migración Flyway `V10__create_reserva.sql`.
+- Existe `Ticket`, `EstadoTicket`, `TicketEntradaRequest`, `TicketResponse`, `TicketRepository`, `TicketMapper`, `TicketService`, `TicketServiceImpl`, `TicketController` y la migración Flyway `V11__create_ticket.sql`.
 - La creación de reservas usa `ReservaProperties.expiracionMinutos()` para calcular `fechaExpiracion`, guarda el valor aplicado en `tiempo_expiracion_minutos` y cambia el cajón reservado a estado `RESERVADO`.
 - La cancelación manual de reservas cambia reservas propias, vigentes y en estado `CREADA` a `CANCELADA`, y libera el cajón cuando no existe otra reserva vigente sobre el mismo cajón.
 - La cancelación automática usa `ReservaScheduler`, se ejecuta con la frecuencia definida en `parkio.reserva.expiracion-check-ms` o `PARKIO_RESERVA_EXPIRACION_CHECK_MS`, cambia reservas vencidas de `CREADA` a `EXPIRADA` y libera cajones cuando corresponde.
+- La creación de tickets mediante `registrarEntrada` convierte reservas `CREADA` y vigentes en tickets `ABIERTO`, cambia la reserva a `USADA` y el cajón a `OCUPADO`. El operador se obtiene desde el claim `usuarioId` del JWT y debe tener rol `OPERADOR` y estar asignado al estacionamiento de la reserva.
 - El manejo global de excepciones está implementado mediante `GlobalExceptionHandler` y `ApiError`.
 - `RolRequest`, `EstacionamientoRequest`, `CajonRequest`, `CajonEstadoRequest`, `UsuarioCreateRequest`, `UsuarioUpdateRequest`, `UsuarioPasswordRequest`, `UsuarioRolRequest` y `UsuarioEstacionamientoRequest` tienen validaciones Jakarta Validation.
-- `RolServiceImpl`, `EstacionamientoServiceImpl`, `CajonServiceImpl`, `UsuarioServiceImpl` y `ReservaServiceImpl` están registrados como beans y usan transacciones.
+- `RolServiceImpl`, `EstacionamientoServiceImpl`, `CajonServiceImpl`, `UsuarioServiceImpl`, `ReservaServiceImpl` y `TicketServiceImpl` están registrados como beans y usan transacciones.
 - `UsuarioServiceImpl` valida correos duplicados y genera hashes BCrypt mediante `PasswordEncoder`.
-- Existen pruebas unitarias para mapper, servicio y controlador de Rol, Estacionamiento, Cajón, Usuario y Reserva, pruebas de servicio, controlador e integración de Catálogos, pruebas de Auth/JWT/seguridad, pruebas específicas de CORS y Catálogos en `SecurityConfigTest`, pruebas de Health Check en `HealthCheckSecurityIntegrationTest`, además de la prueba de carga del contexto.
+- Existen pruebas unitarias para mapper, servicio y controlador de Rol, Estacionamiento, Cajón, Usuario, Reserva y Ticket, pruebas de servicio, controlador e integración de Catálogos, pruebas de Auth/JWT/seguridad, pruebas específicas de CORS y Catálogos en `SecurityConfigTest`, pruebas de Health Check en `HealthCheckSecurityIntegrationTest`, además de la prueba de carga del contexto.
 - `SecurityConfigTest` valida CORS con preflight `OPTIONS` desde un origen permitido, rechazo de un origen no configurado y exposición de `X-Transaction-Id` en respuestas reales.
 - Existe una prueba de integración inicial `AuthUsuarioIntegrationTest` que levanta Spring Boot completo, usa PostgreSQL con perfil `test`, valida Flyway, registra un usuario, inicia sesión, consulta un endpoint protegido con JWT y valida `/api/v1/auth/me` con y sin token.
 - Existe `RolIntegrationTest`, que levanta Spring Boot completo, usa PostgreSQL con perfil `test`, valida seguridad JWT/ADMIN y prueba el flujo de listar, crear, consultar, actualizar, detectar duplicados y eliminar lógicamente roles.
 - Existe `EstacionamientoIntegrationTest`, que levanta Spring Boot completo, usa PostgreSQL con perfil `test`, valida seguridad JWT/roles y prueba el flujo de listar, crear, consultar, actualizar y eliminar lógicamente estacionamientos, incluyendo la desactivación lógica de cajones activos asociados, el alcance de `OWNER` para operar únicamente sus propios estacionamientos y el alcance de `OPERADOR` para consultar solo estacionamientos asignados.
 - Existe `CajonIntegrationTest`, que levanta Spring Boot completo, usa PostgreSQL con perfil `test`, valida seguridad JWT/roles y prueba consulta, creación, actualización, cambio de estado, conflicto por duplicado, borrado lógico de cajones, alcance de `OWNER` para operar únicamente cajones ubicados en sus propios estacionamientos y alcance de `OPERADOR` para consultar y cambiar estado solo en cajones de estacionamientos asignados.
 - Existe `ReservaIntegrationTest`, que levanta Spring Boot completo, usa PostgreSQL con perfil `test`, valida seguridad JWT/roles y prueba rechazo sin JWT, creación de reserva con `USER`, cambio del cajón a `RESERVADO`, bloqueo de doble reserva, consulta de reservas propias, consulta por código con `OPERADOR`, consulta por identificador con `ADMIN`, cancelación manual de reservas propias y expiración de reservas vencidas con liberación del cajón.
+- Existe `TicketIntegrationTest`, que levanta Spring Boot completo, usa PostgreSQL con perfil `test`, valida seguridad JWT/roles y prueba rechazo sin JWT, rechazo con rol `USER`, creación de ticket con `OPERADOR` asignado, cambio de reserva a `USADA`, cambio de cajón a `OCUPADO`, bloqueo de doble ticket para la misma reserva y rechazo de operador no asignado al estacionamiento.
 - Existe `UsuarioIntegrationTest`, que levanta Spring Boot completo, usa PostgreSQL con perfil `test`, valida seguridad JWT/roles y prueba creación pública con rol `USER`, correos duplicados, consulta/actualización del propio usuario, bloqueo sobre usuarios ajenos, cambio de contraseña, asignación y retiro de roles, asignación y retiro de estacionamientos, borrado lógico y bloqueo de login para usuarios inactivos.
 - Existe `CatalogoIntegrationTest`, que levanta Spring Boot completo, usa PostgreSQL con perfil `test`, valida seguridad JWT/roles y prueba los catálogos de tipos y estados de Cajón con `ADMIN`, `OPERADOR` y `USER`, incluyendo formato `ApiResponse`, `transactionId` y valores reales de los enums.
 - Usuario permite asignar y retirar roles y estacionamientos mediante `usuario_rol` y `usuario_estacionamiento`. `UsuarioResponse` representa estas relaciones mediante nombres de roles e identificadores de estacionamientos. La creación pública de usuarios asigna automáticamente el rol base `USER`. Creación, actualización general y cambio de contraseña utilizan DTOs y operaciones separadas.
@@ -279,6 +284,8 @@ No se debe duplicar manualmente la administración de fechas salvo que exista un
 `tipo` y `estado` de `Cajon` utilizan `TipoCajon` y `EstadoCajon`, persistidos mediante `EnumType.STRING`. El estado inicial es `LIBRE` y se actualiza mediante una operación específica con `CajonEstadoRequest`. Los estados actuales de cajón son `LIBRE`, `RESERVADO`, `OCUPADO` y `FUERA_SERVICIO`.
 
 `EstadoReserva` define `CREADA`, `CANCELADA`, `EXPIRADA` y `USADA`. La creación de reservas maneja expiración configurable mediante `parkio.reserva.expiracion-minutos` o `PARKIO_RESERVA_EXPIRACION_MINUTOS`, para liberar cajones reservados cuando el cliente no llegue a tiempo sin modificar backend ni frontend. El proceso automático de expiración se programa mediante `parkio.reserva.expiracion-check-ms` o `PARKIO_RESERVA_EXPIRACION_CHECK_MS`. El frontend no debe enviar la duración de la reserva.
+
+`EstadoTicket` define `ABIERTO` y `CERRADO`. Actualmente solo está implementada la creación de tickets abiertos mediante la conversión de una reserva vigente en entrada real. No está implementado todavía el cierre de ticket, la salida del vehículo, el cálculo de cobro ni la facturación.
 
 ## Convenciones para DTOs
 
@@ -506,6 +513,7 @@ V7__insert_roles_base.sql
 V8__insert_owner_role.sql
 V9__add_owner_to_estacionamiento.sql
 V10__create_reserva.sql
+V11__create_ticket.sql
 ```
 
 Reglas obligatorias:
@@ -541,6 +549,8 @@ El rol `OWNER` existe como rol base para representar al dueño de uno o varios e
 No se debe asumir la existencia de usuarios, estacionamientos u otros registros predeterminados.
 
 La tabla `reserva`, sus DTOs, repositorio, mapper, servicio, controlador y scheduler ya existen. La creación de reservas usa `ReservaProperties.expiracionMinutos()` para calcular la expiración de nuevas reservas. El frontend no debe enviar la duración de la reserva; el backend aplica la configuración vigente y guarda el valor usado en `tiempo_expiracion_minutos`. La cancelación manual solo aplica para reservas propias en estado `CREADA` y vigentes. La expiración automática cambia reservas vencidas a `EXPIRADA` y libera cajones cuando corresponde.
+
+La tabla `ticket`, sus DTOs, repositorio, mapper, servicio y controlador ya existen. La operación implementada es `POST /api/v1/tickets/entrada`, que requiere rol `OPERADOR`, toma el operador desde el JWT, valida asignación al estacionamiento, crea un ticket `ABIERTO`, cambia la reserva a `USADA` y el cajón a `OCUPADO`. No se debe asumir que exista cierre de ticket hasta que se implemente explícitamente.
 
 ## Seguridad y Autenticación
 
@@ -600,7 +610,7 @@ La documentación técnica se encuentra en `docs/`.
 
 Incluye:
 
-- Contrato implementado de Auth, Rol, Estacionamiento, Cajón, Usuario y Catálogos.
+- Contrato implementado de Auth, Rol, Estacionamiento, Cajón, Usuario, Reserva, Ticket y Catálogos.
 - Arquitectura por capas.
 - Estructura objetivo de paquetes.
 - Flujo JWT.
