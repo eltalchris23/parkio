@@ -16,6 +16,7 @@ Actualmente, el proyecto contiene:
 - Catálogos REST para tipos y estados de cajón consumibles por frontend.
 - Reservas REST para apartar temporalmente cajones disponibles, cancelarlas manualmente y expirar automáticamente reservas vencidas.
 - Tickets REST para convertir una reserva vigente en una entrada real al estacionamiento.
+- Configuración interna inicial de tarifas por estacionamiento, todavía sin controller ni endpoints REST.
 - Login mediante `/api/v1/auth/login`.
 - Consulta del usuario autenticado mediante `/api/v1/auth/me`.
 - Seguridad HTTP con Spring Security y JWT.
@@ -88,15 +89,15 @@ Estado actual de las capas:
 | Entidades | Implementadas |
 | DTOs | Definidos |
 | Repositorios | Definidos con Spring Data JPA |
-| Servicios | Rol, Estacionamiento, Cajón, Usuario, Reserva, Ticket y Catálogos implementados |
+| Servicios | Rol, Estacionamiento, Cajón, Usuario, Reserva, Ticket y Catálogos implementados; Tarifa implementado como service interno inicial sin controller |
 | Controladores | `RolController`, `EstacionamientoController`, `CajonController`, `UsuarioController`, `ReservaController`, `TicketController` y `CatalogoController` implementados |
-| Mappers | `RolMapper`, `EstacionamientoMapper`, `CajonMapper`, `UsuarioMapper`, `ReservaMapper` y `TicketMapper` implementados |
+| Mappers | `RolMapper`, `EstacionamientoMapper`, `CajonMapper`, `UsuarioMapper`, `ReservaMapper`, `TicketMapper` y `TarifaEstacionamientoMapper` implementados |
 | Seguridad | Autenticación JWT implementada; autorización por rol implementada en `/api/v1/roles`, `/api/v1/usuarios`, `/api/v1/estacionamientos`, `/api/v1/cajones`, `/api/v1/reservas`, `/api/v1/tickets` y `/api/v1/catalogos` |
 | Observabilidad | Health Check público implementado mediante Spring Boot Actuator |
 | Documentación interactiva | OpenAPI y Swagger UI habilitados en `dev` y deshabilitados por defecto/prod |
 | Manejo global de errores | Implementado mediante `GlobalExceptionHandler` y `ApiError`, incluyendo `transactionId` |
 | Auditoría JPA | Habilitada |
-| Migraciones | Implementadas de V1 a V11 |
+| Migraciones | Implementadas de V1 a V12 |
 
 La clase principal habilita la auditoría mediante `@EnableJpaAuditing`. Las entidades heredan los campos comunes desde `BaseEntity`.
 
@@ -163,6 +164,12 @@ parkio/
 │   │   │   │   ├── entity/
 │   │   │   │   ├── mapper/
 │   │   │   │   └── repository/
+│   │   │   ├── tarifa/
+│   │   │   │   ├── dto/
+│   │   │   │   ├── entity/
+│   │   │   │   ├── mapper/
+│   │   │   │   ├── repository/
+│   │   │   │   └── service/
 │   │   │   ├── shared/
 │   │   │   │   ├── entity/
 │   │   │   │   └── exception/
@@ -308,12 +315,27 @@ Campos propios:
 
 La creación inicial del ticket convierte una reserva `CREADA` y vigente en una ocupación real: la reserva cambia a `USADA`, el cajón cambia a `OCUPADO` y el ticket queda en estado `ABIERTO`. El cierre registra `fechaSalida`, cambia el ticket a `CERRADO` y libera el cajón cambiándolo a `LIBRE`.
 
+### Tarifa de estacionamiento
+
+Representa la configuración de cobro asociada a un estacionamiento.
+
+Campos propios:
+
+- Estacionamiento.
+- Precio por hora.
+- Minutos de tolerancia.
+- Indicador de cobro por fracción.
+- Tarifa mínima.
+
+Actualmente existe la tabla `tarifa_estacionamiento`, la entidad JPA, DTOs, repositorio, mapper y service transaccional. Todavía no existe controller REST, endpoints públicos, pruebas unitarias específicas ni integración del cálculo de cobro al cierre de tickets.
+
 ### Relaciones
 
 ```text
 Usuario  * ─── *  Rol
 Usuario  * ─── *  Estacionamiento
 Estacionamiento  1 ─── *  Cajón
+Estacionamiento  1 ─── 1  TarifaEstacionamiento
 Usuario  1 ─── *  Reserva
 Estacionamiento  1 ─── *  Reserva
 Cajón  1 ─── *  Reserva
@@ -506,6 +528,24 @@ La operación de entrada valida que el usuario autenticado tenga alcance sobre e
 La operación de salida valida que el ticket exista, esté `ABIERTO` y que el usuario autenticado tenga alcance sobre el estacionamiento del ticket. Si todo es correcto, cambia el ticket a `CERRADO`, registra `fechaSalida` y cambia el cajón a `LIBRE`.
 
 Todavía no está implementado el cálculo de cobro ni la facturación.
+
+### Tarifa
+
+Módulo interno inicial para configurar las tarifas de cobro por estacionamiento.
+
+Incluye:
+
+- Entidad `TarifaEstacionamiento`.
+- `TarifaEstacionamientoRequest` y `TarifaEstacionamientoResponse`.
+- `TarifaEstacionamientoRepository`.
+- `TarifaEstacionamientoMapper`.
+- `TarifaEstacionamientoService`.
+- `TarifaEstacionamientoServiceImpl`.
+- Migración Flyway `V12__create_tarifa_estacionamiento.sql`.
+
+El módulo permite a nivel service consultar, crear, actualizar y desactivar lógicamente la tarifa activa de un estacionamiento. La autorización interna permite `ADMIN` sobre cualquier estacionamiento y `OWNER` únicamente sobre estacionamientos propios. `OPERADOR` y `USER` no administran tarifas.
+
+Todavía no existen `TarifaEstacionamientoController`, endpoints REST, documentación OpenAPI específica ni pruebas unitarias o de integración propias del módulo Tarifa. Tampoco está conectado todavía al cálculo de cobro del cierre de ticket.
 
 ### Auditoría
 
@@ -986,6 +1026,7 @@ Migraciones existentes:
 | V9 | `V9__add_owner_to_estacionamiento.sql` | Agrega `owner_id` a `estacionamiento` para identificar al dueño |
 | V10 | `V10__create_reserva.sql` | Crea la tabla `reserva` para apartar temporalmente cajones |
 | V11 | `V11__create_ticket.sql` | Crea la tabla `ticket` para registrar entradas derivadas de reservas |
+| V12 | `V12__create_tarifa_estacionamiento.sql` | Crea la tabla `tarifa_estacionamiento` para configurar tarifas por estacionamiento |
 
 Las migraciones se ejecutan automáticamente al iniciar la aplicación.
 
@@ -1055,6 +1096,7 @@ A partir de las brechas entre el código y la documentación, el trabajo pendien
 
 - Ampliar progresivamente las pruebas de integración con PostgreSQL para cubrir escenarios adicionales de negocio.
 - Mantener sincronizados el contrato API y el código implementado.
+- Crear controller, endpoints, pruebas y documentación OpenAPI para Tarifa.
 - Implementar cálculo de cobro y reglas de facturación cuando se defina el alcance funcional.
 
 Este roadmap se deriva de la documentación existente y del estado incompleto del código. No representa funcionalidades ya disponibles.

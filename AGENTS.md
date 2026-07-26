@@ -24,7 +24,7 @@ Parkio es un backend en desarrollo para administrar:
 - Cajones pertenecientes a un estacionamiento.
 - Estado y tipo de los cajones.
 
-El proyecto contiene actualmente el modelo persistente, DTOs, repositorios, contratos de servicio, migraciones y documentación de arquitectura. Los módulos Rol, Estacionamiento, Cajón, Usuario, Reserva y Ticket cuentan además con mapper, servicio transaccional, controlador REST y pruebas unitarias. El módulo Catálogos cuenta con DTO, servicio, controlador REST, pruebas unitarias y prueba de integración para exponer valores derivados de enums. El módulo Auth implementa login, emisión de JWT y consulta del usuario autenticado mediante `/api/v1/auth/me`.
+El proyecto contiene actualmente el modelo persistente, DTOs, repositorios, contratos de servicio, migraciones y documentación de arquitectura. Los módulos Rol, Estacionamiento, Cajón, Usuario, Reserva y Ticket cuentan además con mapper, servicio transaccional, controlador REST y pruebas unitarias. El módulo Tarifa cuenta con tabla, entidad, DTOs, repositorio, mapper y servicio transaccional inicial, pero todavía no cuenta con controller REST ni pruebas específicas. El módulo Catálogos cuenta con DTO, servicio, controlador REST, pruebas unitarias y prueba de integración para exponer valores derivados de enums. El módulo Auth implementa login, emisión de JWT y consulta del usuario autenticado mediante `/api/v1/auth/me`.
 
 La API REST está implementada para Auth, Rol, Estacionamiento, Cajón, Usuario, Reserva, Ticket y Catálogos. Usuario permite asignar y retirar roles y estacionamientos. La autenticación JWT está implementada. La autorización granular por roles ya inició en Rol, Usuario, Estacionamiento, Cajón, Reserva, Ticket y Catálogos: `/api/v1/roles` requiere rol `ADMIN`; `/api/v1/usuarios` distingue entre operaciones administrativas de `ADMIN`, operaciones propias de cualquier usuario autenticado y administración limitada de operadores por `OWNER` dentro de sus propios estacionamientos; `/api/v1/estacionamientos` permite consulta a `ADMIN`, `OWNER`, `OPERADOR` y `USER`, escritura global a `ADMIN` y escritura propia a `OWNER`; `/api/v1/cajones` permite consulta a `ADMIN`, `OWNER`, `OPERADOR` y `USER`, cambios de estado a `ADMIN`, `OWNER` y `OPERADOR`, escritura global a `ADMIN` y escritura propia a `OWNER`; `/api/v1/reservas` permite crear, consultar y cancelar reservas propias a `USER`, consultar por código a `ADMIN`, `OWNER` y `OPERADOR`, y consultar por identificador a `ADMIN`; `/api/v1/tickets/entrada` y `/api/v1/tickets/{ticketId}/salida` permiten a `ADMIN`, `OWNER` y `OPERADOR` operar tickets según su alcance; `/api/v1/catalogos` permite consulta a `ADMIN`, `OPERADOR` y `USER`.
 
@@ -73,9 +73,12 @@ Antes de realizar cambios, considerar lo siguiente:
 - Al desactivar un estacionamiento, también se desactivan lógicamente sus cajones activos.
 - Los usuarios inactivos no pueden iniciar sesión.
 - `spring.jpa.open-in-view` está desactivado globalmente mediante `open-in-view: false`.
-- `RolMapper`, `EstacionamientoMapper`, `CajonMapper`, `UsuarioMapper`, `ReservaMapper` y `TicketMapper` están implementados.
+- `RolMapper`, `EstacionamientoMapper`, `CajonMapper`, `UsuarioMapper`, `ReservaMapper`, `TicketMapper` y `TarifaEstacionamientoMapper` están implementados.
 - Existe `Reserva`, `EstadoReserva`, `ReservaRequest`, `ReservaResponse`, `ReservaRepository`, `ReservaMapper`, `ReservaService`, `ReservaServiceImpl`, `ReservaController`, `ReservaProperties`, `ReservaConfig`, `ReservaSchedulingConfig`, `ReservaScheduler` y la migración Flyway `V10__create_reserva.sql`.
 - Existe `Ticket`, `EstadoTicket`, `TicketEntradaRequest`, `TicketResponse`, `TicketRepository`, `TicketMapper`, `TicketService`, `TicketServiceImpl`, `TicketController` y la migración Flyway `V11__create_ticket.sql`.
+- Existe `TarifaEstacionamiento`, `TarifaEstacionamientoRequest`, `TarifaEstacionamientoResponse`, `TarifaEstacionamientoRepository`, `TarifaEstacionamientoMapper`, `TarifaEstacionamientoService`, `TarifaEstacionamientoServiceImpl` y la migración Flyway `V12__create_tarifa_estacionamiento.sql`.
+- El módulo Tarifa todavía no tiene controller REST, endpoints, pruebas específicas ni integración con el cálculo de cobro del cierre de ticket.
+- `TarifaEstacionamientoServiceImpl` permite operar tarifas a `ADMIN` de forma global y a `OWNER` solo sobre estacionamientos propios; `OPERADOR` y `USER` no administran tarifas.
 - La creación de reservas usa `ReservaProperties.expiracionMinutos()` para calcular `fechaExpiracion`, guarda el valor aplicado en `tiempo_expiracion_minutos` y cambia el cajón reservado a estado `RESERVADO`.
 - La cancelación manual de reservas cambia reservas propias, vigentes y en estado `CREADA` a `CANCELADA`, y libera el cajón cuando no existe otra reserva vigente sobre el mismo cajón.
 - La cancelación automática usa `ReservaScheduler`, se ejecuta con la frecuencia definida en `parkio.reserva.expiracion-check-ms` o `PARKIO_RESERVA_EXPIRACION_CHECK_MS`, cambia reservas vencidas de `CREADA` a `EXPIRADA` y libera cajones cuando corresponde.
@@ -114,6 +117,7 @@ com.kasaca.parkio
 ├── reserva
 ├── rol
 ├── shared
+├── tarifa
 └── usuario
 ```
 
@@ -287,6 +291,8 @@ No se debe duplicar manualmente la administración de fechas salvo que exista un
 `EstadoReserva` define `CREADA`, `CANCELADA`, `EXPIRADA` y `USADA`. La creación de reservas maneja expiración configurable mediante `parkio.reserva.expiracion-minutos` o `PARKIO_RESERVA_EXPIRACION_MINUTOS`, para liberar cajones reservados cuando el cliente no llegue a tiempo sin modificar backend ni frontend. El proceso automático de expiración se programa mediante `parkio.reserva.expiracion-check-ms` o `PARKIO_RESERVA_EXPIRACION_CHECK_MS`. El frontend no debe enviar la duración de la reserva.
 
 `EstadoTicket` define `ABIERTO` y `CERRADO`. Actualmente está implementada la creación de tickets abiertos mediante la conversión de una reserva vigente en entrada real y el cierre de tickets abiertos al registrar salida. No está implementado todavía el cálculo de cobro ni la facturación.
+
+`TarifaEstacionamiento` representa la configuración de cobro de un estacionamiento mediante `precioPorHora`, `minutosTolerancia`, `cobrarFraccion` y `tarifaMinima`. La relación con `Estacionamiento` es uno a uno. Actualmente solo existe implementación interna de persistencia, mapper y service; no se debe asumir que exista API REST de Tarifa ni cálculo de cobro hasta que se implemente explícitamente.
 
 ## Convenciones para DTOs
 
@@ -515,6 +521,7 @@ V8__insert_owner_role.sql
 V9__add_owner_to_estacionamiento.sql
 V10__create_reserva.sql
 V11__create_ticket.sql
+V12__create_tarifa_estacionamiento.sql
 ```
 
 Reglas obligatorias:
@@ -552,6 +559,8 @@ No se debe asumir la existencia de usuarios, estacionamientos u otros registros 
 La tabla `reserva`, sus DTOs, repositorio, mapper, servicio, controlador y scheduler ya existen. La creación de reservas usa `ReservaProperties.expiracionMinutos()` para calcular la expiración de nuevas reservas. El frontend no debe enviar la duración de la reserva; el backend aplica la configuración vigente y guarda el valor usado en `tiempo_expiracion_minutos`. La cancelación manual solo aplica para reservas propias en estado `CREADA` y vigentes. La expiración automática cambia reservas vencidas a `EXPIRADA` y libera cajones cuando corresponde.
 
 La tabla `ticket`, sus DTOs, repositorio, mapper, servicio y controlador ya existen. Las operaciones implementadas son `POST /api/v1/tickets/entrada` y `PATCH /api/v1/tickets/{ticketId}/salida`, que permiten operar tickets a `ADMIN`, `OWNER` y `OPERADOR` según alcance. `ADMIN` tiene alcance global, `OWNER` solo estacionamientos propios y `OPERADOR` solo estacionamientos asignados. La entrada crea un ticket `ABIERTO`, cambia la reserva a `USADA` y el cajón a `OCUPADO`. La salida cambia el ticket a `CERRADO`, registra `fechaSalida` y libera el cajón a `LIBRE`. No se debe asumir que exista cálculo de cobro o facturación hasta que se implemente explícitamente.
+
+La tabla `tarifa_estacionamiento`, sus DTOs, repositorio, mapper y servicio ya existen. El service permite consultar, crear, actualizar y desactivar lógicamente tarifas activas con alcance `ADMIN` global y `OWNER` sobre estacionamientos propios. No existe todavía controller REST, endpoints, pruebas específicas ni integración de Tarifa con Ticket.
 
 ## Seguridad y Autenticación
 

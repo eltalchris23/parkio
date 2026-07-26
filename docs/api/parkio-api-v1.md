@@ -21,6 +21,8 @@ Este documento describe el contrato implementado actualmente para los módulos:
 - Ticket.
 - Catálogos.
 
+El módulo Tarifa existe parcialmente a nivel interno de backend, con entidad, DTOs, repositorio, mapper, service y migración Flyway, pero todavía no expone endpoints REST. Por eso no se documenta como contrato API consumible en esta versión.
+
 No describe funcionalidades futuras salvo que se indiquen explícitamente como pendientes.
 
 ### Autenticación
@@ -149,6 +151,7 @@ Roles base existentes en base de datos:
 | Cajón | `ADMIN`, `OWNER`, `OPERADOR`, `USER`; `OWNER` solo ve cajones de estacionamientos propios | `ADMIN`; `OWNER` solo administra cajones propios; cambio de estado también permite `OPERADOR` |
 | Reserva | `USER` consulta sus propias reservas; `ADMIN`, `OWNER` y `OPERADOR` consultan por código; `ADMIN` consulta por ID | `USER` crea y cancela reservas propias |
 | Ticket | No tiene consultas implementadas todavía | `ADMIN`, `OWNER` y `OPERADOR` registran entrada y salida según alcance |
+| Tarifa | Sin endpoint REST implementado todavía | Sin endpoint REST implementado todavía; service interno permite `ADMIN` global y `OWNER` sobre estacionamientos propios |
 | Catálogos | `ADMIN`, `OPERADOR`, `USER` | No aplica |
 
 ### Identificador de transacción
@@ -1573,6 +1576,35 @@ Después de una respuesta `200 OK`:
 | `403` | Usuario sin rol permitido para operar tickets |
 | `404` | Usuario autenticado o ticket inexistente/inactivo |
 | `409` | Ticket distinto de `ABIERTO` o usuario sin alcance sobre el estacionamiento |
+
+## Módulo Tarifa
+
+El módulo Tarifa existe parcialmente como implementación interna del backend para configurar reglas de cobro por estacionamiento.
+
+Estado actual:
+
+- Existe la tabla `tarifa_estacionamiento` mediante Flyway.
+- Existe la entidad `TarifaEstacionamiento`.
+- Existen los DTOs `TarifaEstacionamientoRequest` y `TarifaEstacionamientoResponse`.
+- Existe `TarifaEstacionamientoRepository`.
+- Existe `TarifaEstacionamientoMapper`.
+- Existe `TarifaEstacionamientoService` y `TarifaEstacionamientoServiceImpl`.
+
+Reglas internas actuales:
+
+- Cada estacionamiento puede tener como máximo una tarifa activa.
+- `ADMIN` puede administrar tarifas de cualquier estacionamiento.
+- `OWNER` solo puede administrar tarifas de estacionamientos propios.
+- `OPERADOR` y `USER` no administran tarifas.
+- La eliminación de tarifa es lógica mediante `activo=false`.
+
+Pendiente:
+
+- No existe `TarifaEstacionamientoController`.
+- No existen endpoints REST para Tarifa.
+- No existen anotaciones OpenAPI específicas para Tarifa.
+- No existen pruebas unitarias ni de integración específicas de Tarifa.
+- El cierre de ticket todavía no calcula cobro usando esta tarifa.
 
 ## Módulo Catálogos
 
