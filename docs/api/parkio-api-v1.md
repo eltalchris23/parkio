@@ -19,9 +19,10 @@ Este documento describe el contrato implementado actualmente para los módulos:
 - Cajón.
 - Reserva.
 - Ticket.
+- Tarifa.
 - Catálogos.
 
-El módulo Tarifa existe parcialmente a nivel interno de backend, con entidad, DTOs, repositorio, mapper, service y migración Flyway, pero todavía no expone endpoints REST. Por eso no se documenta como contrato API consumible en esta versión.
+El módulo Tarifa expone endpoints REST para consultar, crear, actualizar y desactivar lógicamente tarifas activas por estacionamiento. Todavía no está integrado al cálculo de cobro del cierre de ticket.
 
 No describe funcionalidades futuras salvo que se indiquen explícitamente como pendientes.
 
@@ -120,6 +121,10 @@ GET /api/v1/reservas/mis-reservas
 PATCH /api/v1/reservas/{reservaId}/cancelar
 POST /api/v1/tickets/entrada
 PATCH /api/v1/tickets/{ticketId}/salida
+GET /api/v1/tarifas/estacionamiento/{estacionamientoId}
+POST /api/v1/tarifas
+PUT /api/v1/tarifas/estacionamiento/{estacionamientoId}
+DELETE /api/v1/tarifas/estacionamiento/{estacionamientoId}
 GET /api/v1/usuarios
 GET /api/v1/catalogos/cajones/tipos
 GET /api/v1/catalogos/cajones/estados
@@ -151,7 +156,7 @@ Roles base existentes en base de datos:
 | Cajón | `ADMIN`, `OWNER`, `OPERADOR`, `USER`; `OWNER` solo ve cajones de estacionamientos propios | `ADMIN`; `OWNER` solo administra cajones propios; cambio de estado también permite `OPERADOR` |
 | Reserva | `USER` consulta sus propias reservas; `ADMIN`, `OWNER` y `OPERADOR` consultan por código; `ADMIN` consulta por ID | `USER` crea y cancela reservas propias |
 | Ticket | No tiene consultas implementadas todavía | `ADMIN`, `OWNER` y `OPERADOR` registran entrada y salida según alcance |
-| Tarifa | Sin endpoint REST implementado todavía | Sin endpoint REST implementado todavía; service interno permite `ADMIN` global y `OWNER` sobre estacionamientos propios |
+| Tarifa | `ADMIN` global; `OWNER` solo sobre estacionamientos propios | `ADMIN` global; `OWNER` solo sobre estacionamientos propios |
 | Catálogos | `ADMIN`, `OPERADOR`, `USER` | No aplica |
 
 ### Identificador de transacción
@@ -1579,7 +1584,7 @@ Después de una respuesta `200 OK`:
 
 ## Módulo Tarifa
 
-El módulo Tarifa existe parcialmente como implementación interna del backend para configurar reglas de cobro por estacionamiento.
+El módulo Tarifa permite configurar reglas de cobro por estacionamiento.
 
 Estado actual:
 
@@ -1589,8 +1594,11 @@ Estado actual:
 - Existe `TarifaEstacionamientoRepository`.
 - Existe `TarifaEstacionamientoMapper`.
 - Existe `TarifaEstacionamientoService` y `TarifaEstacionamientoServiceImpl`.
+- Existe `TarifaEstacionamientoController`.
+- Existen pruebas unitarias de mapper, servicio y controlador.
+- Existe prueba de integración `TarifaEstacionamientoIntegrationTest`.
 
-Reglas internas actuales:
+Seguridad:
 
 - Cada estacionamiento puede tener como máximo una tarifa activa.
 - `ADMIN` puede administrar tarifas de cualquier estacionamiento.
@@ -1598,12 +1606,129 @@ Reglas internas actuales:
 - `OPERADOR` y `USER` no administran tarifas.
 - La eliminación de tarifa es lógica mediante `activo=false`.
 
-Pendiente:
+### Consultar tarifa por estacionamiento
 
-- No existe `TarifaEstacionamientoController`.
-- No existen endpoints REST para Tarifa.
-- No existen anotaciones OpenAPI específicas para Tarifa.
-- No existen pruebas unitarias ni de integración específicas de Tarifa.
+```http
+GET /api/v1/tarifas/estacionamiento/{estacionamientoId}
+```
+
+Requiere rol `ADMIN` u `OWNER`.
+
+#### Response 200
+
+```json
+{
+  "timestamp": "2026-08-01T15:30:00",
+  "status": 200,
+  "message": "Tarifa consultada correctamente",
+  "transactionId": "dcc83d2a-8bc9-4857-bdb6-5c7d936d8915",
+  "data": {
+    "id": 1,
+    "estacionamientoId": 1,
+    "precioPorHora": 25.00,
+    "minutosTolerancia": 10,
+    "cobrarFraccion": true,
+    "tarifaMinima": 15.00,
+    "activo": true,
+    "fechaCreacion": "2026-08-01T15:25:00"
+  }
+}
+```
+
+### Crear tarifa
+
+```http
+POST /api/v1/tarifas
+```
+
+Requiere rol `ADMIN` u `OWNER`.
+
+#### Request
+
+```json
+{
+  "estacionamientoId": 1,
+  "precioPorHora": 25.00,
+  "minutosTolerancia": 10,
+  "cobrarFraccion": true,
+  "tarifaMinima": 15.00
+}
+```
+
+#### Response 201
+
+```json
+{
+  "timestamp": "2026-08-01T15:30:00",
+  "status": 201,
+  "message": "Tarifa creada correctamente",
+  "transactionId": "dcc83d2a-8bc9-4857-bdb6-5c7d936d8915",
+  "data": {
+    "id": 1,
+    "estacionamientoId": 1,
+    "precioPorHora": 25.00,
+    "minutosTolerancia": 10,
+    "cobrarFraccion": true,
+    "tarifaMinima": 15.00,
+    "activo": true,
+    "fechaCreacion": "2026-08-01T15:25:00"
+  }
+}
+```
+
+### Actualizar tarifa
+
+```http
+PUT /api/v1/tarifas/estacionamiento/{estacionamientoId}
+```
+
+Requiere rol `ADMIN` u `OWNER`.
+
+Usa el mismo cuerpo de creación. El `estacionamientoId` de la ruta debe coincidir con el `estacionamientoId` del body.
+
+#### Response 200
+
+```json
+{
+  "timestamp": "2026-08-01T15:35:00",
+  "status": 200,
+  "message": "Tarifa actualizada correctamente",
+  "transactionId": "dcc83d2a-8bc9-4857-bdb6-5c7d936d8915",
+  "data": {
+    "id": 1,
+    "estacionamientoId": 1,
+    "precioPorHora": 30.00,
+    "minutosTolerancia": 15,
+    "cobrarFraccion": false,
+    "tarifaMinima": 20.00,
+    "activo": true,
+    "fechaCreacion": "2026-08-01T15:25:00"
+  }
+}
+```
+
+### Eliminar tarifa lógicamente
+
+```http
+DELETE /api/v1/tarifas/estacionamiento/{estacionamientoId}
+```
+
+Requiere rol `ADMIN` u `OWNER`.
+
+#### Response 204
+
+Sin cuerpo de respuesta.
+
+### Errores esperados
+
+| Código | Motivo |
+|---|---|
+| `400` | Datos inválidos en la solicitud |
+| `401` | JWT ausente o inválido |
+| `403` | Usuario sin rol permitido para administrar tarifas |
+| `404` | Estacionamiento o tarifa inexistente/inactiva; para `OWNER`, estacionamiento fuera de su alcance |
+| `409` | Ya existe tarifa activa para el estacionamiento o el `estacionamientoId` del path no coincide con el body |
+
 - El cierre de ticket todavía no calcula cobro usando esta tarifa.
 
 ## Módulo Catálogos

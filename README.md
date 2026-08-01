@@ -16,21 +16,21 @@ Actualmente, el proyecto contiene:
 - Catálogos REST para tipos y estados de cajón consumibles por frontend.
 - Reservas REST para apartar temporalmente cajones disponibles, cancelarlas manualmente y expirar automáticamente reservas vencidas.
 - Tickets REST para convertir una reserva vigente en una entrada real al estacionamiento.
-- Configuración interna inicial de tarifas por estacionamiento, todavía sin controller ni endpoints REST.
+- Tarifas REST para configurar reglas de cobro por estacionamiento.
 - Login mediante `/api/v1/auth/login`.
 - Consulta del usuario autenticado mediante `/api/v1/auth/me`.
 - Seguridad HTTP con Spring Security y JWT.
 - Health Check operativo mediante Spring Boot Actuator.
 - Documentación interactiva OpenAPI/Swagger UI para desarrollo.
 - Manejo global de excepciones y validación para las operaciones implementadas.
-- Pruebas unitarias de mapper, servicio y controlador para Rol, Estacionamiento, Cajón, Usuario, Reserva y Ticket, además de pruebas de servicio, controlador e integración para Catálogos.
+- Pruebas unitarias de mapper, servicio y controlador para Rol, Estacionamiento, Cajón, Usuario, Reserva, Ticket y Tarifa, además de pruebas de servicio, controlador e integración para Catálogos.
 - Hash seguro de contraseñas de Usuario mediante BCrypt.
 - Migraciones iniciales de base de datos.
 - Documentación de arquitectura, dominio, API implementada y funcionalidades propuestas.
 
-El proyecto expone APIs REST funcionales para autenticar usuarios en `/api/v1/auth/login`, consultar el usuario autenticado en `/api/v1/auth/me`, administrar roles en `/api/v1/roles`, estacionamientos en `/api/v1/estacionamientos`, cajones en `/api/v1/cajones`, usuarios en `/api/v1/usuarios`, reservas en `/api/v1/reservas` y tickets en `/api/v1/tickets`, además de consultar catálogos de cajones en `/api/v1/catalogos`.
+El proyecto expone APIs REST funcionales para autenticar usuarios en `/api/v1/auth/login`, consultar el usuario autenticado en `/api/v1/auth/me`, administrar roles en `/api/v1/roles`, estacionamientos en `/api/v1/estacionamientos`, cajones en `/api/v1/cajones`, usuarios en `/api/v1/usuarios`, reservas en `/api/v1/reservas`, tickets en `/api/v1/tickets` y tarifas en `/api/v1/tarifas`, además de consultar catálogos de cajones en `/api/v1/catalogos`.
 
-La autenticación JWT ya está implementada. La autorización granular por rol está aplicada en Rol, Usuario, Estacionamiento, Cajón, Reserva, Ticket y Catálogos. `/api/v1/roles` requiere `ADMIN`; `/api/v1/usuarios` distingue entre operaciones administrativas de `ADMIN`, operaciones propias de cualquier usuario autenticado y administración limitada de operadores por `OWNER` dentro de sus propios estacionamientos; `/api/v1/estacionamientos` permite consultas a `ADMIN`, `OWNER`, `OPERADOR` y `USER`, permite escritura a `ADMIN` y permite a `OWNER` crear, consultar, actualizar y eliminar lógicamente sus propios estacionamientos; `/api/v1/cajones` permite consulta a `ADMIN`, `OWNER`, `OPERADOR` y `USER`, cambios de estado a `ADMIN`, `OWNER` y `OPERADOR`, administración global a `ADMIN` y administración propia a `OWNER`; `/api/v1/reservas` permite crear, consultar y cancelar reservas propias a `USER`, consultar por código a `ADMIN`, `OWNER` y `OPERADOR`, y consultar por identificador a `ADMIN`; `/api/v1/tickets/entrada` y `/api/v1/tickets/{ticketId}/salida` permiten a `ADMIN`, `OWNER` y `OPERADOR` operar tickets según su alcance; y `/api/v1/catalogos` permite consulta a `ADMIN`, `OPERADOR` y `USER`.
+La autenticación JWT ya está implementada. La autorización granular por rol está aplicada en Rol, Usuario, Estacionamiento, Cajón, Reserva, Ticket, Tarifa y Catálogos. `/api/v1/roles` requiere `ADMIN`; `/api/v1/usuarios` distingue entre operaciones administrativas de `ADMIN`, operaciones propias de cualquier usuario autenticado y administración limitada de operadores por `OWNER` dentro de sus propios estacionamientos; `/api/v1/estacionamientos` permite consultas a `ADMIN`, `OWNER`, `OPERADOR` y `USER`, permite escritura a `ADMIN` y permite a `OWNER` crear, consultar, actualizar y eliminar lógicamente sus propios estacionamientos; `/api/v1/cajones` permite consulta a `ADMIN`, `OWNER`, `OPERADOR` y `USER`, cambios de estado a `ADMIN`, `OWNER` y `OPERADOR`, administración global a `ADMIN` y administración propia a `OWNER`; `/api/v1/reservas` permite crear, consultar y cancelar reservas propias a `USER`, consultar por código a `ADMIN`, `OWNER` y `OPERADOR`, y consultar por identificador a `ADMIN`; `/api/v1/tickets/entrada` y `/api/v1/tickets/{ticketId}/salida` permiten a `ADMIN`, `OWNER` y `OPERADOR` operar tickets según su alcance; `/api/v1/tarifas` permite a `ADMIN` administrar tarifas globalmente y a `OWNER` administrar tarifas solo de estacionamientos propios; y `/api/v1/catalogos` permite consulta a `ADMIN`, `OPERADOR` y `USER`.
 
 ## Objetivos del Sistema
 
@@ -89,10 +89,10 @@ Estado actual de las capas:
 | Entidades | Implementadas |
 | DTOs | Definidos |
 | Repositorios | Definidos con Spring Data JPA |
-| Servicios | Rol, Estacionamiento, Cajón, Usuario, Reserva, Ticket y Catálogos implementados; Tarifa implementado como service interno inicial sin controller |
-| Controladores | `RolController`, `EstacionamientoController`, `CajonController`, `UsuarioController`, `ReservaController`, `TicketController` y `CatalogoController` implementados |
+| Servicios | Rol, Estacionamiento, Cajón, Usuario, Reserva, Ticket, Tarifa y Catálogos implementados |
+| Controladores | `RolController`, `EstacionamientoController`, `CajonController`, `UsuarioController`, `ReservaController`, `TicketController`, `TarifaEstacionamientoController` y `CatalogoController` implementados |
 | Mappers | `RolMapper`, `EstacionamientoMapper`, `CajonMapper`, `UsuarioMapper`, `ReservaMapper`, `TicketMapper` y `TarifaEstacionamientoMapper` implementados |
-| Seguridad | Autenticación JWT implementada; autorización por rol implementada en `/api/v1/roles`, `/api/v1/usuarios`, `/api/v1/estacionamientos`, `/api/v1/cajones`, `/api/v1/reservas`, `/api/v1/tickets` y `/api/v1/catalogos` |
+| Seguridad | Autenticación JWT implementada; autorización por rol implementada en `/api/v1/roles`, `/api/v1/usuarios`, `/api/v1/estacionamientos`, `/api/v1/cajones`, `/api/v1/reservas`, `/api/v1/tickets`, `/api/v1/tarifas` y `/api/v1/catalogos` |
 | Observabilidad | Health Check público implementado mediante Spring Boot Actuator |
 | Documentación interactiva | OpenAPI y Swagger UI habilitados en `dev` y deshabilitados por defecto/prod |
 | Manejo global de errores | Implementado mediante `GlobalExceptionHandler` y `ApiError`, incluyendo `transactionId` |
@@ -327,7 +327,7 @@ Campos propios:
 - Indicador de cobro por fracción.
 - Tarifa mínima.
 
-Actualmente existe la tabla `tarifa_estacionamiento`, la entidad JPA, DTOs, repositorio, mapper y service transaccional. Todavía no existe controller REST, endpoints públicos, pruebas unitarias específicas ni integración del cálculo de cobro al cierre de tickets.
+Actualmente existe la tabla `tarifa_estacionamiento`, la entidad JPA, DTOs, repositorio, mapper, service transaccional, controller REST y pruebas unitarias e integración. Todavía no está integrado el cálculo de cobro al cierre de tickets.
 
 ### Relaciones
 
@@ -531,7 +531,7 @@ Todavía no está implementado el cálculo de cobro ni la facturación.
 
 ### Tarifa
 
-Módulo interno inicial para configurar las tarifas de cobro por estacionamiento.
+Módulo REST para configurar las tarifas de cobro por estacionamiento.
 
 Incluye:
 
@@ -541,11 +541,14 @@ Incluye:
 - `TarifaEstacionamientoMapper`.
 - `TarifaEstacionamientoService`.
 - `TarifaEstacionamientoServiceImpl`.
+- `TarifaEstacionamientoController`.
 - Migración Flyway `V12__create_tarifa_estacionamiento.sql`.
+- Pruebas unitarias de mapper, servicio y controlador.
+- Prueba de integración `TarifaEstacionamientoIntegrationTest`.
 
-El módulo permite a nivel service consultar, crear, actualizar y desactivar lógicamente la tarifa activa de un estacionamiento. La autorización interna permite `ADMIN` sobre cualquier estacionamiento y `OWNER` únicamente sobre estacionamientos propios. `OPERADOR` y `USER` no administran tarifas.
+El módulo permite consultar, crear, actualizar y desactivar lógicamente la tarifa activa de un estacionamiento. Las respuestas usan `ApiResponse<TarifaEstacionamientoResponse>`, incluyendo código HTTP, mensaje y `transactionId`. La autorización permite `ADMIN` sobre cualquier estacionamiento y `OWNER` únicamente sobre estacionamientos propios. `OPERADOR` y `USER` no administran tarifas.
 
-Todavía no existen `TarifaEstacionamientoController`, endpoints REST, documentación OpenAPI específica ni pruebas unitarias o de integración propias del módulo Tarifa. Tampoco está conectado todavía al cálculo de cobro del cierre de ticket.
+Los endpoints expuestos son `GET /api/v1/tarifas/estacionamiento/{estacionamientoId}`, `POST /api/v1/tarifas`, `PUT /api/v1/tarifas/estacionamiento/{estacionamientoId}` y `DELETE /api/v1/tarifas/estacionamiento/{estacionamientoId}`. Todavía no está conectado al cálculo de cobro del cierre de ticket.
 
 ### Auditoría
 
@@ -585,7 +588,7 @@ Incluye:
 - Dependencia `springdoc-openapi-starter-webmvc-ui`.
 - Configuración `OpenApiConfig`.
 - Esquema de seguridad Bearer JWT para probar endpoints protegidos.
-- Anotaciones OpenAPI en los controladores de Auth, Rol, Estacionamiento, Cajón, Usuario, Reserva, Ticket y Catálogos.
+- Anotaciones OpenAPI en los controladores de Auth, Rol, Estacionamiento, Cajón, Usuario, Reserva, Ticket, Tarifa y Catálogos.
 - Prueba de integración `OpenApiSecurityIntegrationTest`.
 
 La base de los controllers se define globalmente con:
@@ -611,7 +614,7 @@ El contrato OpenAPI JSON está disponible en:
 http://localhost:8023/api/v1/v3/api-docs
 ```
 
-Swagger UI se genera a partir de los controladores reales y permite probar los endpoints documentados. Los controladores principales `AuthController`, `RolController`, `EstacionamientoController`, `CajonController`, `UsuarioController` y `CatalogoController` ya declaran información OpenAPI mediante `@Tag`, `@Operation`, respuestas HTTP documentadas y parámetros relevantes. Para endpoints protegidos, se debe usar el botón `Authorize` e ingresar un token JWT con formato Bearer.
+Swagger UI se genera a partir de los controladores reales y permite probar los endpoints documentados. Los controladores principales `AuthController`, `RolController`, `EstacionamientoController`, `CajonController`, `UsuarioController`, `ReservaController`, `TicketController`, `TarifaEstacionamientoController` y `CatalogoController` ya declaran información OpenAPI mediante `@Tag`, `@Operation`, respuestas HTTP documentadas y parámetros relevantes. Para endpoints protegidos, se debe usar el botón `Authorize` e ingresar un token JWT con formato Bearer.
 
 Cuando un controlador combine endpoints públicos y protegidos, la seguridad del contrato OpenAPI debe documentarse por método. Este es el caso de `UsuarioController`, porque `POST /api/v1/usuarios` es público y los demás endpoints requieren JWT según sus reglas de autorización.
 
@@ -858,7 +861,7 @@ La URL del repositorio remoto y un procedimiento oficial para aprovisionar Postg
    ./mvnw clean package
    ```
 
-El proyecto contiene una prueba de carga del contexto de Spring, pruebas unitarias para mapper, servicio y controlador de Rol, Estacionamiento, Cajón y Usuario, pruebas de servicio y controlador para Catálogos, pruebas de Auth/JWT/seguridad, pruebas específicas de CORS y Catálogos en `SecurityConfigTest`, pruebas de Health Check en `HealthCheckSecurityIntegrationTest` y pruebas de integración contra PostgreSQL para Auth/Usuario/JWT, Rol, Estacionamiento, Cajón, Usuario y Catálogos.
+El proyecto contiene una prueba de carga del contexto de Spring, pruebas unitarias para mapper, servicio y controlador de Rol, Estacionamiento, Cajón, Usuario, Reserva, Ticket y Tarifa, pruebas de servicio y controlador para Catálogos, pruebas de Auth/JWT/seguridad, pruebas específicas de CORS y Catálogos en `SecurityConfigTest`, pruebas de Health Check en `HealthCheckSecurityIntegrationTest` y pruebas de integración contra PostgreSQL para Auth/Usuario/JWT, Rol, Estacionamiento, Cajón, Usuario, Reserva, Ticket, Tarifa y Catálogos.
 
 También existe `OpenApiSecurityIntegrationTest`, que valida que el contrato OpenAPI y Swagger UI puedan consultarse sin JWT cuando Springdoc está habilitado para el entorno de prueba.
 
@@ -873,6 +876,8 @@ La prueba `EstacionamientoIntegrationTest` valida el flujo de Estacionamiento co
 La prueba `CajonIntegrationTest` valida el flujo de Cajón con Spring Boot completo, PostgreSQL y perfil `test`: rechazo sin JWT, consulta con `USER`, cambio de estado con `OPERADOR`, administración global con `ADMIN`, conflictos por número duplicado, borrado lógico, alcance de `OWNER` para operar únicamente cajones ubicados en sus propios estacionamientos y alcance de `OPERADOR` para consultar y cambiar estado solo en cajones de estacionamientos asignados.
 
 La prueba `CatalogoIntegrationTest` valida los catálogos de tipos y estados de Cajón con Spring Boot completo, PostgreSQL y perfil `test`: rechazo sin JWT, acceso con `ADMIN`, `OPERADOR` y `USER`, formato `ApiResponse`, presencia de `transactionId` y valores reales derivados de los enums.
+
+La prueba `TarifaEstacionamientoIntegrationTest` valida el flujo de Tarifa con Spring Boot completo, PostgreSQL y perfil `test`: rechazo sin JWT, rechazo con rol `USER`, creación, consulta, actualización, conflicto por duplicado, borrado lógico, alcance global de `ADMIN` y alcance limitado de `OWNER` sobre estacionamientos propios.
 
 Las pruebas CORS en `SecurityConfigTest` validan peticiones preflight `OPTIONS` desde orígenes permitidos, rechazo de orígenes no configurados y exposición del header `X-Transaction-Id` para que el frontend pueda leerlo desde JavaScript.
 
@@ -1088,7 +1093,7 @@ La carpeta `docs/` contiene:
 | `sequence/parkio-create-cajon-sequence.puml` | Secuencia propuesta para registrar cajones |
 | `use-cases/mvp-use-cases.md` | Casos de uso iniciales del MVP |
 
-Parte de esta documentación describe componentes futuros. Los módulos Auth, Rol, Estacionamiento, Cajón, Usuario, Reserva, Ticket y Catálogos, el manejo global de errores, la autenticación JWT y la autorización granular por roles están implementados.
+Parte de esta documentación describe componentes futuros. Los módulos Auth, Rol, Estacionamiento, Cajón, Usuario, Reserva, Ticket, Tarifa y Catálogos, el manejo global de errores, la autenticación JWT y la autorización granular por roles están implementados.
 
 ## Roadmap Futuro
 
@@ -1096,7 +1101,6 @@ A partir de las brechas entre el código y la documentación, el trabajo pendien
 
 - Ampliar progresivamente las pruebas de integración con PostgreSQL para cubrir escenarios adicionales de negocio.
 - Mantener sincronizados el contrato API y el código implementado.
-- Crear controller, endpoints, pruebas y documentación OpenAPI para Tarifa.
 - Implementar cálculo de cobro y reglas de facturación cuando se defina el alcance funcional.
 
 Este roadmap se deriva de la documentación existente y del estado incompleto del código. No representa funcionalidades ya disponibles.
