@@ -329,7 +329,7 @@ class TicketControllerTest {
                     .andExpect(jsonPath("$.message").value("Salida registrada correctamente"))
                     .andExpect(jsonPath("$.transactionId").isNotEmpty())
                     .andExpect(jsonPath("$.data.id").value(40L))
-                    .andExpect(jsonPath("$.data.estado").value("CERRADO"))
+                    .andExpect(jsonPath("$.data.estado").value("PENDIENTE_PAGO"))
                     .andExpect(jsonPath("$.data.fechaSalida").isNotEmpty());
         } finally {
             SecurityContextHolder.clearContext();
@@ -441,7 +441,7 @@ class TicketControllerTest {
         return new TicketResponse(
                 40L,
                 "TCK-ABC12345",
-                EstadoTicket.CERRADO,
+                EstadoTicket.PENDIENTE_PAGO,
                 "ABC123",
                 LocalDateTime.of(2026, 7, 25, 10, 0),
                 LocalDateTime.of(2026, 7, 25, 11, 0),

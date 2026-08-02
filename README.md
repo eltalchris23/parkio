@@ -311,9 +311,9 @@ Campos propios:
 - Estacionamiento.
 - Cajón ocupado.
 
-`estado` se almacena como `VARCHAR(30)` y se modela mediante el enum `EstadoTicket`. Los estados disponibles actualmente son `ABIERTO` y `CERRADO`.
+`estado` se almacena como `VARCHAR(30)` y se modela mediante el enum `EstadoTicket`. Los estados disponibles actualmente son `ABIERTO`, `PENDIENTE_PAGO` y `CERRADO`.
 
-La creación inicial del ticket convierte una reserva `CREADA` y vigente en una ocupación real: la reserva cambia a `USADA`, el cajón cambia a `OCUPADO` y el ticket queda en estado `ABIERTO`. El cierre requiere tarifa activa del estacionamiento, registra `fechaSalida`, calcula el cobro, guarda los parámetros de tarifa aplicados, cambia el ticket a `CERRADO` y libera el cajón cambiándolo a `LIBRE`.
+La creación inicial del ticket convierte una reserva `CREADA` y vigente en una ocupación real: la reserva cambia a `USADA`, el cajón cambia a `OCUPADO` y el ticket queda en estado `ABIERTO`. El registro de salida requiere tarifa activa del estacionamiento, registra `fechaSalida`, calcula el cobro, guarda los parámetros de tarifa aplicados y cambia el ticket a `PENDIENTE_PAGO`. El cajón permanece `OCUPADO` hasta que el pago sea registrado en el módulo Pago, todavía pendiente de implementación.
 
 ### Tarifa de estacionamiento
 
@@ -519,19 +519,20 @@ Incluye:
 - `TicketController`.
 - Migración Flyway `V11__create_ticket.sql`.
 - Migración Flyway `V13__add_cobro_to_ticket.sql`.
+- Migración Flyway `V14__add_pendiente_pago_to_ticket_estado.sql`.
 - Pruebas unitarias de mapper, servicio y controlador.
 - Prueba unitaria de cálculo de cobro `TicketCobroCalculatorTest`.
 - Prueba de integración `TicketIntegrationTest`.
 
-El enum `EstadoTicket` define los estados `ABIERTO` y `CERRADO`.
+El enum `EstadoTicket` define los estados `ABIERTO`, `PENDIENTE_PAGO` y `CERRADO`.
 
 El módulo expone `GET /api/v1/tickets`, `GET /api/v1/tickets/{ticketId}`, `POST /api/v1/tickets/entrada` y `PATCH /api/v1/tickets/{ticketId}/salida`. Las consultas permiten `ADMIN`, `OWNER`, `OPERADOR` y `USER` según alcance: `ADMIN` ve todos los tickets, `OWNER` ve tickets de sus estacionamientos, `OPERADOR` ve tickets de estacionamientos asignados y `USER` ve tickets propios. El listado acepta filtros opcionales `estado` y `estacionamientoId`, además de `page`, `size` y `sort`. Las operaciones de entrada y salida permiten `ADMIN`, `OWNER` y `OPERADOR` según su alcance. El backend toma el identificador del usuario autenticado desde el claim `usuarioId` del JWT, no desde el request, para evitar operar tickets a nombre de otro usuario.
 
 La operación de entrada valida que el usuario autenticado tenga alcance sobre el estacionamiento: `ADMIN` puede operar cualquier estacionamiento, `OWNER` solo los propios y `OPERADOR` solo los estacionamientos asignados. También valida que la reserva exista, esté en estado `CREADA`, siga vigente, no tenga ticket activo previo y que el cajón no tenga otro ticket abierto. Si todo es correcto, crea un ticket `ABIERTO`, cambia la reserva a `USADA` y cambia el cajón a `OCUPADO`.
 
-La operación de salida valida que el ticket exista, esté `ABIERTO`, que el usuario autenticado tenga alcance sobre el estacionamiento del ticket y que exista una tarifa activa para ese estacionamiento. Si todo es correcto, calcula el cobro con `TicketCobroCalculator`, cambia el ticket a `CERRADO`, registra `fechaSalida`, guarda `minutosEstancia`, `montoTotal`, `precioPorHoraAplicado`, `minutosToleranciaAplicados`, `cobrarFraccionAplicado` y `tarifaMinimaAplicada`, y cambia el cajón a `LIBRE`.
+La operación de salida valida que el ticket exista, esté `ABIERTO`, que el usuario autenticado tenga alcance sobre el estacionamiento del ticket y que exista una tarifa activa para ese estacionamiento. Si todo es correcto, calcula el cobro con `TicketCobroCalculator`, cambia el ticket a `PENDIENTE_PAGO`, registra `fechaSalida` y guarda `minutosEstancia`, `montoTotal`, `precioPorHoraAplicado`, `minutosToleranciaAplicados`, `cobrarFraccionAplicado` y `tarifaMinimaAplicada`. El cajón no se libera en esta operación; permanece `OCUPADO` hasta registrar el pago.
 
-La regla actual cobra la tarifa mínima desde el primer minuto. Si la estancia está dentro de los minutos de tolerancia, el monto por tiempo es cero, pero se aplica la tarifa mínima configurada. Si excede la tolerancia, el cálculo usa el precio por hora y respeta si la tarifa cobra fracción como hora completa o como proporción por minutos. Todavía no está implementada facturación, pagos ni emisión de comprobantes.
+La regla actual cobra la tarifa mínima desde el primer minuto. Si la estancia está dentro de los minutos de tolerancia, el monto por tiempo es cero, pero se aplica la tarifa mínima configurada. Si excede la tolerancia, el cálculo usa el precio por hora y respeta si la tarifa cobra fracción como hora completa o como proporción por minutos. Todavía no está implementada facturación, pagos ni emisión de comprobantes. Por esa razón, `CERRADO` queda reservado para cuando el pago quede registrado en el módulo Pago.
 
 ### Tarifa
 
@@ -552,7 +553,7 @@ Incluye:
 
 El módulo permite consultar, crear, actualizar y desactivar lógicamente la tarifa activa de un estacionamiento. Las respuestas usan `ApiResponse<TarifaEstacionamientoResponse>`, incluyendo código HTTP, mensaje y `transactionId`. La autorización permite `ADMIN` sobre cualquier estacionamiento y `OWNER` únicamente sobre estacionamientos propios. `OPERADOR` y `USER` no administran tarifas.
 
-Los endpoints expuestos son `GET /api/v1/tarifas/estacionamiento/{estacionamientoId}`, `POST /api/v1/tarifas`, `PUT /api/v1/tarifas/estacionamiento/{estacionamientoId}` y `DELETE /api/v1/tarifas/estacionamiento/{estacionamientoId}`. La tarifa activa se usa en el cierre de ticket para calcular el cobro y guardar una copia histórica de los valores aplicados.
+Los endpoints expuestos son `GET /api/v1/tarifas/estacionamiento/{estacionamientoId}`, `POST /api/v1/tarifas`, `PUT /api/v1/tarifas/estacionamiento/{estacionamientoId}` y `DELETE /api/v1/tarifas/estacionamiento/{estacionamientoId}`. La tarifa activa se usa al registrar salida de ticket para calcular el cobro y guardar una copia histórica de los valores aplicados.
 
 ### Auditoría
 
@@ -881,7 +882,7 @@ La prueba `CajonIntegrationTest` valida el flujo de Cajón con Spring Boot compl
 
 La prueba `CatalogoIntegrationTest` valida los catálogos de tipos y estados de Cajón con Spring Boot completo, PostgreSQL y perfil `test`: rechazo sin JWT, acceso con `ADMIN`, `OPERADOR` y `USER`, formato `ApiResponse`, presencia de `transactionId` y valores reales derivados de los enums.
 
-La prueba `TicketIntegrationTest` valida consulta/listado de tickets con JWT real, filtros de listado por `estado` y `estacionamientoId`, cierre de ticket con cálculo de cobro usando una tarifa activa, incluyendo monto total, minutos de estancia y parámetros de tarifa aplicados.
+La prueba `TicketIntegrationTest` valida consulta/listado de tickets con JWT real, filtros de listado por `estado` y `estacionamientoId`, registro de salida con cambio a `PENDIENTE_PAGO`, cálculo de cobro usando una tarifa activa, incluyendo monto total, minutos de estancia y parámetros de tarifa aplicados, manteniendo el cajón `OCUPADO` hasta que exista registro de pago.
 
 La prueba `TarifaEstacionamientoIntegrationTest` valida el flujo de Tarifa con Spring Boot completo, PostgreSQL y perfil `test`: rechazo sin JWT, rechazo con rol `USER`, creación, consulta, actualización, conflicto por duplicado, borrado lógico, alcance global de `ADMIN` y alcance limitado de `OWNER` sobre estacionamientos propios.
 
@@ -1038,7 +1039,8 @@ Migraciones existentes:
 | V10 | `V10__create_reserva.sql` | Crea la tabla `reserva` para apartar temporalmente cajones |
 | V11 | `V11__create_ticket.sql` | Crea la tabla `ticket` para registrar entradas derivadas de reservas |
 | V12 | `V12__create_tarifa_estacionamiento.sql` | Crea la tabla `tarifa_estacionamiento` para configurar tarifas por estacionamiento |
-| V13 | `V13__add_cobro_to_ticket.sql` | Agrega columnas de cobro y parámetros de tarifa aplicados al cierre de ticket |
+| V13 | `V13__add_cobro_to_ticket.sql` | Agrega columnas de cobro y parámetros de tarifa aplicados al registrar salida de ticket |
+| V14 | `V14__add_pendiente_pago_to_ticket_estado.sql` | Agrega `PENDIENTE_PAGO` a los estados permitidos de ticket |
 
 Las migraciones se ejecutan automáticamente al iniciar la aplicación.
 

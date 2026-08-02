@@ -138,12 +138,13 @@ public class TicketServiceImpl implements TicketService {
     }
 
     /**
-     * Registra la salida de un vehiculo del estacionamiento.
+     * Registra la salida operativa de un vehiculo y calcula el monto a pagar.
      *
-     * <p>Cierra un ticket ABIERTO, asigna fecha de salida, calcula el cobro con
-     * la tarifa activa del estacionamiento y libera el cajon cambiandolo a
-     * LIBRE. ADMIN puede operar cualquier estacionamiento, OWNER solo los propios
-     * y OPERADOR solo los estacionamientos asignados.</p>
+     * <p>Este metodo no libera el cajon. Cambia el ticket de ABIERTO a
+     * PENDIENTE_PAGO, registra fecha de salida y calcula el cobro con la tarifa
+     * activa del estacionamiento. El cajon se libera hasta que el cajero registre
+     * el pago en el modulo Pago. ADMIN puede operar cualquier estacionamiento,
+     * OWNER solo los propios y OPERADOR solo los estacionamientos asignados.</p>
      */
     @Override
     @Transactional
@@ -163,14 +164,9 @@ public class TicketServiceImpl implements TicketService {
                 tarifa
         );
 
-        ticket.setEstado(EstadoTicket.CERRADO);
+        ticket.setEstado(EstadoTicket.PENDIENTE_PAGO);
         ticket.setFechaSalida(fechaActual);
         aplicarCobroAlTicket(ticket, cobro);
-
-        Cajon cajon = ticket.getCajon();
-        cajon.setEstado(EstadoCajon.LIBRE);
-
-        cajonRepository.save(cajon);
 
         Ticket ticketGuardado = ticketRepository.save(ticket);
 
@@ -262,7 +258,7 @@ public class TicketServiceImpl implements TicketService {
     }
 
     /**
-     * Filtra tickets por estado cuando el frontend envia estado=ABIERTO o estado=CERRADO.
+     * Filtra tickets por estado cuando el frontend envia estado=ABIERTO, PENDIENTE_PAGO o CERRADO.
      */
     private Specification<Ticket> ticketConEstado(EstadoTicket estado) {
         return (root, query, criteriaBuilder) ->
@@ -339,7 +335,7 @@ public class TicketServiceImpl implements TicketService {
      * Busca la tarifa activa del estacionamiento asociado al ticket.
      *
      * <p>El cierre requiere tarifa configurada porque el sistema necesita saber
-     * cuanto cobrar antes de marcar el ticket como CERRADO.</p>
+     * cuanto cobrar antes de marcar el ticket como PENDIENTE_PAGO.</p>
      */
     private TarifaEstacionamiento findTarifaActivaByEstacionamientoId(Long estacionamientoId) {
         return tarifaEstacionamientoRepository.findByEstacionamientoIdAndActivoTrue(estacionamientoId)
@@ -421,7 +417,8 @@ public class TicketServiceImpl implements TicketService {
     /**
      * Valida que el ticket se encuentre abierto antes de registrar salida.
      *
-     * <p>Un ticket CERRADO no puede cerrarse nuevamente porque ya tiene salida registrada.</p>
+     * <p>Un ticket PENDIENTE_PAGO o CERRADO no puede registrar salida nuevamente
+     * porque ya tiene fecha de salida y monto calculado.</p>
      */
     private void validarTicketAbierto(Ticket ticket) {
         if (ticket.getEstado() != EstadoTicket.ABIERTO) {

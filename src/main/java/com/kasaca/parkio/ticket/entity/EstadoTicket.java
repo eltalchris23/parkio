@@ -11,7 +11,15 @@ public enum EstadoTicket {
     ABIERTO,
 
     /**
-     * Indica que el vehiculo ya salio del estacionamiento y el ticket fue cerrado.
+     * Indica que ya se calculo el monto a pagar, pero el pago aun no ha sido registrado.
+     *
+     * <p>Mientras el ticket esta en este estado, el cajon continua ocupado y se libera
+     * hasta que el cajero registre el pago correspondiente.</p>
+     */
+    PENDIENTE_PAGO,
+
+    /**
+     * Indica que el pago fue registrado y el ticket quedo cerrado/liquidado.
      */
     CERRADO
 }

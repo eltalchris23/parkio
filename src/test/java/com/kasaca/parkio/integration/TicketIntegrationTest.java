@@ -107,7 +107,7 @@ class TicketIntegrationTest {
 
     /**
      * Valida el flujo principal: OPERADOR convierte una reserva vigente en ticket abierto
-     * y despues registra la salida para cerrar el ticket y liberar el cajon.
+     * y despues registra la salida para calcular el cobro y dejar el ticket pendiente de pago.
      */
     @Test
     void debeRegistrarEntradaYSalidaConOperadorAsignado() throws Exception {
@@ -171,7 +171,7 @@ class TicketIntegrationTest {
         assertThat(salidaResponse.getStatusCode()).isEqualTo(HttpStatus.OK);
         assertThat(salidaBody.path("status").asInt()).isEqualTo(200);
         assertThat(salidaBody.path("message").asText()).isEqualTo("Salida registrada correctamente");
-        assertThat(salidaBody.path("data").path("estado").asText()).isEqualTo("CERRADO");
+        assertThat(salidaBody.path("data").path("estado").asText()).isEqualTo("PENDIENTE_PAGO");
         assertThat(salidaBody.path("data").path("fechaSalida").asText()).isNotBlank();
         assertThat(salidaBody.path("data").path("minutosEstancia").asInt()).isGreaterThanOrEqualTo(1);
         assertThat(salidaBody.path("data").path("montoTotal").decimalValue()).isEqualByComparingTo("15.00");
@@ -179,19 +179,19 @@ class TicketIntegrationTest {
         assertThat(salidaBody.path("data").path("minutosToleranciaAplicados").asInt()).isEqualTo(10);
         assertThat(salidaBody.path("data").path("cobrarFraccionAplicado").asBoolean()).isTrue();
         assertThat(salidaBody.path("data").path("tarifaMinimaAplicada").decimalValue()).isEqualByComparingTo("15.00");
-        assertThat(consultarEstadoTicketEnBaseDeDatos(ticketId)).isEqualTo("CERRADO");
+        assertThat(consultarEstadoTicketEnBaseDeDatos(ticketId)).isEqualTo("PENDIENTE_PAGO");
         assertThat(consultarMontoTotalTicketEnBaseDeDatos(ticketId)).isEqualByComparingTo("15.00");
-        assertThat(consultarEstadoCajonEnBaseDeDatos(cajonId)).isEqualTo("LIBRE");
+        assertThat(consultarEstadoCajonEnBaseDeDatos(cajonId)).isEqualTo("OCUPADO");
 
         ResponseEntity<String> listadoFiltradoCerradoResponse =
-                listarTicketsConFiltros(operadorToken, "CERRADO", estacionamientoId);
+                listarTicketsConFiltros(operadorToken, "PENDIENTE_PAGO", estacionamientoId);
         JsonNode listadoFiltradoCerradoBody = objectMapper.readTree(listadoFiltradoCerradoResponse.getBody());
 
         assertThat(listadoFiltradoCerradoResponse.getStatusCode()).isEqualTo(HttpStatus.OK);
         assertThat(listadoFiltradoCerradoBody.path("data").path("content").get(0).path("id").asLong())
                 .isEqualTo(ticketId);
         assertThat(listadoFiltradoCerradoBody.path("data").path("content").get(0).path("estado").asText())
-                .isEqualTo("CERRADO");
+                .isEqualTo("PENDIENTE_PAGO");
     }
 
     /**

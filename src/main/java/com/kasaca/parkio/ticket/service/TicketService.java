@@ -15,7 +15,7 @@ public interface TicketService {
      * Consulta tickets activos de forma paginada segun el alcance del usuario autenticado.
      *
      * @param usuarioAutenticadoId identificador del usuario autenticado tomado desde el JWT.
-     * @param estado estado opcional usado para filtrar tickets ABIERTO o CERRADO.
+     * @param estado estado opcional usado para filtrar tickets ABIERTO, PENDIENTE_PAGO o CERRADO.
      * @param estacionamientoId identificador opcional del estacionamiento usado como filtro.
      * @param pageable parametros de paginacion y ordenamiento.
      * @return pagina de tickets visibles para el usuario autenticado.

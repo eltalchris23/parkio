@@ -591,7 +591,7 @@ class TicketServiceImplTest {
     }
 
     /**
-     * Verifica que se cierre un ticket abierto y se libere el cajon.
+     * Verifica que registrar salida calcule el cobro y deje el ticket pendiente de pago.
      */
     @Test
     void debeRegistrarSalidaYCambiarEstados() {
@@ -613,14 +613,13 @@ class TicketServiceImplTest {
                 .thenReturn(Optional.of(tarifa));
         when(ticketCobroCalculator.calcular(eq(ticket.getFechaEntrada()), any(LocalDateTime.class), eq(tarifa)))
                 .thenReturn(cobro);
-        when(cajonRepository.save(cajon)).thenReturn(cajon);
         when(ticketRepository.save(ticket)).thenReturn(ticket);
         when(ticketMapper.toResponse(ticket)).thenReturn(response);
 
         TicketResponse resultado = ticketService.registrarSalida(2L, 40L);
 
         assertThat(resultado).isEqualTo(response);
-        assertThat(ticket.getEstado()).isEqualTo(EstadoTicket.CERRADO);
+        assertThat(ticket.getEstado()).isEqualTo(EstadoTicket.PENDIENTE_PAGO);
         assertThat(ticket.getFechaSalida()).isNotNull();
         assertThat(ticket.getMinutosEstancia()).isEqualTo(60);
         assertThat(ticket.getMontoTotal()).isEqualByComparingTo("25.00");
@@ -628,9 +627,9 @@ class TicketServiceImplTest {
         assertThat(ticket.getMinutosToleranciaAplicados()).isEqualTo(10);
         assertThat(ticket.getCobrarFraccionAplicado()).isTrue();
         assertThat(ticket.getTarifaMinimaAplicada()).isEqualByComparingTo("15.00");
-        assertThat(cajon.getEstado()).isEqualTo(EstadoCajon.LIBRE);
+        assertThat(cajon.getEstado()).isEqualTo(EstadoCajon.OCUPADO);
         verify(ticketCobroCalculator).calcular(eq(ticket.getFechaEntrada()), any(LocalDateTime.class), eq(tarifa));
-        verify(cajonRepository).save(cajon);
+        verify(cajonRepository, never()).save(cajon);
         verify(ticketRepository).save(ticket);
     }
 
@@ -872,7 +871,7 @@ class TicketServiceImplTest {
         return new TicketResponse(
                 40L,
                 "TCK-ABC12345",
-                EstadoTicket.CERRADO,
+                EstadoTicket.PENDIENTE_PAGO,
                 "ABC123",
                 LocalDateTime.of(2026, 7, 25, 10, 0),
                 LocalDateTime.of(2026, 7, 25, 11, 0),

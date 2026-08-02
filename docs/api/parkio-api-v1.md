@@ -1449,7 +1449,7 @@ Requiere rol `ADMIN`.
 
 ## Módulo Ticket
 
-El módulo Ticket permite registrar la entrada real de un vehículo al estacionamiento usando una reserva vigente y registrar la salida para cerrar el ticket.
+El módulo Ticket permite registrar la entrada real de un vehículo al estacionamiento usando una reserva vigente y registrar la salida operativa para calcular el monto a pagar.
 
 Reglas actuales:
 
@@ -1468,13 +1468,15 @@ Reglas actuales:
 - Al registrar entrada, la reserva cambia a `USADA`.
 - Al registrar entrada, el cajón cambia a `OCUPADO`.
 - El ticket se crea en estado `ABIERTO`.
-- Al registrar salida, el ticket cambia a `CERRADO`.
+- Al registrar salida, el ticket cambia a `PENDIENTE_PAGO`.
 - Al registrar salida, se asigna `fechaSalida`.
 - Al registrar salida, debe existir una tarifa activa para el estacionamiento.
 - Al registrar salida, se calcula `montoTotal` usando precio por hora, tolerancia, cobro por fracción y tarifa mínima.
 - La tarifa mínima se aplica desde el primer minuto de estancia.
 - El ticket guarda los parámetros de tarifa aplicados para conservar trazabilidad histórica aunque la tarifa cambie después.
-- Al registrar salida, el cajón cambia a `LIBRE`.
+- Al registrar salida, el cajón permanece `OCUPADO`.
+- El cajón se liberará hasta que el pago sea registrado en el módulo Pago.
+- `CERRADO` queda reservado para tickets liquidados mediante pago registrado.
 
 Todavía no está implementada facturación, pagos ni emisión de comprobantes.
 
@@ -1488,6 +1490,7 @@ Filtros opcionales:
 
 ```http
 GET /api/v1/tickets?estado=ABIERTO
+GET /api/v1/tickets?estado=PENDIENTE_PAGO
 GET /api/v1/tickets?estado=CERRADO
 GET /api/v1/tickets?estacionamientoId=1
 GET /api/v1/tickets?estado=ABIERTO&estacionamientoId=1&page=0&size=10&sort=fechaEntrada,desc
@@ -1497,7 +1500,7 @@ Parámetros:
 
 | Parámetro | Tipo | Requerido | Descripción |
 |---|---|---|---|
-| `estado` | `ABIERTO` o `CERRADO` | No | Filtra tickets por estado operativo |
+| `estado` | `ABIERTO`, `PENDIENTE_PAGO` o `CERRADO` | No | Filtra tickets por estado operativo |
 | `estacionamientoId` | `Long` | No | Filtra tickets de un estacionamiento específico |
 | `page` | `Integer` | No | Página solicitada, iniciando en `0` |
 | `size` | `Integer` | No | Tamaño de página |
@@ -1685,7 +1688,7 @@ Requiere rol `ADMIN`, `OWNER` u `OPERADOR`.
   "data": {
     "id": 1,
     "codigo": "TCK-A1B2C3D4",
-    "estado": "CERRADO",
+    "estado": "PENDIENTE_PAGO",
     "placa": "ABC123",
     "fechaEntrada": "2026-07-25T10:10:00",
     "fechaSalida": "2026-07-25T11:00:00",
@@ -1710,10 +1713,11 @@ Requiere rol `ADMIN`, `OWNER` u `OPERADOR`.
 
 Después de una respuesta `200 OK`:
 
-- El ticket queda en estado `CERRADO`.
+- El ticket queda en estado `PENDIENTE_PAGO`.
 - El ticket tiene `fechaSalida`.
 - El ticket tiene `minutosEstancia`, `montoTotal` y una copia de los parámetros de tarifa aplicados.
-- El cajón queda en estado `LIBRE`.
+- El cajón permanece en estado `OCUPADO`.
+- El cajón se liberará hasta que el pago sea registrado en el módulo Pago.
 
 #### Errores de salida
 
@@ -1873,7 +1877,7 @@ Sin cuerpo de respuesta.
 | `404` | Estacionamiento o tarifa inexistente/inactiva; para `OWNER`, estacionamiento fuera de su alcance |
 | `409` | Ya existe tarifa activa para el estacionamiento o el `estacionamientoId` del path no coincide con el body |
 
-- El cierre de ticket usa la tarifa activa del estacionamiento para calcular el cobro y guardar los parámetros aplicados en el ticket.
+- El registro de salida de ticket usa la tarifa activa del estacionamiento para calcular el cobro y guardar los parámetros aplicados en el ticket.
 
 ## Módulo Catálogos
 
@@ -1993,7 +1997,7 @@ Estas pruebas validan que la conexión use `parkio_test` antes de limpiar datos 
 
 `ReservaIntegrationTest` cubre rechazo sin JWT, creación de reserva con `USER`, cambio del cajón a `RESERVADO`, bloqueo de doble reserva sobre el mismo cajón, consulta de reservas propias, consulta por código con `OPERADOR`, consulta por identificador interno con `ADMIN`, cancelación manual de reservas propias y expiración de reservas vencidas con liberación del cajón.
 
-`TicketIntegrationTest` cubre rechazo sin JWT, rechazo con rol `USER`, creación de ticket con `OPERADOR` asignado al estacionamiento, creación con `ADMIN`, creación con `OWNER` sobre estacionamiento propio, consulta paginada de tickets, filtros por `estado` y `estacionamientoId`, consulta por identificador, cambio de reserva a `USADA`, cambio de cajón a `OCUPADO`, cierre de ticket con cambio a `CERRADO`, cálculo de cobro con tarifa activa, persistencia de monto total y parámetros aplicados, cajón `LIBRE`, bloqueo de doble ticket para la misma reserva y rechazo de operador no asignado al estacionamiento.
+`TicketIntegrationTest` cubre rechazo sin JWT, rechazo con rol `USER`, creación de ticket con `OPERADOR` asignado al estacionamiento, creación con `ADMIN`, creación con `OWNER` sobre estacionamiento propio, consulta paginada de tickets, filtros por `estado` y `estacionamientoId`, consulta por identificador, cambio de reserva a `USADA`, cambio de cajón a `OCUPADO`, registro de salida con cambio a `PENDIENTE_PAGO`, cálculo de cobro con tarifa activa, persistencia de monto total y parámetros aplicados, cajón aún `OCUPADO`, bloqueo de doble ticket para la misma reserva y rechazo de operador no asignado al estacionamiento.
 
 `CatalogoIntegrationTest` cubre rechazo sin JWT, acceso con roles `ADMIN`, `OPERADOR` y `USER`, formato `ApiResponse`, presencia de `transactionId` y valores reales de los catálogos de tipos y estados de Cajón derivados de los enums `TipoCajon` y `EstadoCajon`.
 

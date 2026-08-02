@@ -50,7 +50,7 @@ public class TicketController {
      * OPERADOR consulta tickets de estacionamientos asignados. USER consulta solo sus propios tickets.</p>
      *
      * @param pageable parametros de paginacion y ordenamiento recibidos como page, size y sort
-     * @param estado estado opcional para filtrar tickets ABIERTO o CERRADO
+     * @param estado estado opcional para filtrar tickets ABIERTO, PENDIENTE_PAGO o CERRADO
      * @param estacionamientoId identificador opcional del estacionamiento usado como filtro
      * @param jwt JWT validado por Spring Security con el claim usuarioId del usuario autenticado
      * @param httpRequest solicitud HTTP usada para construir ApiResponse con transactionId
@@ -267,8 +267,9 @@ public class TicketController {
      *
      * <p>Este endpoint lo usa ADMIN, OWNER u OPERADOR cuando el vehiculo sale
      * del estacionamiento. Si el ticket esta ABIERTO y el usuario autenticado
-     * tiene alcance sobre el estacionamiento, el backend cierra el ticket,
-     * asigna fecha de salida y libera el cajon.</p>
+     * tiene alcance sobre el estacionamiento, el backend calcula el cobro,
+     * asigna fecha de salida y deja el ticket en PENDIENTE_PAGO. El cajon
+     * se liberara hasta que el pago sea registrado.</p>
      *
      * @param ticketId identificador interno del ticket que se desea cerrar
      * @param jwt JWT validado por Spring Security con el claim usuarioId del usuario autenticado

@@ -76,7 +76,7 @@ public class Ticket extends BaseEntity {
     /**
      * Minutos totales calculados entre la entrada y la salida.
      *
-     * <p>Se guarda para conservar evidencia del calculo usado al cerrar el ticket.</p>
+     * <p>Se guarda para conservar evidencia del calculo usado al registrar la salida.</p>
      */
     @Column(name = "minutos_estancia")
     private Integer minutosEstancia;
@@ -90,7 +90,7 @@ public class Ticket extends BaseEntity {
     private BigDecimal montoTotal;
 
     /**
-     * Precio por hora vigente que se aplico al cerrar el ticket.
+     * Precio por hora vigente que se aplico al registrar la salida.
      *
      * <p>Se guarda como fotografia historica para que futuros cambios de tarifa
      * no alteren el cobro de tickets ya cerrados.</p>
@@ -99,19 +99,19 @@ public class Ticket extends BaseEntity {
     private BigDecimal precioPorHoraAplicado;
 
     /**
-     * Minutos de tolerancia vigentes que se aplicaron al cerrar el ticket.
+     * Minutos de tolerancia vigentes que se aplicaron al registrar la salida.
      */
     @Column(name = "minutos_tolerancia_aplicados")
     private Integer minutosToleranciaAplicados;
 
     /**
-     * Indica si la fraccion de hora se cobro como hora completa al cerrar el ticket.
+     * Indica si la fraccion de hora se cobro como hora completa al registrar la salida.
      */
     @Column(name = "cobrar_fraccion_aplicado")
     private Boolean cobrarFraccionAplicado;
 
     /**
-     * Tarifa minima vigente que se aplico al cerrar el ticket.
+     * Tarifa minima vigente que se aplico al registrar la salida.
      */
     @Column(name = "tarifa_minima_aplicada", precision = 10, scale = 2)
     private BigDecimal tarifaMinimaAplicada;
