@@ -263,7 +263,7 @@ public class TicketController {
     }
 
     /**
-     * Registra la salida de un vehiculo cerrando un ticket abierto.
+     * Registra la salida de un vehiculo y deja el ticket pendiente de pago.
      *
      * <p>Este endpoint lo usa ADMIN, OWNER u OPERADOR cuando el vehiculo sale
      * del estacionamiento. Si el ticket esta ABIERTO y el usuario autenticado
@@ -271,15 +271,15 @@ public class TicketController {
      * asigna fecha de salida y deja el ticket en PENDIENTE_PAGO. El cajon
      * se liberara hasta que el pago sea registrado.</p>
      *
-     * @param ticketId identificador interno del ticket que se desea cerrar
+     * @param ticketId identificador interno del ticket al que se registrara la salida
      * @param jwt JWT validado por Spring Security con el claim usuarioId del usuario autenticado
      * @param httpRequest solicitud HTTP usada para construir ApiResponse con transactionId
-     * @return respuesta estandarizada con el ticket cerrado
+     * @return respuesta estandarizada con el ticket pendiente de pago
      */
     @Operation(
             summary = "Registrar salida",
             description = """
-                    Cierra un ticket abierto cuando el vehiculo sale del estacionamiento.
+                    Registra la salida de un ticket abierto y calcula el monto a pagar.
                     ADMIN puede operar cualquier estacionamiento, OWNER solo los propios
                     y OPERADOR solo los estacionamientos asignados.
                     """
@@ -303,7 +303,7 @@ public class TicketController {
             ),
             @io.swagger.v3.oas.annotations.responses.ApiResponse(
                     responseCode = "409",
-                    description = "El ticket no puede cerrarse por su estado o alcance actual"
+                    description = "El ticket no puede registrar salida por su estado o alcance actual"
             )
     })
     @PreAuthorize("hasAnyRole('ADMIN', 'OWNER', 'OPERADOR')")

@@ -16,6 +16,7 @@ Actualmente, el proyecto contiene:
 - Catálogos REST para tipos y estados de cajón consumibles por frontend.
 - Reservas REST para apartar temporalmente cajones disponibles, cancelarlas manualmente y expirar automáticamente reservas vencidas.
 - Tickets REST para consultar tickets, convertir una reserva vigente en una entrada real al estacionamiento y calcular el cobro al registrar salida.
+- Pagos REST para listar pagos de forma paginada, filtrar pagos, liquidar tickets pendientes, calcular cambio, cerrar tickets y liberar cajones.
 - Tarifas REST para configurar reglas de cobro por estacionamiento.
 - Login mediante `/api/v1/auth/login`.
 - Consulta del usuario autenticado mediante `/api/v1/auth/me`.
@@ -23,14 +24,14 @@ Actualmente, el proyecto contiene:
 - Health Check operativo mediante Spring Boot Actuator.
 - Documentación interactiva OpenAPI/Swagger UI para desarrollo.
 - Manejo global de excepciones y validación para las operaciones implementadas.
-- Pruebas unitarias de mapper, servicio y controlador para Rol, Estacionamiento, Cajón, Usuario, Reserva, Ticket y Tarifa, además de pruebas de servicio, controlador e integración para Catálogos.
+- Pruebas unitarias de mapper, servicio y controlador para Rol, Estacionamiento, Cajón, Usuario, Reserva, Ticket, Tarifa y Pago, además de pruebas de servicio, controlador e integración para Catálogos.
 - Hash seguro de contraseñas de Usuario mediante BCrypt.
 - Migraciones iniciales de base de datos.
 - Documentación de arquitectura, dominio, API implementada y funcionalidades propuestas.
 
-El proyecto expone APIs REST funcionales para autenticar usuarios en `/api/v1/auth/login`, consultar el usuario autenticado en `/api/v1/auth/me`, administrar roles en `/api/v1/roles`, estacionamientos en `/api/v1/estacionamientos`, cajones en `/api/v1/cajones`, usuarios en `/api/v1/usuarios`, reservas en `/api/v1/reservas`, tickets en `/api/v1/tickets` y tarifas en `/api/v1/tarifas`, además de consultar catálogos de cajones en `/api/v1/catalogos`.
+El proyecto expone APIs REST funcionales para autenticar usuarios en `/api/v1/auth/login`, consultar el usuario autenticado en `/api/v1/auth/me`, administrar roles en `/api/v1/roles`, estacionamientos en `/api/v1/estacionamientos`, cajones en `/api/v1/cajones`, usuarios en `/api/v1/usuarios`, reservas en `/api/v1/reservas`, tickets en `/api/v1/tickets`, tarifas en `/api/v1/tarifas` y pagos en `/api/v1/pagos`, además de consultar catálogos de cajones en `/api/v1/catalogos`.
 
-La autenticación JWT ya está implementada. La autorización granular por rol está aplicada en Rol, Usuario, Estacionamiento, Cajón, Reserva, Ticket, Tarifa y Catálogos. `/api/v1/roles` requiere `ADMIN`; `/api/v1/usuarios` distingue entre operaciones administrativas de `ADMIN`, operaciones propias de cualquier usuario autenticado y administración limitada de operadores por `OWNER` dentro de sus propios estacionamientos; `/api/v1/estacionamientos` permite consultas a `ADMIN`, `OWNER`, `OPERADOR` y `USER`, permite escritura a `ADMIN` y permite a `OWNER` crear, consultar, actualizar y eliminar lógicamente sus propios estacionamientos; `/api/v1/cajones` permite consulta a `ADMIN`, `OWNER`, `OPERADOR` y `USER`, cambios de estado a `ADMIN`, `OWNER` y `OPERADOR`, administración global a `ADMIN` y administración propia a `OWNER`; `/api/v1/reservas` permite crear, consultar y cancelar reservas propias a `USER`, consultar por código a `ADMIN`, `OWNER` y `OPERADOR`, y consultar por identificador a `ADMIN`; `/api/v1/tickets` permite consultas a `ADMIN`, `OWNER`, `OPERADOR` y `USER` según alcance; `/api/v1/tickets/entrada` y `/api/v1/tickets/{ticketId}/salida` permiten a `ADMIN`, `OWNER` y `OPERADOR` operar tickets según su alcance; `/api/v1/tarifas` permite a `ADMIN` administrar tarifas globalmente y a `OWNER` administrar tarifas solo de estacionamientos propios; y `/api/v1/catalogos` permite consulta a `ADMIN`, `OPERADOR` y `USER`.
+La autenticación JWT ya está implementada. La autorización granular por rol está aplicada en Rol, Usuario, Estacionamiento, Cajón, Reserva, Ticket, Tarifa, Pago y Catálogos. `/api/v1/roles` requiere `ADMIN`; `/api/v1/usuarios` distingue entre operaciones administrativas de `ADMIN`, operaciones propias de cualquier usuario autenticado y administración limitada de operadores por `OWNER` dentro de sus propios estacionamientos; `/api/v1/estacionamientos` permite consultas a `ADMIN`, `OWNER`, `OPERADOR` y `USER`, permite escritura a `ADMIN` y permite a `OWNER` crear, consultar, actualizar y eliminar lógicamente sus propios estacionamientos; `/api/v1/cajones` permite consulta a `ADMIN`, `OWNER`, `OPERADOR` y `USER`, cambios de estado a `ADMIN`, `OWNER` y `OPERADOR`, administración global a `ADMIN` y administración propia a `OWNER`; `/api/v1/reservas` permite crear, consultar y cancelar reservas propias a `USER`, consultar por código a `ADMIN`, `OWNER` y `OPERADOR`, y consultar por identificador a `ADMIN`; `/api/v1/tickets` permite consultas a `ADMIN`, `OWNER`, `OPERADOR` y `USER` según alcance; `/api/v1/tickets/entrada` y `/api/v1/tickets/{ticketId}/salida` permiten a `ADMIN`, `OWNER` y `OPERADOR` operar tickets según su alcance; `/api/v1/tarifas` permite a `ADMIN` administrar tarifas globalmente y a `OWNER` administrar tarifas solo de estacionamientos propios; `/api/v1/pagos` permite listar pagos a `ADMIN`, `OWNER` y `OPERADOR` según alcance, registrar pagos a `ADMIN`, `OWNER` y `OPERADOR` según alcance, y consultar pagos por ticket a `ADMIN`, `OWNER`, `OPERADOR` y `USER` según alcance; y `/api/v1/catalogos` permite consulta a `ADMIN`, `OPERADOR` y `USER`.
 
 ## Objetivos del Sistema
 
@@ -54,7 +55,7 @@ La autorización por roles ya forma parte del código ejecutable para Rol, Usuar
 |---|---|
 | Java | 21 |
 | Spring Boot | 3.5.15 |
-| Spring Web | API REST de Rol, Estacionamiento, Cajón, Usuario, Reserva, Ticket, Tarifa y Catálogos |
+| Spring Web | API REST de Rol, Estacionamiento, Cajón, Usuario, Reserva, Ticket, Tarifa, Pago y Catálogos |
 | Spring Data JPA | Persistencia y repositorios |
 | Hibernate | Implementación JPA |
 | PostgreSQL | Base de datos relacional |
@@ -70,7 +71,7 @@ La autorización por roles ya forma parte del código ejecutable para Rol, Usuar
 | JUnit 5 | Pruebas mediante Spring Boot Test |
 | PlantUML | Diagramas en la documentación |
 
-El proyecto incluye Spring Security para proteger endpoints, Spring Security OAuth2 Resource Server para validar JWT y `spring-security-crypto` para BCrypt. La autorización granular por rol ya está implementada en Rol, Usuario, Estacionamiento, Cajón, Reserva, Ticket, Tarifa y Catálogos.
+El proyecto incluye Spring Security para proteger endpoints, Spring Security OAuth2 Resource Server para validar JWT y `spring-security-crypto` para BCrypt. La autorización granular por rol ya está implementada en Rol, Usuario, Estacionamiento, Cajón, Reserva, Ticket, Tarifa, Pago y Catálogos.
 
 ## Arquitectura del Proyecto
 
@@ -89,15 +90,15 @@ Estado actual de las capas:
 | Entidades | Implementadas |
 | DTOs | Definidos |
 | Repositorios | Definidos con Spring Data JPA |
-| Servicios | Rol, Estacionamiento, Cajón, Usuario, Reserva, Ticket, Tarifa y Catálogos implementados |
-| Controladores | `RolController`, `EstacionamientoController`, `CajonController`, `UsuarioController`, `ReservaController`, `TicketController`, `TarifaEstacionamientoController` y `CatalogoController` implementados |
-| Mappers | `RolMapper`, `EstacionamientoMapper`, `CajonMapper`, `UsuarioMapper`, `ReservaMapper`, `TicketMapper` y `TarifaEstacionamientoMapper` implementados |
-| Seguridad | Autenticación JWT implementada; autorización por rol implementada en `/api/v1/roles`, `/api/v1/usuarios`, `/api/v1/estacionamientos`, `/api/v1/cajones`, `/api/v1/reservas`, `/api/v1/tickets`, `/api/v1/tarifas` y `/api/v1/catalogos` |
+| Servicios | Rol, Estacionamiento, Cajón, Usuario, Reserva, Ticket, Tarifa, Pago y Catálogos implementados |
+| Controladores | `RolController`, `EstacionamientoController`, `CajonController`, `UsuarioController`, `ReservaController`, `TicketController`, `TarifaEstacionamientoController`, `PagoController` y `CatalogoController` implementados |
+| Mappers | `RolMapper`, `EstacionamientoMapper`, `CajonMapper`, `UsuarioMapper`, `ReservaMapper`, `TicketMapper`, `TarifaEstacionamientoMapper` y `PagoMapper` implementados |
+| Seguridad | Autenticación JWT implementada; autorización por rol implementada en `/api/v1/roles`, `/api/v1/usuarios`, `/api/v1/estacionamientos`, `/api/v1/cajones`, `/api/v1/reservas`, `/api/v1/tickets`, `/api/v1/tarifas`, `/api/v1/pagos` y `/api/v1/catalogos` |
 | Observabilidad | Health Check público implementado mediante Spring Boot Actuator |
 | Documentación interactiva | OpenAPI y Swagger UI habilitados en `dev` y deshabilitados por defecto/prod |
 | Manejo global de errores | Implementado mediante `GlobalExceptionHandler` y `ApiError`, incluyendo `transactionId` |
 | Auditoría JPA | Habilitada |
-| Migraciones | Implementadas de V1 a V12 |
+| Migraciones | Implementadas de V1 a V15 |
 
 La clase principal habilita la auditoría mediante `@EnableJpaAuditing`. Las entidades heredan los campos comunes desde `BaseEntity`.
 
@@ -313,7 +314,26 @@ Campos propios:
 
 `estado` se almacena como `VARCHAR(30)` y se modela mediante el enum `EstadoTicket`. Los estados disponibles actualmente son `ABIERTO`, `PENDIENTE_PAGO` y `CERRADO`.
 
-La creación inicial del ticket convierte una reserva `CREADA` y vigente en una ocupación real: la reserva cambia a `USADA`, el cajón cambia a `OCUPADO` y el ticket queda en estado `ABIERTO`. El registro de salida requiere tarifa activa del estacionamiento, registra `fechaSalida`, calcula el cobro, guarda los parámetros de tarifa aplicados y cambia el ticket a `PENDIENTE_PAGO`. El cajón permanece `OCUPADO` hasta que el pago sea registrado en el módulo Pago, todavía pendiente de implementación.
+La creación inicial del ticket convierte una reserva `CREADA` y vigente en una ocupación real: la reserva cambia a `USADA`, el cajón cambia a `OCUPADO` y el ticket queda en estado `ABIERTO`. El registro de salida requiere tarifa activa del estacionamiento, registra `fechaSalida`, calcula el cobro, guarda los parámetros de tarifa aplicados y cambia el ticket a `PENDIENTE_PAGO`. El cajón permanece `OCUPADO` hasta que el pago sea registrado en el módulo Pago.
+
+### Pago
+
+Representa la liquidación de un ticket pendiente de pago.
+
+Campos propios:
+
+- Ticket pagado.
+- Operador que registra el pago.
+- Monto total calculado.
+- Monto recibido.
+- Cambio.
+- Método de pago.
+- Estado del pago.
+- Fecha de pago.
+
+`metodoPago` se almacena como `VARCHAR(30)` y se modela mediante el enum `MetodoPago`. Los métodos disponibles son `EFECTIVO`, `TARJETA` y `TRANSFERENCIA`. `estado` se almacena como `VARCHAR(30)` y se modela mediante el enum `EstadoPago`. Actualmente el estado disponible es `REGISTRADO`.
+
+El registro de pago valida que el ticket esté en `PENDIENTE_PAGO`, que exista un monto total calculado, que no exista un pago activo previo para el ticket y que el monto recibido sea mayor o igual al monto total. Si el monto recibido es mayor, el backend calcula el cambio. Cuando el pago queda registrado, el ticket cambia a `CERRADO` y el cajón cambia a `LIBRE`.
 
 ### Tarifa de estacionamiento
 
@@ -343,6 +363,8 @@ Reserva  1 ─── 1  Ticket
 Usuario  1 ─── *  Ticket
 Estacionamiento  1 ─── *  Ticket
 Cajón  1 ─── *  Ticket
+Ticket  1 ─── 1  Pago
+Usuario  1 ─── *  Pago
 ```
 
 Las relaciones muchos a muchos utilizan las tablas intermedias:
@@ -532,7 +554,30 @@ La operación de entrada valida que el usuario autenticado tenga alcance sobre e
 
 La operación de salida valida que el ticket exista, esté `ABIERTO`, que el usuario autenticado tenga alcance sobre el estacionamiento del ticket y que exista una tarifa activa para ese estacionamiento. Si todo es correcto, calcula el cobro con `TicketCobroCalculator`, cambia el ticket a `PENDIENTE_PAGO`, registra `fechaSalida` y guarda `minutosEstancia`, `montoTotal`, `precioPorHoraAplicado`, `minutosToleranciaAplicados`, `cobrarFraccionAplicado` y `tarifaMinimaAplicada`. El cajón no se libera en esta operación; permanece `OCUPADO` hasta registrar el pago.
 
-La regla actual cobra la tarifa mínima desde el primer minuto. Si la estancia está dentro de los minutos de tolerancia, el monto por tiempo es cero, pero se aplica la tarifa mínima configurada. Si excede la tolerancia, el cálculo usa el precio por hora y respeta si la tarifa cobra fracción como hora completa o como proporción por minutos. Todavía no está implementada facturación, pagos ni emisión de comprobantes. Por esa razón, `CERRADO` queda reservado para cuando el pago quede registrado en el módulo Pago.
+La regla actual cobra la tarifa mínima desde el primer minuto. Si la estancia está dentro de los minutos de tolerancia, el monto por tiempo es cero, pero se aplica la tarifa mínima configurada. Si excede la tolerancia, el cálculo usa el precio por hora y respeta si la tarifa cobra fracción como hora completa o como proporción por minutos. La emisión de comprobantes o facturación fiscal todavía no está implementada.
+
+### Pago
+
+Módulo REST para registrar el cobro de tickets pendientes de pago.
+
+Incluye:
+
+- Entidad `Pago`.
+- `PagoRequest` y `PagoResponse`.
+- `MetodoPago`.
+- `EstadoPago`.
+- `PagoRepository`.
+- `PagoMapper`.
+- `PagoService`.
+- `PagoServiceImpl`.
+- `PagoController`.
+- Migración Flyway `V15__create_pago.sql`.
+- Pruebas unitarias de mapper, servicio y controlador.
+- Prueba de integración `PagoIntegrationTest`.
+
+El módulo expone `GET /api/v1/pagos` para listar pagos activos de forma paginada con filtros opcionales, `POST /api/v1/pagos` para registrar pagos y `GET /api/v1/pagos/ticket/{ticketId}` para consultar el pago activo de un ticket. Listar y registrar pagos requiere rol `ADMIN`, `OWNER` u `OPERADOR` según alcance. Consultar pagos por ticket permite `ADMIN`, `OWNER`, `OPERADOR` y `USER` según alcance.
+
+Al registrar un pago, el backend toma el monto total desde el ticket, recibe `montoRecibido`, calcula `cambio`, crea un pago `REGISTRADO`, cambia el ticket a `CERRADO` y libera el cajón cambiándolo a `LIBRE`. Si el monto recibido es menor al total calculado o el ticket no está en `PENDIENTE_PAGO`, la operación se rechaza como conflicto de negocio.
 
 ### Tarifa
 
@@ -593,7 +638,7 @@ Incluye:
 - Dependencia `springdoc-openapi-starter-webmvc-ui`.
 - Configuración `OpenApiConfig`.
 - Esquema de seguridad Bearer JWT para probar endpoints protegidos.
-- Anotaciones OpenAPI en los controladores de Auth, Rol, Estacionamiento, Cajón, Usuario, Reserva, Ticket, Tarifa y Catálogos.
+- Anotaciones OpenAPI en los controladores de Auth, Rol, Estacionamiento, Cajón, Usuario, Reserva, Ticket, Tarifa, Pago y Catálogos.
 - Prueba de integración `OpenApiSecurityIntegrationTest`.
 
 La base de los controllers se define globalmente con:
@@ -866,7 +911,7 @@ La URL del repositorio remoto y un procedimiento oficial para aprovisionar Postg
    ./mvnw clean package
    ```
 
-El proyecto contiene una prueba de carga del contexto de Spring, pruebas unitarias para mapper, servicio y controlador de Rol, Estacionamiento, Cajón, Usuario, Reserva, Ticket y Tarifa, pruebas de servicio y controlador para Catálogos, pruebas de Auth/JWT/seguridad, pruebas específicas de CORS y Catálogos en `SecurityConfigTest`, pruebas de Health Check en `HealthCheckSecurityIntegrationTest` y pruebas de integración contra PostgreSQL para Auth/Usuario/JWT, Rol, Estacionamiento, Cajón, Usuario, Reserva, Ticket, Tarifa y Catálogos.
+El proyecto contiene una prueba de carga del contexto de Spring, pruebas unitarias para mapper, servicio y controlador de Rol, Estacionamiento, Cajón, Usuario, Reserva, Ticket, Tarifa y Pago, pruebas de servicio y controlador para Catálogos, pruebas de Auth/JWT/seguridad, pruebas específicas de CORS y Catálogos en `SecurityConfigTest`, pruebas de Health Check en `HealthCheckSecurityIntegrationTest` y pruebas de integración contra PostgreSQL para Auth/Usuario/JWT, Rol, Estacionamiento, Cajón, Usuario, Reserva, Ticket, Tarifa, Pago y Catálogos.
 
 También existe `OpenApiSecurityIntegrationTest`, que valida que el contrato OpenAPI y Swagger UI puedan consultarse sin JWT cuando Springdoc está habilitado para el entorno de prueba.
 
@@ -885,6 +930,8 @@ La prueba `CatalogoIntegrationTest` valida los catálogos de tipos y estados de 
 La prueba `TicketIntegrationTest` valida consulta/listado de tickets con JWT real, filtros de listado por `estado` y `estacionamientoId`, registro de salida con cambio a `PENDIENTE_PAGO`, cálculo de cobro usando una tarifa activa, incluyendo monto total, minutos de estancia y parámetros de tarifa aplicados, manteniendo el cajón `OCUPADO` hasta que exista registro de pago.
 
 La prueba `TarifaEstacionamientoIntegrationTest` valida el flujo de Tarifa con Spring Boot completo, PostgreSQL y perfil `test`: rechazo sin JWT, rechazo con rol `USER`, creación, consulta, actualización, conflicto por duplicado, borrado lógico, alcance global de `ADMIN` y alcance limitado de `OWNER` sobre estacionamientos propios.
+
+La prueba `PagoIntegrationTest` valida el flujo de Pago con Spring Boot completo, PostgreSQL y perfil `test`: rechazo sin JWT, registro de pago de un ticket `PENDIENTE_PAGO`, cálculo de cambio, cambio del ticket a `CERRADO`, liberación del cajón a `LIBRE`, consulta del pago por ticket, listado paginado con filtros y bloqueo del listado general para `USER`.
 
 Las pruebas CORS en `SecurityConfigTest` validan peticiones preflight `OPTIONS` desde orígenes permitidos, rechazo de orígenes no configurados y exposición del header `X-Transaction-Id` para que el frontend pueda leerlo desde JavaScript.
 
@@ -1041,6 +1088,7 @@ Migraciones existentes:
 | V12 | `V12__create_tarifa_estacionamiento.sql` | Crea la tabla `tarifa_estacionamiento` para configurar tarifas por estacionamiento |
 | V13 | `V13__add_cobro_to_ticket.sql` | Agrega columnas de cobro y parámetros de tarifa aplicados al registrar salida de ticket |
 | V14 | `V14__add_pendiente_pago_to_ticket_estado.sql` | Agrega `PENDIENTE_PAGO` a los estados permitidos de ticket |
+| V15 | `V15__create_pago.sql` | Crea la tabla `pago` para liquidar tickets pendientes |
 
 Las migraciones se ejecutan automáticamente al iniciar la aplicación.
 
@@ -1090,7 +1138,7 @@ La carpeta `docs/` contiene:
 
 | Documento | Descripción |
 |---|---|
-| `api/parkio-api-v1.md` | Contrato implementado para Auth, Rol, Estacionamiento, Cajón, Usuario, Reserva, Ticket, Tarifa y Catálogos |
+| `api/parkio-api-v1.md` | Contrato implementado para Auth, Rol, Estacionamiento, Cajón, Usuario, Reserva, Ticket, Tarifa, Pago y Catálogos |
 | `architecture/spring-boot-architecture.puml` | Arquitectura objetivo por capas |
 | `architecture/parkio-package-structure.puml` | Organización propuesta de paquetes |
 | `architecture/parkio-jwt-flow.puml` | Flujo de autenticación JWT |
@@ -1102,7 +1150,7 @@ La carpeta `docs/` contiene:
 | `sequence/parkio-create-cajon-sequence.puml` | Secuencia propuesta para registrar cajones |
 | `use-cases/mvp-use-cases.md` | Casos de uso iniciales del MVP |
 
-Parte de esta documentación describe componentes futuros. Los módulos Auth, Rol, Estacionamiento, Cajón, Usuario, Reserva, Ticket, Tarifa y Catálogos, el manejo global de errores, la autenticación JWT y la autorización granular por roles están implementados.
+Parte de esta documentación describe componentes futuros. Los módulos Auth, Rol, Estacionamiento, Cajón, Usuario, Reserva, Ticket, Tarifa, Pago y Catálogos, el manejo global de errores, la autenticación JWT y la autorización granular por roles están implementados.
 
 ## Roadmap Futuro
 
@@ -1110,7 +1158,7 @@ A partir de las brechas entre el código y la documentación, el trabajo pendien
 
 - Ampliar progresivamente las pruebas de integración con PostgreSQL para cubrir escenarios adicionales de negocio.
 - Mantener sincronizados el contrato API y el código implementado.
-- Implementar facturación, pagos o comprobantes cuando se defina el alcance funcional.
+- Implementar facturación o comprobantes cuando se defina el alcance funcional.
 
 Este roadmap se deriva de la documentación existente y del estado incompleto del código. No representa funcionalidades ya disponibles.
 

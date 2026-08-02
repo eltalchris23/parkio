@@ -20,9 +20,12 @@ Este documento describe el contrato implementado actualmente para los módulos:
 - Reserva.
 - Ticket.
 - Tarifa.
+- Pago.
 - Catálogos.
 
 El módulo Tarifa expone endpoints REST para consultar, crear, actualizar y desactivar lógicamente tarifas activas por estacionamiento. La tarifa activa se usa al registrar salida de un ticket para calcular y persistir el cobro.
+
+El módulo Pago expone endpoints REST para listar pagos de forma paginada con filtros, registrar el cobro de tickets pendientes de pago, calcular cambio, cerrar tickets y liberar cajones.
 
 No describe funcionalidades futuras salvo que se indiquen explícitamente como pendientes.
 
@@ -92,6 +95,7 @@ Los controladores principales ya incluyen anotaciones OpenAPI:
 - `ReservaController`.
 - `TicketController`.
 - `TarifaEstacionamientoController`.
+- `PagoController`.
 - `CatalogoController`.
 
 En ambiente de desarrollo:
@@ -126,6 +130,9 @@ GET /api/v1/tarifas/estacionamiento/{estacionamientoId}
 POST /api/v1/tarifas
 PUT /api/v1/tarifas/estacionamiento/{estacionamientoId}
 DELETE /api/v1/tarifas/estacionamiento/{estacionamientoId}
+POST /api/v1/pagos
+GET /api/v1/pagos
+GET /api/v1/pagos/ticket/{ticketId}
 GET /api/v1/usuarios
 GET /api/v1/catalogos/cajones/tipos
 GET /api/v1/catalogos/cajones/estados
@@ -158,6 +165,7 @@ Roles base existentes en base de datos:
 | Reserva | `USER` consulta sus propias reservas; `ADMIN`, `OWNER` y `OPERADOR` consultan por código; `ADMIN` consulta por ID | `USER` crea y cancela reservas propias |
 | Ticket | `ADMIN`, `OWNER`, `OPERADOR` y `USER` consultan tickets según alcance | `ADMIN`, `OWNER` y `OPERADOR` registran entrada y salida según alcance |
 | Tarifa | `ADMIN` global; `OWNER` solo sobre estacionamientos propios | `ADMIN` global; `OWNER` solo sobre estacionamientos propios |
+| Pago | `ADMIN`, `OWNER` y `OPERADOR` listan pagos según alcance; `ADMIN`, `OWNER`, `OPERADOR` y `USER` consultan pagos por ticket según alcance | `ADMIN`, `OWNER` y `OPERADOR` registran pagos según alcance |
 | Catálogos | `ADMIN`, `OPERADOR`, `USER` | No aplica |
 
 ### Identificador de transacción
@@ -1475,10 +1483,10 @@ Reglas actuales:
 - La tarifa mínima se aplica desde el primer minuto de estancia.
 - El ticket guarda los parámetros de tarifa aplicados para conservar trazabilidad histórica aunque la tarifa cambie después.
 - Al registrar salida, el cajón permanece `OCUPADO`.
-- El cajón se liberará hasta que el pago sea registrado en el módulo Pago.
-- `CERRADO` queda reservado para tickets liquidados mediante pago registrado.
+- El cajón se libera hasta que el pago sea registrado en el módulo Pago.
+- `CERRADO` representa tickets liquidados mediante pago registrado.
 
-Todavía no está implementada facturación, pagos ni emisión de comprobantes.
+Todavía no está implementada facturación fiscal ni emisión de comprobantes.
 
 ### Listar tickets
 
@@ -1879,6 +1887,219 @@ Sin cuerpo de respuesta.
 
 - El registro de salida de ticket usa la tarifa activa del estacionamiento para calcular el cobro y guardar los parámetros aplicados en el ticket.
 
+## Módulo Pago
+
+El módulo Pago permite registrar la liquidación de tickets que ya tienen salida registrada y están en estado `PENDIENTE_PAGO`.
+
+Estado actual:
+
+- Existe la tabla `pago` mediante Flyway.
+- Existe la entidad `Pago`.
+- Existen los enums `MetodoPago` y `EstadoPago`.
+- Existen los DTOs `PagoRequest` y `PagoResponse`.
+- Existe `PagoRepository`.
+- Existe `PagoMapper`.
+- Existe `PagoService` y `PagoServiceImpl`.
+- Existe `PagoController`.
+- Existen pruebas unitarias de mapper, servicio y controlador.
+- Existe prueba de integración `PagoIntegrationTest`.
+
+Reglas:
+
+- Solo se pueden pagar tickets activos en estado `PENDIENTE_PAGO`.
+- El monto total se toma desde `ticket.montoTotal`; no se recibe desde el frontend.
+- `montoRecibido` debe ser mayor o igual a `montoTotal`.
+- `cambio` se calcula en backend como `montoRecibido - montoTotal`.
+- Un ticket solo puede tener un pago activo.
+- Al registrar el pago, el pago queda `REGISTRADO`, el ticket pasa a `CERRADO` y el cajón pasa a `LIBRE`.
+- `ADMIN` puede registrar pagos de cualquier estacionamiento.
+- `OWNER` solo puede registrar pagos de estacionamientos propios.
+- `OPERADOR` solo puede registrar pagos de estacionamientos asignados.
+- `USER` no registra pagos, pero puede consultar pagos de sus propios tickets.
+- El listado general de pagos solo está disponible para `ADMIN`, `OWNER` y `OPERADOR`.
+
+### Listar pagos
+
+```http
+GET /api/v1/pagos?page=0&size=10&sort=fechaPago,desc
+```
+
+Requiere rol `ADMIN`, `OWNER` u `OPERADOR`.
+
+Filtros opcionales:
+
+```http
+GET /api/v1/pagos?estacionamientoId=1
+GET /api/v1/pagos?metodoPago=EFECTIVO
+GET /api/v1/pagos?fechaInicio=2026-08-01&fechaFin=2026-08-31
+GET /api/v1/pagos?estacionamientoId=1&metodoPago=EFECTIVO&fechaInicio=2026-08-01&fechaFin=2026-08-31&page=0&size=10&sort=fechaPago,desc
+```
+
+Parámetros:
+
+| Parámetro | Tipo | Requerido | Descripción |
+|---|---|---|---|
+| `estacionamientoId` | `Long` | No | Filtra pagos de un estacionamiento específico |
+| `metodoPago` | `EFECTIVO`, `TARJETA` o `TRANSFERENCIA` | No | Filtra pagos por método de pago |
+| `fechaInicio` | `yyyy-MM-dd` | No | Filtra pagos registrados desde el inicio de esa fecha |
+| `fechaFin` | `yyyy-MM-dd` | No | Filtra pagos registrados hasta el final de esa fecha |
+| `page` | `Integer` | No | Página solicitada, iniciando en `0` |
+| `size` | `Integer` | No | Tamaño de página |
+| `sort` | `String` | No | Ordenamiento Spring Data, por ejemplo `fechaPago,desc` |
+
+Permisos:
+
+- `ADMIN`: ve todos los pagos activos.
+- `OWNER`: ve pagos de estacionamientos propios.
+- `OPERADOR`: ve pagos de estacionamientos asignados.
+- `USER`: no puede usar el listado general; debe consultar sus pagos por ticket.
+
+Los filtros no amplían permisos. Si un usuario filtra por un estacionamiento fuera de su alcance, la respuesta queda limitada a los pagos que realmente puede ver.
+
+#### Response 200
+
+```json
+{
+  "timestamp": "2026-08-01T18:25:00",
+  "status": 200,
+  "message": "Pagos consultados correctamente",
+  "transactionId": "dcc83d2a-8bc9-4857-bdb6-5c7d936d8915",
+  "data": {
+    "content": [
+      {
+        "id": 1,
+        "ticketId": 1,
+        "codigoTicket": "TCK-ABC12345",
+        "montoTotal": 15.00,
+        "montoRecibido": 100.00,
+        "cambio": 85.00,
+        "metodoPago": "EFECTIVO",
+        "estado": "REGISTRADO",
+        "fechaPago": "2026-08-01T18:20:00",
+        "operadorId": 9,
+        "activo": true,
+        "fechaCreacion": "2026-08-01T18:20:00"
+      }
+    ],
+    "page": 0,
+    "size": 10,
+    "totalElements": 1,
+    "totalPages": 1,
+    "first": true,
+    "last": true,
+    "empty": false
+  }
+}
+```
+
+### Registrar pago
+
+```http
+POST /api/v1/pagos
+```
+
+Requiere rol `ADMIN`, `OWNER` u `OPERADOR`.
+
+#### Request
+
+```json
+{
+  "ticketId": 1,
+  "montoRecibido": 100.00,
+  "metodoPago": "EFECTIVO"
+}
+```
+
+Métodos de pago disponibles:
+
+```text
+EFECTIVO
+TARJETA
+TRANSFERENCIA
+```
+
+#### Response 201
+
+```json
+{
+  "timestamp": "2026-08-01T18:20:00",
+  "status": 201,
+  "message": "Pago registrado correctamente",
+  "transactionId": "dcc83d2a-8bc9-4857-bdb6-5c7d936d8915",
+  "data": {
+    "id": 1,
+    "ticketId": 1,
+    "codigoTicket": "TCK-ABC12345",
+    "montoTotal": 15.00,
+    "montoRecibido": 100.00,
+    "cambio": 85.00,
+    "metodoPago": "EFECTIVO",
+    "estado": "REGISTRADO",
+    "fechaPago": "2026-08-01T18:20:00",
+    "operadorId": 9,
+    "activo": true,
+    "fechaCreacion": "2026-08-01T18:20:00"
+  }
+}
+```
+
+#### Efectos de negocio
+
+- Crea un registro en `pago`.
+- Cambia el ticket de `PENDIENTE_PAGO` a `CERRADO`.
+- Cambia el cajón de `OCUPADO` a `LIBRE`.
+- Devuelve el cambio que el cajero debe entregar al cliente.
+
+### Consultar pago por ticket
+
+```http
+GET /api/v1/pagos/ticket/{ticketId}
+```
+
+Requiere JWT válido.
+
+Alcance:
+
+- `ADMIN`: consulta cualquier pago.
+- `OWNER`: consulta pagos de tickets de sus estacionamientos.
+- `OPERADOR`: consulta pagos de tickets de estacionamientos asignados.
+- `USER`: consulta pagos de sus propios tickets.
+
+#### Response 200
+
+```json
+{
+  "timestamp": "2026-08-01T18:25:00",
+  "status": 200,
+  "message": "Pago consultado correctamente",
+  "transactionId": "dcc83d2a-8bc9-4857-bdb6-5c7d936d8915",
+  "data": {
+    "id": 1,
+    "ticketId": 1,
+    "codigoTicket": "TCK-ABC12345",
+    "montoTotal": 15.00,
+    "montoRecibido": 100.00,
+    "cambio": 85.00,
+    "metodoPago": "EFECTIVO",
+    "estado": "REGISTRADO",
+    "fechaPago": "2026-08-01T18:20:00",
+    "operadorId": 9,
+    "activo": true,
+    "fechaCreacion": "2026-08-01T18:20:00"
+  }
+}
+```
+
+### Errores esperados
+
+| Código | Motivo |
+|---|---|
+| `400` | Datos inválidos en la solicitud |
+| `401` | JWT ausente o inválido |
+| `403` | Usuario sin rol permitido para listar, registrar o consultar pagos |
+| `404` | Usuario autenticado, ticket o pago inexistente/inactivo |
+| `409` | Ticket distinto de `PENDIENTE_PAGO`, pago duplicado, monto insuficiente, rango de fechas inválido o usuario sin alcance |
+
 ## Módulo Catálogos
 
 Seguridad:
@@ -1968,7 +2189,7 @@ GET /api/v1/catalogos/cajones/estados
 
 ## Pruebas automatizadas relacionadas
 
-El backend cuenta con pruebas unitarias de mapper, servicio y controlador para Rol, Estacionamiento, Cajón, Usuario, Reserva, Ticket y Tarifa, prueba unitaria del scheduler de Reserva, prueba unitaria del cálculo de cobro de Ticket, además de pruebas unitarias de servicio y controlador para Catálogos.
+El backend cuenta con pruebas unitarias de mapper, servicio y controlador para Rol, Estacionamiento, Cajón, Usuario, Reserva, Ticket, Tarifa y Pago, prueba unitaria del scheduler de Reserva, prueba unitaria del cálculo de cobro de Ticket, además de pruebas unitarias de servicio y controlador para Catálogos.
 
 `SecurityConfigTest` cubre reglas de seguridad HTTP, autorización por roles, autenticación JWT simulada, validaciones CORS y acceso protegido a Catálogos. Las pruebas CORS validan preflight `OPTIONS` desde orígenes permitidos, rechazo de orígenes no configurados y exposición de `X-Transaction-Id` para consumo desde frontend.
 
@@ -1982,6 +2203,7 @@ También existen pruebas de integración con Spring Boot completo, PostgreSQL y 
 - `CajonIntegrationTest`.
 - `ReservaIntegrationTest`.
 - `TicketIntegrationTest`.
+- `PagoIntegrationTest`.
 - `UsuarioIntegrationTest`.
 - `CatalogoIntegrationTest`.
 
@@ -1998,6 +2220,8 @@ Estas pruebas validan que la conexión use `parkio_test` antes de limpiar datos 
 `ReservaIntegrationTest` cubre rechazo sin JWT, creación de reserva con `USER`, cambio del cajón a `RESERVADO`, bloqueo de doble reserva sobre el mismo cajón, consulta de reservas propias, consulta por código con `OPERADOR`, consulta por identificador interno con `ADMIN`, cancelación manual de reservas propias y expiración de reservas vencidas con liberación del cajón.
 
 `TicketIntegrationTest` cubre rechazo sin JWT, rechazo con rol `USER`, creación de ticket con `OPERADOR` asignado al estacionamiento, creación con `ADMIN`, creación con `OWNER` sobre estacionamiento propio, consulta paginada de tickets, filtros por `estado` y `estacionamientoId`, consulta por identificador, cambio de reserva a `USADA`, cambio de cajón a `OCUPADO`, registro de salida con cambio a `PENDIENTE_PAGO`, cálculo de cobro con tarifa activa, persistencia de monto total y parámetros aplicados, cajón aún `OCUPADO`, bloqueo de doble ticket para la misma reserva y rechazo de operador no asignado al estacionamiento.
+
+`PagoIntegrationTest` cubre rechazo sin JWT, registro de pago de un ticket en estado `PENDIENTE_PAGO`, cálculo de cambio, cambio del ticket a `CERRADO`, liberación del cajón a `LIBRE`, consulta del pago por ticket, listado paginado con filtros y bloqueo del listado general para `USER`.
 
 `CatalogoIntegrationTest` cubre rechazo sin JWT, acceso con roles `ADMIN`, `OPERADOR` y `USER`, formato `ApiResponse`, presencia de `transactionId` y valores reales de los catálogos de tipos y estados de Cajón derivados de los enums `TipoCajon` y `EstadoCajon`.
 
