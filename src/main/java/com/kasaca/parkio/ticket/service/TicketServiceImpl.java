@@ -7,8 +7,11 @@ import com.kasaca.parkio.estacionamiento.entity.Estacionamiento;
 import com.kasaca.parkio.reserva.entity.EstadoReserva;
 import com.kasaca.parkio.reserva.entity.Reserva;
 import com.kasaca.parkio.reserva.repository.ReservaRepository;
+import com.kasaca.parkio.shared.dto.PageResponse;
 import com.kasaca.parkio.shared.exception.ConflictException;
 import com.kasaca.parkio.shared.exception.ResourceNotFoundException;
+import com.kasaca.parkio.tarifa.entity.TarifaEstacionamiento;
+import com.kasaca.parkio.tarifa.repository.TarifaEstacionamientoRepository;
 import com.kasaca.parkio.ticket.dto.TicketEntradaRequest;
 import com.kasaca.parkio.ticket.dto.TicketResponse;
 import com.kasaca.parkio.ticket.entity.EstadoTicket;
@@ -18,6 +21,9 @@ import com.kasaca.parkio.ticket.repository.TicketRepository;
 import com.kasaca.parkio.usuario.entity.Usuario;
 import com.kasaca.parkio.usuario.repository.UsuarioRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -41,7 +47,47 @@ public class TicketServiceImpl implements TicketService {
     private final ReservaRepository reservaRepository;
     private final UsuarioRepository usuarioRepository;
     private final CajonRepository cajonRepository;
+    private final TarifaEstacionamientoRepository tarifaEstacionamientoRepository;
+    private final TicketCobroCalculator ticketCobroCalculator;
     private final TicketMapper ticketMapper;
+
+    /**
+     * Consulta tickets activos de forma paginada respetando el alcance del usuario autenticado.
+     *
+     * <p>ADMIN consulta todos los tickets. OWNER consulta tickets de sus estacionamientos.
+     * OPERADOR consulta tickets de estacionamientos asignados. USER consulta solo sus propios tickets.
+     * Los filtros de estado y estacionamiento se aplican encima de ese alcance.</p>
+     */
+    @Override
+    public PageResponse<TicketResponse> getTickets(
+            Long usuarioAutenticadoId,
+            EstadoTicket estado,
+            Long estacionamientoId,
+            Pageable pageable
+    ) {
+        Usuario usuarioAutenticado = findUsuarioAutenticadoById(usuarioAutenticadoId);
+        Page<Ticket> tickets = findTicketsByAlcance(
+                usuarioAutenticado,
+                estado,
+                estacionamientoId,
+                pageable
+        );
+
+        return PageResponse.from(tickets.map(ticketMapper::toResponse));
+    }
+
+    /**
+     * Consulta un ticket activo por identificador y valida que el usuario tenga alcance para verlo.
+     */
+    @Override
+    public TicketResponse getTicketById(Long usuarioAutenticadoId, Long ticketId) {
+        Usuario usuarioAutenticado = findUsuarioAutenticadoById(usuarioAutenticadoId);
+        Ticket ticket = findTicketById(ticketId);
+
+        validarUsuarioPuedeConsultarTicket(usuarioAutenticado, ticket);
+
+        return ticketMapper.toResponse(ticket);
+    }
 
     /**
      * Registra la entrada de un vehiculo al estacionamiento.
@@ -94,9 +140,10 @@ public class TicketServiceImpl implements TicketService {
     /**
      * Registra la salida de un vehiculo del estacionamiento.
      *
-     * <p>Cierra un ticket ABIERTO, asigna fecha de salida y libera el cajon
-     * cambiandolo a LIBRE. ADMIN puede operar cualquier estacionamiento, OWNER
-     * solo los propios y OPERADOR solo los estacionamientos asignados.</p>
+     * <p>Cierra un ticket ABIERTO, asigna fecha de salida, calcula el cobro con
+     * la tarifa activa del estacionamiento y libera el cajon cambiandolo a
+     * LIBRE. ADMIN puede operar cualquier estacionamiento, OWNER solo los propios
+     * y OPERADOR solo los estacionamientos asignados.</p>
      */
     @Override
     @Transactional
@@ -109,8 +156,16 @@ public class TicketServiceImpl implements TicketService {
         validarTicketAbierto(ticket);
         validarUsuarioPuedeOperarTicket(usuarioAutenticado, ticket.getEstacionamiento());
 
+        TarifaEstacionamiento tarifa = findTarifaActivaByEstacionamientoId(ticket.getEstacionamiento().getId());
+        TicketCobroResultado cobro = ticketCobroCalculator.calcular(
+                ticket.getFechaEntrada(),
+                fechaActual,
+                tarifa
+        );
+
         ticket.setEstado(EstadoTicket.CERRADO);
         ticket.setFechaSalida(fechaActual);
+        aplicarCobroAlTicket(ticket, cobro);
 
         Cajon cajon = ticket.getCajon();
         cajon.setEstado(EstadoCajon.LIBRE);
@@ -140,6 +195,170 @@ public class TicketServiceImpl implements TicketService {
     private Ticket findTicketById(Long ticketId) {
         return ticketRepository.findByIdAndActivoTrue(ticketId)
                 .orElseThrow(() -> new ResourceNotFoundException("Ticket", ticketId));
+    }
+
+    /**
+     * Selecciona la consulta paginada correcta segun el rol y filtros solicitados.
+     *
+     * <p>El orden de prioridad permite que ADMIN mantenga alcance global incluso
+     * si tambien tuviera otros roles asignados. Los filtros opcionales permiten
+     * consultar por estado y/o estacionamiento sin crear multiples endpoints.</p>
+     */
+    private Page<Ticket> findTicketsByAlcance(
+            Usuario usuarioAutenticado,
+            EstadoTicket estado,
+            Long estacionamientoId,
+            Pageable pageable
+    ) {
+        if (tieneRol(usuarioAutenticado, ROL_OPERADOR)) {
+            if (usuarioAutenticado.getEstacionamientos().isEmpty()) {
+                return Page.empty(pageable);
+            }
+        }
+
+        Specification<Ticket> specification = buildTicketSpecification(
+                usuarioAutenticado,
+                estado,
+                estacionamientoId
+        );
+
+        return ticketRepository.findAll(specification, pageable);
+    }
+
+    /**
+     * Construye la especificacion dinamica de consulta para tickets.
+     *
+     * <p>Siempre filtra tickets activos. Despues agrega los filtros opcionales
+     * solicitados por el frontend y finalmente aplica el alcance del usuario
+     * autenticado para evitar que vea informacion fuera de sus permisos.</p>
+     */
+    private Specification<Ticket> buildTicketSpecification(
+            Usuario usuarioAutenticado,
+            EstadoTicket estado,
+            Long estacionamientoId
+    ) {
+        Specification<Ticket> specification = ticketActivo();
+
+        if (estado != null) {
+            specification = specification.and(ticketConEstado(estado));
+        }
+
+        if (estacionamientoId != null) {
+            specification = specification.and(ticketDeEstacionamiento(estacionamientoId));
+        }
+
+        return specification.and(ticketDentroDelAlcance(usuarioAutenticado));
+    }
+
+    /**
+     * Filtra solo tickets activos.
+     *
+     * <p>Esto mantiene la convencion del proyecto: los registros inactivos no
+     * deben aparecer en consultas normales de la API.</p>
+     */
+    private Specification<Ticket> ticketActivo() {
+        return (root, query, criteriaBuilder) ->
+                criteriaBuilder.isTrue(root.get("activo"));
+    }
+
+    /**
+     * Filtra tickets por estado cuando el frontend envia estado=ABIERTO o estado=CERRADO.
+     */
+    private Specification<Ticket> ticketConEstado(EstadoTicket estado) {
+        return (root, query, criteriaBuilder) ->
+                criteriaBuilder.equal(root.get("estado"), estado);
+    }
+
+    /**
+     * Filtra tickets por estacionamiento cuando el frontend envia estacionamientoId.
+     */
+    private Specification<Ticket> ticketDeEstacionamiento(Long estacionamientoId) {
+        return (root, query, criteriaBuilder) ->
+                criteriaBuilder.equal(root.get("estacionamiento").get("id"), estacionamientoId);
+    }
+
+    /**
+     * Aplica el alcance de seguridad del usuario autenticado sobre la consulta.
+     *
+     * <p>ADMIN ve todos los tickets activos. OWNER ve tickets de sus propios
+     * estacionamientos. OPERADOR ve tickets de estacionamientos asignados. USER
+     * ve solamente tickets donde sea el cliente asociado.</p>
+     */
+    private Specification<Ticket> ticketDentroDelAlcance(Usuario usuarioAutenticado) {
+        if (tieneRol(usuarioAutenticado, ROL_ADMIN)) {
+            return (root, query, criteriaBuilder) ->
+                    criteriaBuilder.conjunction();
+        }
+
+        if (tieneRol(usuarioAutenticado, ROL_OWNER)) {
+            return (root, query, criteriaBuilder) ->
+                    criteriaBuilder.equal(
+                            root.get("estacionamiento").get("owner").get("id"),
+                            usuarioAutenticado.getId()
+                    );
+        }
+
+        if (tieneRol(usuarioAutenticado, ROL_OPERADOR)) {
+            return (root, query, criteriaBuilder) ->
+                    root.get("estacionamiento").in(usuarioAutenticado.getEstacionamientos());
+        }
+
+        return (root, query, criteriaBuilder) ->
+                criteriaBuilder.equal(root.get("usuario").get("id"), usuarioAutenticado.getId());
+    }
+
+    /**
+     * Valida que el usuario autenticado pueda consultar el ticket solicitado.
+     *
+     * <p>ADMIN puede consultar todo, OWNER solo tickets de sus estacionamientos,
+     * OPERADOR solo tickets de estacionamientos asignados y USER solo tickets propios.</p>
+     */
+    private void validarUsuarioPuedeConsultarTicket(Usuario usuarioAutenticado, Ticket ticket) {
+        if (tieneRol(usuarioAutenticado, ROL_ADMIN)) {
+            return;
+        }
+
+        if (tieneRol(usuarioAutenticado, ROL_OWNER)
+                && esOwnerDelEstacionamiento(usuarioAutenticado, ticket.getEstacionamiento())) {
+            return;
+        }
+
+        if (tieneRol(usuarioAutenticado, ROL_OPERADOR)
+                && estaAsignadoAlEstacionamiento(usuarioAutenticado, ticket.getEstacionamiento())) {
+            return;
+        }
+
+        if (ticket.getUsuario().getId().equals(usuarioAutenticado.getId())) {
+            return;
+        }
+
+        throw new ConflictException("El usuario autenticado no puede consultar este ticket.");
+    }
+
+    /**
+     * Busca la tarifa activa del estacionamiento asociado al ticket.
+     *
+     * <p>El cierre requiere tarifa configurada porque el sistema necesita saber
+     * cuanto cobrar antes de marcar el ticket como CERRADO.</p>
+     */
+    private TarifaEstacionamiento findTarifaActivaByEstacionamientoId(Long estacionamientoId) {
+        return tarifaEstacionamientoRepository.findByEstacionamientoIdAndActivoTrue(estacionamientoId)
+                .orElseThrow(() -> new ResourceNotFoundException("Tarifa del estacionamiento", estacionamientoId));
+    }
+
+    /**
+     * Copia al ticket el resultado del calculo de cobro.
+     *
+     * <p>Tambien conserva los parametros de tarifa usados en ese momento para
+     * que cambios futuros de tarifa no modifiquen el historial del ticket.</p>
+     */
+    private void aplicarCobroAlTicket(Ticket ticket, TicketCobroResultado cobro) {
+        ticket.setMinutosEstancia(cobro.minutosEstancia());
+        ticket.setMontoTotal(cobro.montoTotal());
+        ticket.setPrecioPorHoraAplicado(cobro.precioPorHoraAplicado());
+        ticket.setMinutosToleranciaAplicados(cobro.minutosToleranciaAplicados());
+        ticket.setCobrarFraccionAplicado(cobro.cobrarFraccionAplicado());
+        ticket.setTarifaMinimaAplicada(cobro.tarifaMinimaAplicada());
     }
 
     /**

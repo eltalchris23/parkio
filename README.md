@@ -15,7 +15,7 @@ Actualmente, el proyecto contiene:
 - CRUD REST completo para los módulos Rol, Estacionamiento, Cajón y Usuario.
 - Catálogos REST para tipos y estados de cajón consumibles por frontend.
 - Reservas REST para apartar temporalmente cajones disponibles, cancelarlas manualmente y expirar automáticamente reservas vencidas.
-- Tickets REST para convertir una reserva vigente en una entrada real al estacionamiento.
+- Tickets REST para consultar tickets, convertir una reserva vigente en una entrada real al estacionamiento y calcular el cobro al registrar salida.
 - Tarifas REST para configurar reglas de cobro por estacionamiento.
 - Login mediante `/api/v1/auth/login`.
 - Consulta del usuario autenticado mediante `/api/v1/auth/me`.
@@ -30,7 +30,7 @@ Actualmente, el proyecto contiene:
 
 El proyecto expone APIs REST funcionales para autenticar usuarios en `/api/v1/auth/login`, consultar el usuario autenticado en `/api/v1/auth/me`, administrar roles en `/api/v1/roles`, estacionamientos en `/api/v1/estacionamientos`, cajones en `/api/v1/cajones`, usuarios en `/api/v1/usuarios`, reservas en `/api/v1/reservas`, tickets en `/api/v1/tickets` y tarifas en `/api/v1/tarifas`, además de consultar catálogos de cajones en `/api/v1/catalogos`.
 
-La autenticación JWT ya está implementada. La autorización granular por rol está aplicada en Rol, Usuario, Estacionamiento, Cajón, Reserva, Ticket, Tarifa y Catálogos. `/api/v1/roles` requiere `ADMIN`; `/api/v1/usuarios` distingue entre operaciones administrativas de `ADMIN`, operaciones propias de cualquier usuario autenticado y administración limitada de operadores por `OWNER` dentro de sus propios estacionamientos; `/api/v1/estacionamientos` permite consultas a `ADMIN`, `OWNER`, `OPERADOR` y `USER`, permite escritura a `ADMIN` y permite a `OWNER` crear, consultar, actualizar y eliminar lógicamente sus propios estacionamientos; `/api/v1/cajones` permite consulta a `ADMIN`, `OWNER`, `OPERADOR` y `USER`, cambios de estado a `ADMIN`, `OWNER` y `OPERADOR`, administración global a `ADMIN` y administración propia a `OWNER`; `/api/v1/reservas` permite crear, consultar y cancelar reservas propias a `USER`, consultar por código a `ADMIN`, `OWNER` y `OPERADOR`, y consultar por identificador a `ADMIN`; `/api/v1/tickets/entrada` y `/api/v1/tickets/{ticketId}/salida` permiten a `ADMIN`, `OWNER` y `OPERADOR` operar tickets según su alcance; `/api/v1/tarifas` permite a `ADMIN` administrar tarifas globalmente y a `OWNER` administrar tarifas solo de estacionamientos propios; y `/api/v1/catalogos` permite consulta a `ADMIN`, `OPERADOR` y `USER`.
+La autenticación JWT ya está implementada. La autorización granular por rol está aplicada en Rol, Usuario, Estacionamiento, Cajón, Reserva, Ticket, Tarifa y Catálogos. `/api/v1/roles` requiere `ADMIN`; `/api/v1/usuarios` distingue entre operaciones administrativas de `ADMIN`, operaciones propias de cualquier usuario autenticado y administración limitada de operadores por `OWNER` dentro de sus propios estacionamientos; `/api/v1/estacionamientos` permite consultas a `ADMIN`, `OWNER`, `OPERADOR` y `USER`, permite escritura a `ADMIN` y permite a `OWNER` crear, consultar, actualizar y eliminar lógicamente sus propios estacionamientos; `/api/v1/cajones` permite consulta a `ADMIN`, `OWNER`, `OPERADOR` y `USER`, cambios de estado a `ADMIN`, `OWNER` y `OPERADOR`, administración global a `ADMIN` y administración propia a `OWNER`; `/api/v1/reservas` permite crear, consultar y cancelar reservas propias a `USER`, consultar por código a `ADMIN`, `OWNER` y `OPERADOR`, y consultar por identificador a `ADMIN`; `/api/v1/tickets` permite consultas a `ADMIN`, `OWNER`, `OPERADOR` y `USER` según alcance; `/api/v1/tickets/entrada` y `/api/v1/tickets/{ticketId}/salida` permiten a `ADMIN`, `OWNER` y `OPERADOR` operar tickets según su alcance; `/api/v1/tarifas` permite a `ADMIN` administrar tarifas globalmente y a `OWNER` administrar tarifas solo de estacionamientos propios; y `/api/v1/catalogos` permite consulta a `ADMIN`, `OPERADOR` y `USER`.
 
 ## Objetivos del Sistema
 
@@ -54,7 +54,7 @@ La autorización por roles ya forma parte del código ejecutable para Rol, Usuar
 |---|---|
 | Java | 21 |
 | Spring Boot | 3.5.15 |
-| Spring Web | API REST de Rol, Estacionamiento, Cajón, Usuario, Reserva, Ticket y Catálogos |
+| Spring Web | API REST de Rol, Estacionamiento, Cajón, Usuario, Reserva, Ticket, Tarifa y Catálogos |
 | Spring Data JPA | Persistencia y repositorios |
 | Hibernate | Implementación JPA |
 | PostgreSQL | Base de datos relacional |
@@ -70,7 +70,7 @@ La autorización por roles ya forma parte del código ejecutable para Rol, Usuar
 | JUnit 5 | Pruebas mediante Spring Boot Test |
 | PlantUML | Diagramas en la documentación |
 
-El proyecto incluye Spring Security para proteger endpoints, Spring Security OAuth2 Resource Server para validar JWT y `spring-security-crypto` para BCrypt. La autorización granular por rol ya está implementada en Rol, Usuario, Estacionamiento, Cajón, Reserva, Ticket y Catálogos.
+El proyecto incluye Spring Security para proteger endpoints, Spring Security OAuth2 Resource Server para validar JWT y `spring-security-crypto` para BCrypt. La autorización granular por rol ya está implementada en Rol, Usuario, Estacionamiento, Cajón, Reserva, Ticket, Tarifa y Catálogos.
 
 ## Arquitectura del Proyecto
 
@@ -313,7 +313,7 @@ Campos propios:
 
 `estado` se almacena como `VARCHAR(30)` y se modela mediante el enum `EstadoTicket`. Los estados disponibles actualmente son `ABIERTO` y `CERRADO`.
 
-La creación inicial del ticket convierte una reserva `CREADA` y vigente en una ocupación real: la reserva cambia a `USADA`, el cajón cambia a `OCUPADO` y el ticket queda en estado `ABIERTO`. El cierre registra `fechaSalida`, cambia el ticket a `CERRADO` y libera el cajón cambiándolo a `LIBRE`.
+La creación inicial del ticket convierte una reserva `CREADA` y vigente en una ocupación real: la reserva cambia a `USADA`, el cajón cambia a `OCUPADO` y el ticket queda en estado `ABIERTO`. El cierre requiere tarifa activa del estacionamiento, registra `fechaSalida`, calcula el cobro, guarda los parámetros de tarifa aplicados, cambia el ticket a `CERRADO` y libera el cajón cambiándolo a `LIBRE`.
 
 ### Tarifa de estacionamiento
 
@@ -327,7 +327,7 @@ Campos propios:
 - Indicador de cobro por fracción.
 - Tarifa mínima.
 
-Actualmente existe la tabla `tarifa_estacionamiento`, la entidad JPA, DTOs, repositorio, mapper, service transaccional, controller REST y pruebas unitarias e integración. Todavía no está integrado el cálculo de cobro al cierre de tickets.
+Actualmente existe la tabla `tarifa_estacionamiento`, la entidad JPA, DTOs, repositorio, mapper, service transaccional, controller REST y pruebas unitarias e integración. La tarifa activa se utiliza al registrar la salida de un ticket para calcular y persistir el cobro de la estancia.
 
 ### Relaciones
 
@@ -514,20 +514,24 @@ Incluye:
 - `TicketMapper`.
 - `TicketService`.
 - `TicketServiceImpl`.
+- `TicketCobroCalculator`.
+- `TicketCobroResultado`.
 - `TicketController`.
 - Migración Flyway `V11__create_ticket.sql`.
+- Migración Flyway `V13__add_cobro_to_ticket.sql`.
 - Pruebas unitarias de mapper, servicio y controlador.
+- Prueba unitaria de cálculo de cobro `TicketCobroCalculatorTest`.
 - Prueba de integración `TicketIntegrationTest`.
 
 El enum `EstadoTicket` define los estados `ABIERTO` y `CERRADO`.
 
-El módulo expone `POST /api/v1/tickets/entrada`, que permite convertir una reserva vigente en ticket, y `PATCH /api/v1/tickets/{ticketId}/salida`, que permite cerrar un ticket abierto. Ambas operaciones permiten `ADMIN`, `OWNER` y `OPERADOR` según su alcance. El backend toma el identificador del usuario autenticado desde el claim `usuarioId` del JWT, no desde el request, para evitar operar tickets a nombre de otro usuario.
+El módulo expone `GET /api/v1/tickets`, `GET /api/v1/tickets/{ticketId}`, `POST /api/v1/tickets/entrada` y `PATCH /api/v1/tickets/{ticketId}/salida`. Las consultas permiten `ADMIN`, `OWNER`, `OPERADOR` y `USER` según alcance: `ADMIN` ve todos los tickets, `OWNER` ve tickets de sus estacionamientos, `OPERADOR` ve tickets de estacionamientos asignados y `USER` ve tickets propios. El listado acepta filtros opcionales `estado` y `estacionamientoId`, además de `page`, `size` y `sort`. Las operaciones de entrada y salida permiten `ADMIN`, `OWNER` y `OPERADOR` según su alcance. El backend toma el identificador del usuario autenticado desde el claim `usuarioId` del JWT, no desde el request, para evitar operar tickets a nombre de otro usuario.
 
 La operación de entrada valida que el usuario autenticado tenga alcance sobre el estacionamiento: `ADMIN` puede operar cualquier estacionamiento, `OWNER` solo los propios y `OPERADOR` solo los estacionamientos asignados. También valida que la reserva exista, esté en estado `CREADA`, siga vigente, no tenga ticket activo previo y que el cajón no tenga otro ticket abierto. Si todo es correcto, crea un ticket `ABIERTO`, cambia la reserva a `USADA` y cambia el cajón a `OCUPADO`.
 
-La operación de salida valida que el ticket exista, esté `ABIERTO` y que el usuario autenticado tenga alcance sobre el estacionamiento del ticket. Si todo es correcto, cambia el ticket a `CERRADO`, registra `fechaSalida` y cambia el cajón a `LIBRE`.
+La operación de salida valida que el ticket exista, esté `ABIERTO`, que el usuario autenticado tenga alcance sobre el estacionamiento del ticket y que exista una tarifa activa para ese estacionamiento. Si todo es correcto, calcula el cobro con `TicketCobroCalculator`, cambia el ticket a `CERRADO`, registra `fechaSalida`, guarda `minutosEstancia`, `montoTotal`, `precioPorHoraAplicado`, `minutosToleranciaAplicados`, `cobrarFraccionAplicado` y `tarifaMinimaAplicada`, y cambia el cajón a `LIBRE`.
 
-Todavía no está implementado el cálculo de cobro ni la facturación.
+La regla actual cobra la tarifa mínima desde el primer minuto. Si la estancia está dentro de los minutos de tolerancia, el monto por tiempo es cero, pero se aplica la tarifa mínima configurada. Si excede la tolerancia, el cálculo usa el precio por hora y respeta si la tarifa cobra fracción como hora completa o como proporción por minutos. Todavía no está implementada facturación, pagos ni emisión de comprobantes.
 
 ### Tarifa
 
@@ -548,7 +552,7 @@ Incluye:
 
 El módulo permite consultar, crear, actualizar y desactivar lógicamente la tarifa activa de un estacionamiento. Las respuestas usan `ApiResponse<TarifaEstacionamientoResponse>`, incluyendo código HTTP, mensaje y `transactionId`. La autorización permite `ADMIN` sobre cualquier estacionamiento y `OWNER` únicamente sobre estacionamientos propios. `OPERADOR` y `USER` no administran tarifas.
 
-Los endpoints expuestos son `GET /api/v1/tarifas/estacionamiento/{estacionamientoId}`, `POST /api/v1/tarifas`, `PUT /api/v1/tarifas/estacionamiento/{estacionamientoId}` y `DELETE /api/v1/tarifas/estacionamiento/{estacionamientoId}`. Todavía no está conectado al cálculo de cobro del cierre de ticket.
+Los endpoints expuestos son `GET /api/v1/tarifas/estacionamiento/{estacionamientoId}`, `POST /api/v1/tarifas`, `PUT /api/v1/tarifas/estacionamiento/{estacionamientoId}` y `DELETE /api/v1/tarifas/estacionamiento/{estacionamientoId}`. La tarifa activa se usa en el cierre de ticket para calcular el cobro y guardar una copia histórica de los valores aplicados.
 
 ### Auditoría
 
@@ -877,6 +881,8 @@ La prueba `CajonIntegrationTest` valida el flujo de Cajón con Spring Boot compl
 
 La prueba `CatalogoIntegrationTest` valida los catálogos de tipos y estados de Cajón con Spring Boot completo, PostgreSQL y perfil `test`: rechazo sin JWT, acceso con `ADMIN`, `OPERADOR` y `USER`, formato `ApiResponse`, presencia de `transactionId` y valores reales derivados de los enums.
 
+La prueba `TicketIntegrationTest` valida consulta/listado de tickets con JWT real, filtros de listado por `estado` y `estacionamientoId`, cierre de ticket con cálculo de cobro usando una tarifa activa, incluyendo monto total, minutos de estancia y parámetros de tarifa aplicados.
+
 La prueba `TarifaEstacionamientoIntegrationTest` valida el flujo de Tarifa con Spring Boot completo, PostgreSQL y perfil `test`: rechazo sin JWT, rechazo con rol `USER`, creación, consulta, actualización, conflicto por duplicado, borrado lógico, alcance global de `ADMIN` y alcance limitado de `OWNER` sobre estacionamientos propios.
 
 Las pruebas CORS en `SecurityConfigTest` validan peticiones preflight `OPTIONS` desde orígenes permitidos, rechazo de orígenes no configurados y exposición del header `X-Transaction-Id` para que el frontend pueda leerlo desde JavaScript.
@@ -909,7 +915,7 @@ Si la conexión con PostgreSQL y las migraciones son correctas, la aplicación i
 http://localhost:8023
 ```
 
-Actualmente está disponible el login bajo `/api/v1/auth/login`, la consulta del usuario autenticado bajo `/api/v1/auth/me` y la creación de usuarios mediante `POST /api/v1/usuarios` sin token. La creación pública asigna automáticamente el rol base `USER`. `/api/v1/auth/me` requiere JWT válido y devuelve los datos vigentes del usuario autenticado. Los endpoints CRUD de roles bajo `/api/v1/roles` requieren un token JWT válido con rol `ADMIN`. En `/api/v1/usuarios`, `ADMIN` mantiene administración global; cualquier usuario autenticado puede operar su propio perfil; `OWNER` puede consultar o actualizar operadores asignados a sus propios estacionamientos y asignar o retirar únicamente sus propios estacionamientos a usuarios que ya tengan rol `OPERADOR`; la asignación y retiro de roles sigue limitada a `ADMIN`. En `/api/v1/estacionamientos`, las consultas permiten `ADMIN`, `OWNER`, `OPERADOR` y `USER`; `ADMIN` administra todos los estacionamientos y `OWNER` administra solo los propios. En `/api/v1/cajones`, las consultas permiten `ADMIN`, `OWNER`, `OPERADOR` y `USER`; el cambio de estado permite `ADMIN`, `OWNER` y `OPERADOR`; y las operaciones de creación, actualización y eliminación requieren `ADMIN` global u `OWNER` limitado a sus estacionamientos. En `/api/v1/reservas`, `USER` puede crear, consultar y cancelar sus propias reservas, `ADMIN`, `OWNER` y `OPERADOR` pueden consultar por código, y `ADMIN` puede consultar por identificador interno. En `/api/v1/tickets/entrada` y `/api/v1/tickets/{ticketId}/salida`, `ADMIN`, `OWNER` y `OPERADOR` pueden operar tickets según su alcance.
+Actualmente está disponible el login bajo `/api/v1/auth/login`, la consulta del usuario autenticado bajo `/api/v1/auth/me` y la creación de usuarios mediante `POST /api/v1/usuarios` sin token. La creación pública asigna automáticamente el rol base `USER`. `/api/v1/auth/me` requiere JWT válido y devuelve los datos vigentes del usuario autenticado. Los endpoints CRUD de roles bajo `/api/v1/roles` requieren un token JWT válido con rol `ADMIN`. En `/api/v1/usuarios`, `ADMIN` mantiene administración global; cualquier usuario autenticado puede operar su propio perfil; `OWNER` puede consultar o actualizar operadores asignados a sus propios estacionamientos y asignar o retirar únicamente sus propios estacionamientos a usuarios que ya tengan rol `OPERADOR`; la asignación y retiro de roles sigue limitada a `ADMIN`. En `/api/v1/estacionamientos`, las consultas permiten `ADMIN`, `OWNER`, `OPERADOR` y `USER`; `ADMIN` administra todos los estacionamientos y `OWNER` administra solo los propios. En `/api/v1/cajones`, las consultas permiten `ADMIN`, `OWNER`, `OPERADOR` y `USER`; el cambio de estado permite `ADMIN`, `OWNER` y `OPERADOR`; y las operaciones de creación, actualización y eliminación requieren `ADMIN` global u `OWNER` limitado a sus estacionamientos. En `/api/v1/reservas`, `USER` puede crear, consultar y cancelar sus propias reservas, `ADMIN`, `OWNER` y `OPERADOR` pueden consultar por código, y `ADMIN` puede consultar por identificador interno. En `/api/v1/tickets`, `ADMIN`, `OWNER`, `OPERADOR` y `USER` pueden consultar tickets según alcance. En `/api/v1/tickets/entrada` y `/api/v1/tickets/{ticketId}/salida`, `ADMIN`, `OWNER` y `OPERADOR` pueden operar tickets según su alcance.
 
 Los endpoints de Health Check están disponibles sin JWT:
 
@@ -1032,6 +1038,7 @@ Migraciones existentes:
 | V10 | `V10__create_reserva.sql` | Crea la tabla `reserva` para apartar temporalmente cajones |
 | V11 | `V11__create_ticket.sql` | Crea la tabla `ticket` para registrar entradas derivadas de reservas |
 | V12 | `V12__create_tarifa_estacionamiento.sql` | Crea la tabla `tarifa_estacionamiento` para configurar tarifas por estacionamiento |
+| V13 | `V13__add_cobro_to_ticket.sql` | Agrega columnas de cobro y parámetros de tarifa aplicados al cierre de ticket |
 
 Las migraciones se ejecutan automáticamente al iniciar la aplicación.
 
@@ -1081,7 +1088,7 @@ La carpeta `docs/` contiene:
 
 | Documento | Descripción |
 |---|---|
-| `api/parkio-api-v1.md` | Contrato implementado para Auth, Rol, Estacionamiento, Cajón, Usuario, Reserva, Ticket y Catálogos |
+| `api/parkio-api-v1.md` | Contrato implementado para Auth, Rol, Estacionamiento, Cajón, Usuario, Reserva, Ticket, Tarifa y Catálogos |
 | `architecture/spring-boot-architecture.puml` | Arquitectura objetivo por capas |
 | `architecture/parkio-package-structure.puml` | Organización propuesta de paquetes |
 | `architecture/parkio-jwt-flow.puml` | Flujo de autenticación JWT |
@@ -1101,7 +1108,7 @@ A partir de las brechas entre el código y la documentación, el trabajo pendien
 
 - Ampliar progresivamente las pruebas de integración con PostgreSQL para cubrir escenarios adicionales de negocio.
 - Mantener sincronizados el contrato API y el código implementado.
-- Implementar cálculo de cobro y reglas de facturación cuando se defina el alcance funcional.
+- Implementar facturación, pagos o comprobantes cuando se defina el alcance funcional.
 
 Este roadmap se deriva de la documentación existente y del estado incompleto del código. No representa funcionalidades ya disponibles.
 

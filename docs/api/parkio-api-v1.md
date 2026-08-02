@@ -22,7 +22,7 @@ Este documento describe el contrato implementado actualmente para los módulos:
 - Tarifa.
 - Catálogos.
 
-El módulo Tarifa expone endpoints REST para consultar, crear, actualizar y desactivar lógicamente tarifas activas por estacionamiento. Todavía no está integrado al cálculo de cobro del cierre de ticket.
+El módulo Tarifa expone endpoints REST para consultar, crear, actualizar y desactivar lógicamente tarifas activas por estacionamiento. La tarifa activa se usa al registrar salida de un ticket para calcular y persistir el cobro.
 
 No describe funcionalidades futuras salvo que se indiquen explícitamente como pendientes.
 
@@ -91,6 +91,7 @@ Los controladores principales ya incluyen anotaciones OpenAPI:
 - `UsuarioController`.
 - `ReservaController`.
 - `TicketController`.
+- `TarifaEstacionamientoController`.
 - `CatalogoController`.
 
 En ambiente de desarrollo:
@@ -155,7 +156,7 @@ Roles base existentes en base de datos:
 | Estacionamiento | `ADMIN`, `OWNER`, `OPERADOR`, `USER`; `OWNER` solo ve los propios | `ADMIN`; `OWNER` solo administra los propios |
 | Cajón | `ADMIN`, `OWNER`, `OPERADOR`, `USER`; `OWNER` solo ve cajones de estacionamientos propios | `ADMIN`; `OWNER` solo administra cajones propios; cambio de estado también permite `OPERADOR` |
 | Reserva | `USER` consulta sus propias reservas; `ADMIN`, `OWNER` y `OPERADOR` consultan por código; `ADMIN` consulta por ID | `USER` crea y cancela reservas propias |
-| Ticket | No tiene consultas implementadas todavía | `ADMIN`, `OWNER` y `OPERADOR` registran entrada y salida según alcance |
+| Ticket | `ADMIN`, `OWNER`, `OPERADOR` y `USER` consultan tickets según alcance | `ADMIN`, `OWNER` y `OPERADOR` registran entrada y salida según alcance |
 | Tarifa | `ADMIN` global; `OWNER` solo sobre estacionamientos propios | `ADMIN` global; `OWNER` solo sobre estacionamientos propios |
 | Catálogos | `ADMIN`, `OPERADOR`, `USER` | No aplica |
 
@@ -1453,10 +1454,12 @@ El módulo Ticket permite registrar la entrada real de un vehículo al estaciona
 Reglas actuales:
 
 - Requiere JWT válido.
+- `ADMIN`, `OWNER`, `OPERADOR` y `USER` pueden consultar tickets según alcance.
 - `ADMIN`, `OWNER` y `OPERADOR` pueden registrar entradas y salidas según alcance.
 - `ADMIN` puede operar tickets de cualquier estacionamiento.
 - `OWNER` solo puede operar tickets de estacionamientos propios.
 - `OPERADOR` solo puede operar tickets de estacionamientos asignados mediante `usuario_estacionamiento`.
+- `USER` solo puede consultar tickets propios.
 - El usuario autenticado se obtiene desde el claim `usuarioId` del JWT.
 - El frontend no envía el identificador del operador, owner o admin.
 - La reserva debe existir, estar activa, estar en estado `CREADA` y seguir vigente.
@@ -1467,9 +1470,135 @@ Reglas actuales:
 - El ticket se crea en estado `ABIERTO`.
 - Al registrar salida, el ticket cambia a `CERRADO`.
 - Al registrar salida, se asigna `fechaSalida`.
+- Al registrar salida, debe existir una tarifa activa para el estacionamiento.
+- Al registrar salida, se calcula `montoTotal` usando precio por hora, tolerancia, cobro por fracción y tarifa mínima.
+- La tarifa mínima se aplica desde el primer minuto de estancia.
+- El ticket guarda los parámetros de tarifa aplicados para conservar trazabilidad histórica aunque la tarifa cambie después.
 - Al registrar salida, el cajón cambia a `LIBRE`.
 
-Todavía no está implementado el cálculo de cobro ni la facturación.
+Todavía no está implementada facturación, pagos ni emisión de comprobantes.
+
+### Listar tickets
+
+```http
+GET /api/v1/tickets?page=0&size=10&sort=fechaEntrada,desc
+```
+
+Filtros opcionales:
+
+```http
+GET /api/v1/tickets?estado=ABIERTO
+GET /api/v1/tickets?estado=CERRADO
+GET /api/v1/tickets?estacionamientoId=1
+GET /api/v1/tickets?estado=ABIERTO&estacionamientoId=1&page=0&size=10&sort=fechaEntrada,desc
+```
+
+Parámetros:
+
+| Parámetro | Tipo | Requerido | Descripción |
+|---|---|---|---|
+| `estado` | `ABIERTO` o `CERRADO` | No | Filtra tickets por estado operativo |
+| `estacionamientoId` | `Long` | No | Filtra tickets de un estacionamiento específico |
+| `page` | `Integer` | No | Página solicitada, iniciando en `0` |
+| `size` | `Integer` | No | Tamaño de página |
+| `sort` | `String` | No | Ordenamiento Spring Data, por ejemplo `fechaEntrada,desc` |
+
+Permisos:
+
+- `ADMIN`: ve todos los tickets activos.
+- `OWNER`: ve tickets de estacionamientos propios.
+- `OPERADOR`: ve tickets de estacionamientos asignados.
+- `USER`: ve tickets propios.
+
+Los filtros no amplían permisos. Si un usuario filtra por un estacionamiento fuera de su alcance, la respuesta queda limitada a los tickets que realmente puede ver.
+
+Response `200 OK`:
+
+```json
+{
+  "timestamp": "2026-08-01T18:30:00",
+  "status": 200,
+  "message": "Tickets consultados correctamente",
+  "transactionId": "0f5d5c9b-8dc1-4bd1-a173-08f16eb4f96e",
+  "data": {
+    "content": [
+      {
+        "id": 1,
+        "codigo": "TCK-ABC12345",
+        "estado": "ABIERTO",
+        "placa": "ABC123",
+        "fechaEntrada": "2026-08-01T18:10:00",
+        "fechaSalida": null,
+        "minutosEstancia": null,
+        "montoTotal": null,
+        "precioPorHoraAplicado": null,
+        "minutosToleranciaAplicados": null,
+        "cobrarFraccionAplicado": null,
+        "tarifaMinimaAplicada": null,
+        "reservaId": 1,
+        "usuarioId": 1,
+        "operadorEntradaId": 2,
+        "estacionamientoId": 1,
+        "cajonId": 1,
+        "activo": true,
+        "fechaCreacion": "2026-08-01T18:10:00"
+      }
+    ],
+    "page": 0,
+    "size": 10,
+    "totalElements": 1,
+    "totalPages": 1,
+    "first": true,
+    "last": true,
+    "empty": false
+  }
+}
+```
+
+### Consultar ticket por ID
+
+```http
+GET /api/v1/tickets/{ticketId}
+```
+
+Permisos:
+
+- `ADMIN`: puede consultar cualquier ticket activo.
+- `OWNER`: solo tickets de estacionamientos propios.
+- `OPERADOR`: solo tickets de estacionamientos asignados.
+- `USER`: solo tickets propios.
+
+Response `200 OK`:
+
+```json
+{
+  "timestamp": "2026-08-01T18:30:00",
+  "status": 200,
+  "message": "Ticket consultado correctamente",
+  "transactionId": "0f5d5c9b-8dc1-4bd1-a173-08f16eb4f96e",
+  "data": {
+    "id": 1,
+    "codigo": "TCK-ABC12345",
+    "estado": "ABIERTO",
+    "placa": "ABC123",
+    "fechaEntrada": "2026-08-01T18:10:00",
+    "fechaSalida": null,
+    "minutosEstancia": null,
+    "montoTotal": null,
+    "precioPorHoraAplicado": null,
+    "minutosToleranciaAplicados": null,
+    "cobrarFraccionAplicado": null,
+    "tarifaMinimaAplicada": null,
+    "reservaId": 1,
+    "usuarioId": 1,
+    "operadorEntradaId": 2,
+    "estacionamientoId": 1,
+    "cajonId": 1,
+    "activo": true,
+    "fechaCreacion": "2026-08-01T18:10:00"
+  }
+}
+```
 
 ### Registrar entrada con reserva
 
@@ -1502,6 +1631,12 @@ Requiere rol `ADMIN`, `OWNER` u `OPERADOR`.
     "placa": "ABC123",
     "fechaEntrada": "2026-07-25T10:10:00",
     "fechaSalida": null,
+    "minutosEstancia": null,
+    "montoTotal": null,
+    "precioPorHoraAplicado": null,
+    "minutosToleranciaAplicados": null,
+    "cobrarFraccionAplicado": null,
+    "tarifaMinimaAplicada": null,
     "reservaId": 1,
     "usuarioId": 1,
     "operadorEntradaId": 2,
@@ -1554,6 +1689,12 @@ Requiere rol `ADMIN`, `OWNER` u `OPERADOR`.
     "placa": "ABC123",
     "fechaEntrada": "2026-07-25T10:10:00",
     "fechaSalida": "2026-07-25T11:00:00",
+    "minutosEstancia": 50,
+    "montoTotal": 25.00,
+    "precioPorHoraAplicado": 25.00,
+    "minutosToleranciaAplicados": 10,
+    "cobrarFraccionAplicado": true,
+    "tarifaMinimaAplicada": 15.00,
     "reservaId": 1,
     "usuarioId": 1,
     "operadorEntradaId": 2,
@@ -1571,6 +1712,7 @@ Después de una respuesta `200 OK`:
 
 - El ticket queda en estado `CERRADO`.
 - El ticket tiene `fechaSalida`.
+- El ticket tiene `minutosEstancia`, `montoTotal` y una copia de los parámetros de tarifa aplicados.
 - El cajón queda en estado `LIBRE`.
 
 #### Errores de salida
@@ -1579,7 +1721,7 @@ Después de una respuesta `200 OK`:
 |---|---|
 | `401` | JWT ausente o inválido |
 | `403` | Usuario sin rol permitido para operar tickets |
-| `404` | Usuario autenticado o ticket inexistente/inactivo |
+| `404` | Usuario autenticado, ticket inexistente/inactivo o tarifa activa inexistente para el estacionamiento |
 | `409` | Ticket distinto de `ABIERTO` o usuario sin alcance sobre el estacionamiento |
 
 ## Módulo Tarifa
@@ -1605,6 +1747,8 @@ Seguridad:
 - `OWNER` solo puede administrar tarifas de estacionamientos propios.
 - `OPERADOR` y `USER` no administran tarifas.
 - La eliminación de tarifa es lógica mediante `activo=false`.
+- La tarifa activa se usa para calcular el cobro al registrar salida de ticket.
+- La tarifa mínima se cobra desde el primer minuto de estancia.
 
 ### Consultar tarifa por estacionamiento
 
@@ -1729,7 +1873,7 @@ Sin cuerpo de respuesta.
 | `404` | Estacionamiento o tarifa inexistente/inactiva; para `OWNER`, estacionamiento fuera de su alcance |
 | `409` | Ya existe tarifa activa para el estacionamiento o el `estacionamientoId` del path no coincide con el body |
 
-- El cierre de ticket todavía no calcula cobro usando esta tarifa.
+- El cierre de ticket usa la tarifa activa del estacionamiento para calcular el cobro y guardar los parámetros aplicados en el ticket.
 
 ## Módulo Catálogos
 
@@ -1820,7 +1964,7 @@ GET /api/v1/catalogos/cajones/estados
 
 ## Pruebas automatizadas relacionadas
 
-El backend cuenta con pruebas unitarias de mapper, servicio y controlador para Rol, Estacionamiento, Cajón, Usuario, Reserva y Ticket, prueba unitaria del scheduler de Reserva, además de pruebas unitarias de servicio y controlador para Catálogos.
+El backend cuenta con pruebas unitarias de mapper, servicio y controlador para Rol, Estacionamiento, Cajón, Usuario, Reserva, Ticket y Tarifa, prueba unitaria del scheduler de Reserva, prueba unitaria del cálculo de cobro de Ticket, además de pruebas unitarias de servicio y controlador para Catálogos.
 
 `SecurityConfigTest` cubre reglas de seguridad HTTP, autorización por roles, autenticación JWT simulada, validaciones CORS y acceso protegido a Catálogos. Las pruebas CORS validan preflight `OPTIONS` desde orígenes permitidos, rechazo de orígenes no configurados y exposición de `X-Transaction-Id` para consumo desde frontend.
 
@@ -1849,7 +1993,7 @@ Estas pruebas validan que la conexión use `parkio_test` antes de limpiar datos 
 
 `ReservaIntegrationTest` cubre rechazo sin JWT, creación de reserva con `USER`, cambio del cajón a `RESERVADO`, bloqueo de doble reserva sobre el mismo cajón, consulta de reservas propias, consulta por código con `OPERADOR`, consulta por identificador interno con `ADMIN`, cancelación manual de reservas propias y expiración de reservas vencidas con liberación del cajón.
 
-`TicketIntegrationTest` cubre rechazo sin JWT, rechazo con rol `USER`, creación de ticket con `OPERADOR` asignado al estacionamiento, creación con `ADMIN`, creación con `OWNER` sobre estacionamiento propio, cambio de reserva a `USADA`, cambio de cajón a `OCUPADO`, cierre de ticket con cambio a `CERRADO` y cajón `LIBRE`, bloqueo de doble ticket para la misma reserva y rechazo de operador no asignado al estacionamiento.
+`TicketIntegrationTest` cubre rechazo sin JWT, rechazo con rol `USER`, creación de ticket con `OPERADOR` asignado al estacionamiento, creación con `ADMIN`, creación con `OWNER` sobre estacionamiento propio, consulta paginada de tickets, filtros por `estado` y `estacionamientoId`, consulta por identificador, cambio de reserva a `USADA`, cambio de cajón a `OCUPADO`, cierre de ticket con cambio a `CERRADO`, cálculo de cobro con tarifa activa, persistencia de monto total y parámetros aplicados, cajón `LIBRE`, bloqueo de doble ticket para la misma reserva y rechazo de operador no asignado al estacionamiento.
 
 `CatalogoIntegrationTest` cubre rechazo sin JWT, acceso con roles `ADMIN`, `OPERADOR` y `USER`, formato `ApiResponse`, presencia de `transactionId` y valores reales de los catálogos de tipos y estados de Cajón derivados de los enums `TipoCajon` y `EstadoCajon`.
 

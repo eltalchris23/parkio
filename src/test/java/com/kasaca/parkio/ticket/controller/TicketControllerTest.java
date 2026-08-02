@@ -2,6 +2,7 @@ package com.kasaca.parkio.ticket.controller;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.json.JsonMapper;
+import com.kasaca.parkio.shared.dto.PageResponse;
 import com.kasaca.parkio.shared.exception.ConflictException;
 import com.kasaca.parkio.shared.exception.GlobalExceptionHandler;
 import com.kasaca.parkio.shared.exception.ResourceNotFoundException;
@@ -14,15 +15,19 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.http.MediaType;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationToken;
 import org.springframework.security.web.method.annotation.AuthenticationPrincipalArgumentResolver;
+import org.springframework.data.web.PageableHandlerMethodArgumentResolver;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 
 import java.time.Instant;
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
@@ -32,6 +37,7 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -55,13 +61,138 @@ class TicketControllerTest {
 
         mockMvc = MockMvcBuilders
                 .standaloneSetup(controller)
-                .setCustomArgumentResolvers(new AuthenticationPrincipalArgumentResolver())
+                .setCustomArgumentResolvers(
+                        new AuthenticationPrincipalArgumentResolver(),
+                        new PageableHandlerMethodArgumentResolver()
+                )
                 .setControllerAdvice(new GlobalExceptionHandler())
                 .build();
 
         objectMapper = JsonMapper.builder()
                 .findAndAddModules()
                 .build();
+    }
+
+    /**
+     * Verifica que el endpoint liste tickets paginados usando el usuario autenticado del JWT.
+     */
+    @Test
+    void debeListarTickets() throws Exception {
+        Jwt jwt = crearJwtOperador();
+        TicketResponse ticket = crearResponse();
+        PageResponse<TicketResponse> response = PageResponse.from(
+                new PageImpl<>(List.of(ticket), PageRequest.of(0, 10), 1)
+        );
+
+        when(ticketService.getTickets(eq(2L), eq(null), eq(null), any())).thenReturn(response);
+
+        try {
+            SecurityContextHolder.getContext()
+                    .setAuthentication(new JwtAuthenticationToken(jwt));
+
+            mockMvc.perform(get("/tickets")
+                            .param("page", "0")
+                            .param("size", "10"))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.status").value(200))
+                    .andExpect(jsonPath("$.message").value("Tickets consultados correctamente"))
+                    .andExpect(jsonPath("$.transactionId").isNotEmpty())
+                    .andExpect(jsonPath("$.data.content[0].id").value(40L))
+                    .andExpect(jsonPath("$.data.content[0].codigo").value("TCK-ABC12345"))
+                    .andExpect(jsonPath("$.data.page").value(0))
+                    .andExpect(jsonPath("$.data.size").value(10))
+                    .andExpect(jsonPath("$.data.totalElements").value(1));
+        } finally {
+            SecurityContextHolder.clearContext();
+        }
+
+        verify(ticketService).getTickets(eq(2L), eq(null), eq(null), any());
+    }
+
+    /**
+     * Verifica que el endpoint envie al service los filtros opcionales de estado y estacionamiento.
+     */
+    @Test
+    void debeListarTicketsConFiltros() throws Exception {
+        Jwt jwt = crearJwtOperador();
+        TicketResponse ticket = crearResponse();
+        PageResponse<TicketResponse> response = PageResponse.from(
+                new PageImpl<>(List.of(ticket), PageRequest.of(0, 10), 1)
+        );
+
+        when(ticketService.getTickets(eq(2L), eq(EstadoTicket.ABIERTO), eq(10L), any()))
+                .thenReturn(response);
+
+        try {
+            SecurityContextHolder.getContext()
+                    .setAuthentication(new JwtAuthenticationToken(jwt));
+
+            mockMvc.perform(get("/tickets")
+                            .param("estado", "ABIERTO")
+                            .param("estacionamientoId", "10")
+                            .param("page", "0")
+                            .param("size", "10"))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.status").value(200))
+                    .andExpect(jsonPath("$.message").value("Tickets consultados correctamente"))
+                    .andExpect(jsonPath("$.data.content[0].estado").value("ABIERTO"));
+        } finally {
+            SecurityContextHolder.clearContext();
+        }
+
+        verify(ticketService).getTickets(eq(2L), eq(EstadoTicket.ABIERTO), eq(10L), any());
+    }
+
+    /**
+     * Verifica que el endpoint consulte un ticket por identificador.
+     */
+    @Test
+    void debeConsultarTicketPorId() throws Exception {
+        Jwt jwt = crearJwtOperador();
+        TicketResponse response = crearResponse();
+
+        when(ticketService.getTicketById(2L, 40L)).thenReturn(response);
+
+        try {
+            SecurityContextHolder.getContext()
+                    .setAuthentication(new JwtAuthenticationToken(jwt));
+
+            mockMvc.perform(get("/tickets/40"))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.status").value(200))
+                    .andExpect(jsonPath("$.message").value("Ticket consultado correctamente"))
+                    .andExpect(jsonPath("$.data.id").value(40L))
+                    .andExpect(jsonPath("$.data.codigo").value("TCK-ABC12345"));
+        } finally {
+            SecurityContextHolder.clearContext();
+        }
+
+        verify(ticketService).getTicketById(2L, 40L);
+    }
+
+    /**
+     * Verifica que el manejador global responda 404 cuando el ticket consultado no existe.
+     */
+    @Test
+    void debeResponderNotFoundCuandoTicketNoExisteAlConsultar() throws Exception {
+        Jwt jwt = crearJwtOperador();
+
+        when(ticketService.getTicketById(2L, 99L))
+                .thenThrow(new ResourceNotFoundException("Ticket", 99L));
+
+        try {
+            SecurityContextHolder.getContext()
+                    .setAuthentication(new JwtAuthenticationToken(jwt));
+
+            mockMvc.perform(get("/tickets/99"))
+                    .andExpect(status().isNotFound())
+                    .andExpect(jsonPath("$.status").value(404))
+                    .andExpect(jsonPath("$.message").value("Ticket con identificador '99' no fue encontrado"));
+        } finally {
+            SecurityContextHolder.clearContext();
+        }
+
+        verify(ticketService).getTicketById(2L, 99L);
     }
 
     /**
@@ -287,6 +418,12 @@ class TicketControllerTest {
                 "ABC123",
                 LocalDateTime.of(2026, 7, 25, 10, 0),
                 null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
                 30L,
                 1L,
                 2L,
@@ -308,6 +445,12 @@ class TicketControllerTest {
                 "ABC123",
                 LocalDateTime.of(2026, 7, 25, 10, 0),
                 LocalDateTime.of(2026, 7, 25, 11, 0),
+                60,
+                new BigDecimal("25.00"),
+                new BigDecimal("25.00"),
+                10,
+                true,
+                new BigDecimal("15.00"),
                 30L,
                 1L,
                 2L,

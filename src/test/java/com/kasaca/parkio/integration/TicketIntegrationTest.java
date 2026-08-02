@@ -113,6 +113,7 @@ class TicketIntegrationTest {
     void debeRegistrarEntradaYSalidaConOperadorAsignado() throws Exception {
         Long estacionamientoId = crearEstacionamientoActivoEnBaseDeDatos();
         Long cajonId = crearCajonActivoEnBaseDeDatos(estacionamientoId);
+        crearTarifaActivaEnBaseDeDatos(estacionamientoId);
         registrarUsuario("Cliente", USER_EMAIL);
         String userToken = iniciarSesion(USER_EMAIL);
         String codigoReserva = crearReservaYObtenerCodigo(userToken, estacionamientoId, cajonId, "ABC123");
@@ -138,6 +139,32 @@ class TicketIntegrationTest {
         assertThat(consultarEstadoCajonEnBaseDeDatos(cajonId)).isEqualTo("OCUPADO");
         assertThat(consultarEstadoTicketEnBaseDeDatos(ticketId)).isEqualTo("ABIERTO");
 
+        ResponseEntity<String> listadoUserResponse = listarTickets(userToken);
+        JsonNode listadoUserBody = objectMapper.readTree(listadoUserResponse.getBody());
+
+        assertThat(listadoUserResponse.getStatusCode()).isEqualTo(HttpStatus.OK);
+        assertThat(listadoUserBody.path("data").path("content").get(0).path("id").asLong()).isEqualTo(ticketId);
+        assertThat(listadoUserBody.path("data").path("content").get(0).path("usuarioId").asLong()).isPositive();
+
+        ResponseEntity<String> listadoFiltradoAbiertoResponse =
+                listarTicketsConFiltros(operadorToken, "ABIERTO", estacionamientoId);
+        JsonNode listadoFiltradoAbiertoBody = objectMapper.readTree(listadoFiltradoAbiertoResponse.getBody());
+
+        assertThat(listadoFiltradoAbiertoResponse.getStatusCode()).isEqualTo(HttpStatus.OK);
+        assertThat(listadoFiltradoAbiertoBody.path("data").path("content").get(0).path("id").asLong())
+                .isEqualTo(ticketId);
+        assertThat(listadoFiltradoAbiertoBody.path("data").path("content").get(0).path("estado").asText())
+                .isEqualTo("ABIERTO");
+        assertThat(listadoFiltradoAbiertoBody.path("data").path("content").get(0).path("estacionamientoId").asLong())
+                .isEqualTo(estacionamientoId);
+
+        ResponseEntity<String> consultaOperadorResponse = consultarTicket(operadorToken, ticketId);
+        JsonNode consultaOperadorBody = objectMapper.readTree(consultaOperadorResponse.getBody());
+
+        assertThat(consultaOperadorResponse.getStatusCode()).isEqualTo(HttpStatus.OK);
+        assertThat(consultaOperadorBody.path("data").path("id").asLong()).isEqualTo(ticketId);
+        assertThat(consultaOperadorBody.path("data").path("estado").asText()).isEqualTo("ABIERTO");
+
         ResponseEntity<String> salidaResponse = registrarSalida(operadorToken, ticketId);
         JsonNode salidaBody = objectMapper.readTree(salidaResponse.getBody());
 
@@ -146,8 +173,25 @@ class TicketIntegrationTest {
         assertThat(salidaBody.path("message").asText()).isEqualTo("Salida registrada correctamente");
         assertThat(salidaBody.path("data").path("estado").asText()).isEqualTo("CERRADO");
         assertThat(salidaBody.path("data").path("fechaSalida").asText()).isNotBlank();
+        assertThat(salidaBody.path("data").path("minutosEstancia").asInt()).isGreaterThanOrEqualTo(1);
+        assertThat(salidaBody.path("data").path("montoTotal").decimalValue()).isEqualByComparingTo("15.00");
+        assertThat(salidaBody.path("data").path("precioPorHoraAplicado").decimalValue()).isEqualByComparingTo("25.00");
+        assertThat(salidaBody.path("data").path("minutosToleranciaAplicados").asInt()).isEqualTo(10);
+        assertThat(salidaBody.path("data").path("cobrarFraccionAplicado").asBoolean()).isTrue();
+        assertThat(salidaBody.path("data").path("tarifaMinimaAplicada").decimalValue()).isEqualByComparingTo("15.00");
         assertThat(consultarEstadoTicketEnBaseDeDatos(ticketId)).isEqualTo("CERRADO");
+        assertThat(consultarMontoTotalTicketEnBaseDeDatos(ticketId)).isEqualByComparingTo("15.00");
         assertThat(consultarEstadoCajonEnBaseDeDatos(cajonId)).isEqualTo("LIBRE");
+
+        ResponseEntity<String> listadoFiltradoCerradoResponse =
+                listarTicketsConFiltros(operadorToken, "CERRADO", estacionamientoId);
+        JsonNode listadoFiltradoCerradoBody = objectMapper.readTree(listadoFiltradoCerradoResponse.getBody());
+
+        assertThat(listadoFiltradoCerradoResponse.getStatusCode()).isEqualTo(HttpStatus.OK);
+        assertThat(listadoFiltradoCerradoBody.path("data").path("content").get(0).path("id").asLong())
+                .isEqualTo(ticketId);
+        assertThat(listadoFiltradoCerradoBody.path("data").path("content").get(0).path("estado").asText())
+                .isEqualTo("CERRADO");
     }
 
     /**
@@ -328,6 +372,50 @@ class TicketIntegrationTest {
     }
 
     /**
+     * Consulta tickets paginados consumiendo el endpoint real de tickets.
+     */
+    private ResponseEntity<String> listarTickets(String accessToken) {
+        return restTemplate.exchange(
+                "/api/v1/tickets?page=0&size=10&sort=fechaEntrada,desc",
+                HttpMethod.GET,
+                new HttpEntity<>(crearHeadersConJwt(accessToken)),
+                String.class
+        );
+    }
+
+    /**
+     * Consulta tickets paginados usando filtros opcionales de estado y estacionamiento.
+     *
+     * <p>Se usa para validar que los filtros del controller lleguen hasta la consulta real en PostgreSQL.</p>
+     */
+    private ResponseEntity<String> listarTicketsConFiltros(
+            String accessToken,
+            String estado,
+            Long estacionamientoId
+    ) {
+        return restTemplate.exchange(
+                "/api/v1/tickets?estado=" + estado
+                        + "&estacionamientoId=" + estacionamientoId
+                        + "&page=0&size=10&sort=fechaEntrada,desc",
+                HttpMethod.GET,
+                new HttpEntity<>(crearHeadersConJwt(accessToken)),
+                String.class
+        );
+    }
+
+    /**
+     * Consulta un ticket por identificador consumiendo el endpoint real de tickets.
+     */
+    private ResponseEntity<String> consultarTicket(String accessToken, Long ticketId) {
+        return restTemplate.exchange(
+                "/api/v1/tickets/" + ticketId,
+                HttpMethod.GET,
+                new HttpEntity<>(crearHeadersConJwt(accessToken)),
+                String.class
+        );
+    }
+
+    /**
      * Asigna el rol indicado directamente para preparar escenarios de autorizacion.
      */
     private void asignarRol(Long usuarioId, String rolNombre) {
@@ -416,6 +504,28 @@ class TicketIntegrationTest {
     }
 
     /**
+     * Crea una tarifa activa para que el cierre del ticket pueda calcular el cobro.
+     */
+    private Long crearTarifaActivaEnBaseDeDatos(Long estacionamientoId) {
+        return jdbcTemplate.queryForObject(
+                """
+                INSERT INTO tarifa_estacionamiento (
+                    estacionamiento_id,
+                    precio_por_hora,
+                    minutos_tolerancia,
+                    cobrar_fraccion,
+                    tarifa_minima,
+                    activo
+                )
+                VALUES (?, 25.00, 10, TRUE, 15.00, TRUE)
+                RETURNING id
+                """,
+                Long.class,
+                estacionamientoId
+        );
+    }
+
+    /**
      * Consulta el id interno de una reserva a partir de su codigo publico.
      */
     private Long consultarReservaIdPorCodigo(String codigoReserva) {
@@ -455,6 +565,17 @@ class TicketIntegrationTest {
         return jdbcTemplate.queryForObject(
                 "SELECT estado FROM ticket WHERE id = ?",
                 String.class,
+                ticketId
+        );
+    }
+
+    /**
+     * Consulta el monto total persistido para validar el calculo de cobro.
+     */
+    private java.math.BigDecimal consultarMontoTotalTicketEnBaseDeDatos(Long ticketId) {
+        return jdbcTemplate.queryForObject(
+                "SELECT monto_total FROM ticket WHERE id = ?",
+                java.math.BigDecimal.class,
                 ticketId
         );
     }

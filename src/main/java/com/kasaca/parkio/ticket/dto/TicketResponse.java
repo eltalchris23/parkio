@@ -2,6 +2,7 @@ package com.kasaca.parkio.ticket.dto;
 
 import com.kasaca.parkio.ticket.entity.EstadoTicket;
 
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
 /**
@@ -14,6 +15,12 @@ public record TicketResponse(
         String placa,
         LocalDateTime fechaEntrada,
         LocalDateTime fechaSalida,
+        Integer minutosEstancia,
+        BigDecimal montoTotal,
+        BigDecimal precioPorHoraAplicado,
+        Integer minutosToleranciaAplicados,
+        Boolean cobrarFraccionAplicado,
+        BigDecimal tarifaMinimaAplicada,
         Long reservaId,
         Long usuarioId,
         Long operadorEntradaId,

@@ -1,17 +1,20 @@
 package com.kasaca.parkio.ticket.repository;
 
+import com.kasaca.parkio.estacionamiento.entity.Estacionamiento;
 import com.kasaca.parkio.ticket.entity.EstadoTicket;
 import com.kasaca.parkio.ticket.entity.Ticket;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
 
+import java.util.Collection;
 import java.util.Optional;
 
 /**
  * Repositorio de acceso a datos para tickets.
  */
-public interface TicketRepository extends JpaRepository<Ticket, Long> {
+public interface TicketRepository extends JpaRepository<Ticket, Long>, JpaSpecificationExecutor<Ticket> {
 
     /**
      * Consulta tickets activos de forma paginada.
@@ -37,6 +40,19 @@ public interface TicketRepository extends JpaRepository<Ticket, Long> {
      * Consulta tickets activos de un estacionamiento.
      */
     Page<Ticket> findByEstacionamientoIdAndActivoTrue(Long estacionamientoId, Pageable pageable);
+
+    /**
+     * Consulta tickets activos de estacionamientos pertenecientes a un OWNER.
+     */
+    Page<Ticket> findByEstacionamientoOwnerIdAndActivoTrue(Long ownerId, Pageable pageable);
+
+    /**
+     * Consulta tickets activos de los estacionamientos asignados a un OPERADOR.
+     */
+    Page<Ticket> findByEstacionamientoInAndActivoTrue(
+            Collection<Estacionamiento> estacionamientos,
+            Pageable pageable
+    );
 
     /**
      * Valida si una reserva ya fue convertida en ticket activo.

@@ -9,8 +9,11 @@ import com.kasaca.parkio.reserva.entity.EstadoReserva;
 import com.kasaca.parkio.reserva.entity.Reserva;
 import com.kasaca.parkio.reserva.repository.ReservaRepository;
 import com.kasaca.parkio.rol.entity.Rol;
+import com.kasaca.parkio.shared.dto.PageResponse;
 import com.kasaca.parkio.shared.exception.ConflictException;
 import com.kasaca.parkio.shared.exception.ResourceNotFoundException;
+import com.kasaca.parkio.tarifa.entity.TarifaEstacionamiento;
+import com.kasaca.parkio.tarifa.repository.TarifaEstacionamientoRepository;
 import com.kasaca.parkio.ticket.dto.TicketEntradaRequest;
 import com.kasaca.parkio.ticket.dto.TicketResponse;
 import com.kasaca.parkio.ticket.entity.EstadoTicket;
@@ -22,9 +25,14 @@ import com.kasaca.parkio.usuario.repository.UsuarioRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.domain.Specification;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.Optional;
 
@@ -53,6 +61,12 @@ class TicketServiceImplTest {
     private CajonRepository cajonRepository;
 
     @Mock
+    private TarifaEstacionamientoRepository tarifaEstacionamientoRepository;
+
+    @Mock
+    private TicketCobroCalculator ticketCobroCalculator;
+
+    @Mock
     private TicketMapper ticketMapper;
 
     private TicketServiceImpl ticketService;
@@ -67,8 +81,205 @@ class TicketServiceImplTest {
                 reservaRepository,
                 usuarioRepository,
                 cajonRepository,
+                tarifaEstacionamientoRepository,
+                ticketCobroCalculator,
                 ticketMapper
         );
+    }
+
+    /**
+     * Verifica que ADMIN consulte todos los tickets activos de forma paginada.
+     */
+    @Test
+    void debeListarTicketsConAdmin() {
+        Pageable pageable = PageRequest.of(0, 10);
+        Estacionamiento estacionamiento = crearEstacionamiento(10L);
+        Usuario cliente = crearUsuario(1L, "USER");
+        Usuario admin = crearUsuario(2L, "ADMIN");
+        Cajon cajon = crearCajon(20L, estacionamiento);
+        Reserva reserva = crearReserva(cliente, estacionamiento, cajon, EstadoReserva.USADA);
+        Ticket ticket = crearTicket(40L, reserva, cliente, admin, estacionamiento, cajon);
+        TicketResponse response = crearResponse();
+
+        when(usuarioRepository.findByIdAndActivoTrue(2L)).thenReturn(Optional.of(admin));
+        when(ticketRepository.findAll(anyTicketSpecification(), eq(pageable)))
+                .thenReturn(new PageImpl<>(java.util.List.of(ticket), pageable, 1));
+        when(ticketMapper.toResponse(ticket)).thenReturn(response);
+
+        PageResponse<TicketResponse> resultado = ticketService.getTickets(2L, null, null, pageable);
+
+        assertThat(resultado.content()).containsExactly(response);
+        assertThat(resultado.totalElements()).isEqualTo(1);
+        verify(ticketRepository).findAll(anyTicketSpecification(), eq(pageable));
+    }
+
+    /**
+     * Verifica que OWNER consulte tickets solo de estacionamientos propios.
+     */
+    @Test
+    void debeListarTicketsConOwner() {
+        Pageable pageable = PageRequest.of(0, 10);
+        Usuario owner = crearUsuario(2L, "OWNER");
+        Estacionamiento estacionamiento = crearEstacionamiento(10L);
+        estacionamiento.setOwner(owner);
+        Usuario cliente = crearUsuario(1L, "USER");
+        Cajon cajon = crearCajon(20L, estacionamiento);
+        Reserva reserva = crearReserva(cliente, estacionamiento, cajon, EstadoReserva.USADA);
+        Ticket ticket = crearTicket(40L, reserva, cliente, owner, estacionamiento, cajon);
+        TicketResponse response = crearResponse();
+
+        when(usuarioRepository.findByIdAndActivoTrue(2L)).thenReturn(Optional.of(owner));
+        when(ticketRepository.findAll(anyTicketSpecification(), eq(pageable)))
+                .thenReturn(new PageImpl<>(java.util.List.of(ticket), pageable, 1));
+        when(ticketMapper.toResponse(ticket)).thenReturn(response);
+
+        PageResponse<TicketResponse> resultado = ticketService.getTickets(2L, null, null, pageable);
+
+        assertThat(resultado.content()).containsExactly(response);
+        verify(ticketRepository).findAll(anyTicketSpecification(), eq(pageable));
+    }
+
+    /**
+     * Verifica que OPERADOR consulte tickets solo de estacionamientos asignados.
+     */
+    @Test
+    void debeListarTicketsConOperador() {
+        Pageable pageable = PageRequest.of(0, 10);
+        Estacionamiento estacionamiento = crearEstacionamiento(10L);
+        Usuario operador = crearUsuario(2L, "OPERADOR");
+        operador.getEstacionamientos().add(estacionamiento);
+        Usuario cliente = crearUsuario(1L, "USER");
+        Cajon cajon = crearCajon(20L, estacionamiento);
+        Reserva reserva = crearReserva(cliente, estacionamiento, cajon, EstadoReserva.USADA);
+        Ticket ticket = crearTicket(40L, reserva, cliente, operador, estacionamiento, cajon);
+        TicketResponse response = crearResponse();
+
+        when(usuarioRepository.findByIdAndActivoTrue(2L)).thenReturn(Optional.of(operador));
+        when(ticketRepository.findAll(anyTicketSpecification(), eq(pageable)))
+                .thenReturn(new PageImpl<>(java.util.List.of(ticket), pageable, 1));
+        when(ticketMapper.toResponse(ticket)).thenReturn(response);
+
+        PageResponse<TicketResponse> resultado = ticketService.getTickets(2L, null, null, pageable);
+
+        assertThat(resultado.content()).containsExactly(response);
+        verify(ticketRepository).findAll(anyTicketSpecification(), eq(pageable));
+    }
+
+    /**
+     * Verifica que USER consulte solamente sus propios tickets.
+     */
+    @Test
+    void debeListarTicketsConUser() {
+        Pageable pageable = PageRequest.of(0, 10);
+        Estacionamiento estacionamiento = crearEstacionamiento(10L);
+        Usuario cliente = crearUsuario(1L, "USER");
+        Usuario operador = crearUsuario(2L, "OPERADOR");
+        Cajon cajon = crearCajon(20L, estacionamiento);
+        Reserva reserva = crearReserva(cliente, estacionamiento, cajon, EstadoReserva.USADA);
+        Ticket ticket = crearTicket(40L, reserva, cliente, operador, estacionamiento, cajon);
+        TicketResponse response = crearResponse();
+
+        when(usuarioRepository.findByIdAndActivoTrue(1L)).thenReturn(Optional.of(cliente));
+        when(ticketRepository.findAll(anyTicketSpecification(), eq(pageable)))
+                .thenReturn(new PageImpl<>(java.util.List.of(ticket), pageable, 1));
+        when(ticketMapper.toResponse(ticket)).thenReturn(response);
+
+        PageResponse<TicketResponse> resultado = ticketService.getTickets(1L, null, null, pageable);
+
+        assertThat(resultado.content()).containsExactly(response);
+        verify(ticketRepository).findAll(anyTicketSpecification(), eq(pageable));
+    }
+
+    /**
+     * Verifica que el service acepte filtros opcionales de estado y estacionamiento.
+     *
+     * <p>La validacion del detalle de la especificacion se cubre en integracion
+     * contra PostgreSQL; aqui se confirma que la consulta dinamica se ejecuta.</p>
+     */
+    @Test
+    void debeListarTicketsConFiltros() {
+        Pageable pageable = PageRequest.of(0, 10);
+        Estacionamiento estacionamiento = crearEstacionamiento(10L);
+        Usuario admin = crearUsuario(2L, "ADMIN");
+        Usuario cliente = crearUsuario(1L, "USER");
+        Cajon cajon = crearCajon(20L, estacionamiento);
+        Reserva reserva = crearReserva(cliente, estacionamiento, cajon, EstadoReserva.USADA);
+        Ticket ticket = crearTicket(40L, reserva, cliente, admin, estacionamiento, cajon);
+        TicketResponse response = crearResponse();
+
+        when(usuarioRepository.findByIdAndActivoTrue(2L)).thenReturn(Optional.of(admin));
+        when(ticketRepository.findAll(anyTicketSpecification(), eq(pageable)))
+                .thenReturn(new PageImpl<>(java.util.List.of(ticket), pageable, 1));
+        when(ticketMapper.toResponse(ticket)).thenReturn(response);
+
+        PageResponse<TicketResponse> resultado =
+                ticketService.getTickets(2L, EstadoTicket.ABIERTO, 10L, pageable);
+
+        assertThat(resultado.content()).containsExactly(response);
+        verify(ticketRepository).findAll(anyTicketSpecification(), eq(pageable));
+    }
+
+    /**
+     * Verifica que OPERADOR sin estacionamientos asignados reciba pagina vacia.
+     */
+    @Test
+    void debeListarPaginaVaciaCuandoOperadorNoTieneEstacionamientos() {
+        Pageable pageable = PageRequest.of(0, 10);
+        Usuario operador = crearUsuario(2L, "OPERADOR");
+
+        when(usuarioRepository.findByIdAndActivoTrue(2L)).thenReturn(Optional.of(operador));
+
+        PageResponse<TicketResponse> resultado = ticketService.getTickets(2L, null, null, pageable);
+
+        assertThat(resultado.empty()).isTrue();
+        verify(ticketRepository, never()).findAll(anyTicketSpecification(), any(Pageable.class));
+    }
+
+    /**
+     * Verifica que un usuario pueda consultar un ticket cuando tiene alcance sobre el.
+     */
+    @Test
+    void debeConsultarTicketPorIdCuandoTieneAlcance() {
+        Estacionamiento estacionamiento = crearEstacionamiento(10L);
+        Usuario cliente = crearUsuario(1L, "USER");
+        Usuario operador = crearUsuario(2L, "OPERADOR");
+        operador.getEstacionamientos().add(estacionamiento);
+        Cajon cajon = crearCajon(20L, estacionamiento);
+        Reserva reserva = crearReserva(cliente, estacionamiento, cajon, EstadoReserva.USADA);
+        Ticket ticket = crearTicket(40L, reserva, cliente, operador, estacionamiento, cajon);
+        TicketResponse response = crearResponse();
+
+        when(usuarioRepository.findByIdAndActivoTrue(2L)).thenReturn(Optional.of(operador));
+        when(ticketRepository.findByIdAndActivoTrue(40L)).thenReturn(Optional.of(ticket));
+        when(ticketMapper.toResponse(ticket)).thenReturn(response);
+
+        TicketResponse resultado = ticketService.getTicketById(2L, 40L);
+
+        assertThat(resultado).isEqualTo(response);
+        verify(ticketMapper).toResponse(ticket);
+    }
+
+    /**
+     * Verifica que se rechace la consulta de un ticket fuera del alcance del usuario.
+     */
+    @Test
+    void debeRechazarConsultaDeTicketSinAlcance() {
+        Estacionamiento estacionamiento = crearEstacionamiento(10L);
+        Usuario cliente = crearUsuario(1L, "USER");
+        Usuario otroUsuario = crearUsuario(3L, "USER");
+        Usuario operador = crearUsuario(2L, "OPERADOR");
+        Cajon cajon = crearCajon(20L, estacionamiento);
+        Reserva reserva = crearReserva(cliente, estacionamiento, cajon, EstadoReserva.USADA);
+        Ticket ticket = crearTicket(40L, reserva, cliente, operador, estacionamiento, cajon);
+
+        when(usuarioRepository.findByIdAndActivoTrue(3L)).thenReturn(Optional.of(otroUsuario));
+        when(ticketRepository.findByIdAndActivoTrue(40L)).thenReturn(Optional.of(ticket));
+
+        assertThatThrownBy(() -> ticketService.getTicketById(3L, 40L))
+                .isInstanceOf(ConflictException.class)
+                .hasMessage("El usuario autenticado no puede consultar este ticket.");
+
+        verify(ticketMapper, never()).toResponse(any());
     }
 
     /**
@@ -392,10 +603,16 @@ class TicketServiceImplTest {
         cajon.setEstado(EstadoCajon.OCUPADO);
         Reserva reserva = crearReserva(cliente, estacionamiento, cajon, EstadoReserva.USADA);
         Ticket ticket = crearTicket(40L, reserva, cliente, operador, estacionamiento, cajon);
+        TarifaEstacionamiento tarifa = crearTarifa(estacionamiento);
+        TicketCobroResultado cobro = crearCobro();
         TicketResponse response = crearResponseCerrado();
 
         when(usuarioRepository.findByIdAndActivoTrue(2L)).thenReturn(Optional.of(operador));
         when(ticketRepository.findByIdAndActivoTrue(40L)).thenReturn(Optional.of(ticket));
+        when(tarifaEstacionamientoRepository.findByEstacionamientoIdAndActivoTrue(10L))
+                .thenReturn(Optional.of(tarifa));
+        when(ticketCobroCalculator.calcular(eq(ticket.getFechaEntrada()), any(LocalDateTime.class), eq(tarifa)))
+                .thenReturn(cobro);
         when(cajonRepository.save(cajon)).thenReturn(cajon);
         when(ticketRepository.save(ticket)).thenReturn(ticket);
         when(ticketMapper.toResponse(ticket)).thenReturn(response);
@@ -405,9 +622,43 @@ class TicketServiceImplTest {
         assertThat(resultado).isEqualTo(response);
         assertThat(ticket.getEstado()).isEqualTo(EstadoTicket.CERRADO);
         assertThat(ticket.getFechaSalida()).isNotNull();
+        assertThat(ticket.getMinutosEstancia()).isEqualTo(60);
+        assertThat(ticket.getMontoTotal()).isEqualByComparingTo("25.00");
+        assertThat(ticket.getPrecioPorHoraAplicado()).isEqualByComparingTo("25.00");
+        assertThat(ticket.getMinutosToleranciaAplicados()).isEqualTo(10);
+        assertThat(ticket.getCobrarFraccionAplicado()).isTrue();
+        assertThat(ticket.getTarifaMinimaAplicada()).isEqualByComparingTo("15.00");
         assertThat(cajon.getEstado()).isEqualTo(EstadoCajon.LIBRE);
+        verify(ticketCobroCalculator).calcular(eq(ticket.getFechaEntrada()), any(LocalDateTime.class), eq(tarifa));
         verify(cajonRepository).save(cajon);
         verify(ticketRepository).save(ticket);
+    }
+
+    /**
+     * Verifica que no se cierre un ticket cuando el estacionamiento no tiene tarifa activa.
+     */
+    @Test
+    void debeRechazarSalidaCuandoNoExisteTarifaActiva() {
+        Estacionamiento estacionamiento = crearEstacionamiento(10L);
+        Usuario cliente = crearUsuario(1L, "USER");
+        Usuario operador = crearUsuario(2L, "OPERADOR");
+        operador.getEstacionamientos().add(estacionamiento);
+        Cajon cajon = crearCajon(20L, estacionamiento);
+        Reserva reserva = crearReserva(cliente, estacionamiento, cajon, EstadoReserva.USADA);
+        Ticket ticket = crearTicket(40L, reserva, cliente, operador, estacionamiento, cajon);
+
+        when(usuarioRepository.findByIdAndActivoTrue(2L)).thenReturn(Optional.of(operador));
+        when(ticketRepository.findByIdAndActivoTrue(40L)).thenReturn(Optional.of(ticket));
+        when(tarifaEstacionamientoRepository.findByEstacionamientoIdAndActivoTrue(10L))
+                .thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> ticketService.registrarSalida(2L, 40L))
+                .isInstanceOf(ResourceNotFoundException.class)
+                .hasMessage("Tarifa del estacionamiento con identificador '10' no fue encontrado");
+
+        verify(ticketCobroCalculator, never()).calcular(any(), any(), any());
+        verify(cajonRepository, never()).save(any());
+        verify(ticketRepository, never()).save(any());
     }
 
     /**
@@ -559,6 +810,35 @@ class TicketServiceImplTest {
     }
 
     /**
+     * Crea una tarifa activa para probar el cierre del ticket con cobro.
+     */
+    private TarifaEstacionamiento crearTarifa(Estacionamiento estacionamiento) {
+        TarifaEstacionamiento tarifa = new TarifaEstacionamiento();
+        tarifa.setId(50L);
+        tarifa.setEstacionamiento(estacionamiento);
+        tarifa.setPrecioPorHora(new BigDecimal("25.00"));
+        tarifa.setMinutosTolerancia(10);
+        tarifa.setCobrarFraccion(true);
+        tarifa.setTarifaMinima(new BigDecimal("15.00"));
+        tarifa.setActivo(true);
+        return tarifa;
+    }
+
+    /**
+     * Crea el resultado calculado que el service debe copiar al ticket cerrado.
+     */
+    private TicketCobroResultado crearCobro() {
+        return new TicketCobroResultado(
+                60,
+                new BigDecimal("25.00"),
+                new BigDecimal("25.00"),
+                10,
+                true,
+                new BigDecimal("15.00")
+        );
+    }
+
+    /**
      * Crea el DTO esperado por el service despues de mapear el ticket guardado.
      */
     private TicketResponse crearResponse() {
@@ -568,6 +848,12 @@ class TicketServiceImplTest {
                 EstadoTicket.ABIERTO,
                 "ABC123",
                 LocalDateTime.of(2026, 7, 25, 10, 0),
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
                 null,
                 30L,
                 1L,
@@ -590,6 +876,12 @@ class TicketServiceImplTest {
                 "ABC123",
                 LocalDateTime.of(2026, 7, 25, 10, 0),
                 LocalDateTime.of(2026, 7, 25, 11, 0),
+                60,
+                new BigDecimal("25.00"),
+                new BigDecimal("25.00"),
+                10,
+                true,
+                new BigDecimal("15.00"),
                 30L,
                 1L,
                 2L,
@@ -598,5 +890,12 @@ class TicketServiceImplTest {
                 true,
                 LocalDateTime.of(2026, 7, 25, 10, 1)
         );
+    }
+
+    /**
+     * Centraliza el matcher de Specification para evitar problemas con metodos sobrecargados de Spring Data.
+     */
+    private Specification<Ticket> anyTicketSpecification() {
+        return any();
     }
 }

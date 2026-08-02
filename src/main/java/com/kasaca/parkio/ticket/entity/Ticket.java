@@ -21,6 +21,7 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
 /**
@@ -71,6 +72,49 @@ public class Ticket extends BaseEntity {
      */
     @Column(name = "fecha_salida")
     private LocalDateTime fechaSalida;
+
+    /**
+     * Minutos totales calculados entre la entrada y la salida.
+     *
+     * <p>Se guarda para conservar evidencia del calculo usado al cerrar el ticket.</p>
+     */
+    @Column(name = "minutos_estancia")
+    private Integer minutosEstancia;
+
+    /**
+     * Importe final calculado para la estancia.
+     *
+     * <p>Se calcula al registrar la salida usando la tarifa activa del estacionamiento.</p>
+     */
+    @Column(name = "monto_total", precision = 10, scale = 2)
+    private BigDecimal montoTotal;
+
+    /**
+     * Precio por hora vigente que se aplico al cerrar el ticket.
+     *
+     * <p>Se guarda como fotografia historica para que futuros cambios de tarifa
+     * no alteren el cobro de tickets ya cerrados.</p>
+     */
+    @Column(name = "precio_por_hora_aplicado", precision = 10, scale = 2)
+    private BigDecimal precioPorHoraAplicado;
+
+    /**
+     * Minutos de tolerancia vigentes que se aplicaron al cerrar el ticket.
+     */
+    @Column(name = "minutos_tolerancia_aplicados")
+    private Integer minutosToleranciaAplicados;
+
+    /**
+     * Indica si la fraccion de hora se cobro como hora completa al cerrar el ticket.
+     */
+    @Column(name = "cobrar_fraccion_aplicado")
+    private Boolean cobrarFraccionAplicado;
+
+    /**
+     * Tarifa minima vigente que se aplico al cerrar el ticket.
+     */
+    @Column(name = "tarifa_minima_aplicada", precision = 10, scale = 2)
+    private BigDecimal tarifaMinimaAplicada;
 
     /**
      * Reserva que origino este ticket.

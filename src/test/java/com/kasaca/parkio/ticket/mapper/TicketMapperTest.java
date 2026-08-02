@@ -13,6 +13,7 @@ import com.kasaca.parkio.usuario.entity.Usuario;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -78,6 +79,13 @@ class TicketMapperTest {
         Reserva reserva = crearReserva(30L, usuario, estacionamiento, cajon);
         Ticket ticket = crearTicket(40L, reserva, usuario, operador, estacionamiento, cajon);
         ticket.setFechaEntrada(fechaEntrada);
+        ticket.setFechaSalida(LocalDateTime.of(2026, 7, 25, 11, 0));
+        ticket.setMinutosEstancia(60);
+        ticket.setMontoTotal(new BigDecimal("25.00"));
+        ticket.setPrecioPorHoraAplicado(new BigDecimal("25.00"));
+        ticket.setMinutosToleranciaAplicados(10);
+        ticket.setCobrarFraccionAplicado(true);
+        ticket.setTarifaMinimaAplicada(new BigDecimal("15.00"));
         ticket.setFechaCreacion(fechaCreacion);
 
         TicketResponse resultado = ticketMapper.toResponse(ticket);
@@ -87,7 +95,13 @@ class TicketMapperTest {
         assertThat(resultado.estado()).isEqualTo(EstadoTicket.ABIERTO);
         assertThat(resultado.placa()).isEqualTo("ABC123");
         assertThat(resultado.fechaEntrada()).isEqualTo(fechaEntrada);
-        assertThat(resultado.fechaSalida()).isNull();
+        assertThat(resultado.fechaSalida()).isEqualTo(LocalDateTime.of(2026, 7, 25, 11, 0));
+        assertThat(resultado.minutosEstancia()).isEqualTo(60);
+        assertThat(resultado.montoTotal()).isEqualByComparingTo("25.00");
+        assertThat(resultado.precioPorHoraAplicado()).isEqualByComparingTo("25.00");
+        assertThat(resultado.minutosToleranciaAplicados()).isEqualTo(10);
+        assertThat(resultado.cobrarFraccionAplicado()).isTrue();
+        assertThat(resultado.tarifaMinimaAplicada()).isEqualByComparingTo("15.00");
         assertThat(resultado.reservaId()).isEqualTo(30L);
         assertThat(resultado.usuarioId()).isEqualTo(1L);
         assertThat(resultado.operadorEntradaId()).isEqualTo(2L);

@@ -1,6 +1,7 @@
 package com.kasaca.parkio.ticket.controller;
 
 import com.kasaca.parkio.shared.dto.ApiResponse;
+import com.kasaca.parkio.shared.dto.PageResponse;
 import com.kasaca.parkio.ticket.dto.TicketEntradaRequest;
 import com.kasaca.parkio.ticket.dto.TicketResponse;
 import com.kasaca.parkio.ticket.service.TicketService;
@@ -12,17 +13,21 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springdoc.core.annotations.ParameterObject;
+import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.oauth2.jwt.Jwt;
+import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 @RestController
@@ -37,6 +42,148 @@ import org.springframework.web.bind.annotation.RestController;
 public class TicketController {
 
     private final TicketService ticketService;
+
+    /**
+     * Consulta tickets activos de forma paginada segun el alcance del usuario autenticado.
+     *
+     * <p>ADMIN consulta todos los tickets. OWNER consulta tickets de sus estacionamientos.
+     * OPERADOR consulta tickets de estacionamientos asignados. USER consulta solo sus propios tickets.</p>
+     *
+     * @param pageable parametros de paginacion y ordenamiento recibidos como page, size y sort
+     * @param estado estado opcional para filtrar tickets ABIERTO o CERRADO
+     * @param estacionamientoId identificador opcional del estacionamiento usado como filtro
+     * @param jwt JWT validado por Spring Security con el claim usuarioId del usuario autenticado
+     * @param httpRequest solicitud HTTP usada para construir ApiResponse con transactionId
+     * @return respuesta estandarizada con la pagina de tickets
+     */
+    @Operation(
+            summary = "Listar tickets",
+            description = """
+                    Consulta tickets activos de forma paginada.
+                    ADMIN ve todos los tickets, OWNER ve tickets de sus estacionamientos,
+                    OPERADOR ve tickets de estacionamientos asignados y USER ve sus propios tickets.
+                    Permite filtrar opcionalmente por estado y estacionamientoId.
+                    """
+    )
+    @io.swagger.v3.oas.annotations.responses.ApiResponses({
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                    responseCode = "200",
+                    description = "Tickets consultados correctamente"
+            ),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                    responseCode = "401",
+                    description = "Autenticacion requerida o token invalido"
+            ),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                    responseCode = "403",
+                    description = "El usuario autenticado no tiene permiso para consultar tickets"
+            )
+    })
+    @PreAuthorize("hasAnyRole('ADMIN', 'OWNER', 'OPERADOR', 'USER')")
+    @GetMapping(produces = MediaType.APPLICATION_JSON_VALUE)
+    public ResponseEntity<ApiResponse<PageResponse<TicketResponse>>> getTickets(
+            @ParameterObject Pageable pageable,
+            @Parameter(description = "Estado opcional del ticket", example = "ABIERTO")
+            @RequestParam(required = false) com.kasaca.parkio.ticket.entity.EstadoTicket estado,
+            @Parameter(description = "Identificador opcional del estacionamiento", example = "1")
+            @RequestParam(required = false) Long estacionamientoId,
+            @AuthenticationPrincipal Jwt jwt,
+            @Parameter(hidden = true) HttpServletRequest httpRequest
+    ) {
+        log.info(
+                "INICIO - Listado de tickets. estado={}, estacionamientoId={}",
+                estado,
+                estacionamientoId
+        );
+
+        Long usuarioAutenticadoId = getUsuarioId(jwt);
+        PageResponse<TicketResponse> response = ticketService.getTickets(
+                usuarioAutenticadoId,
+                estado,
+                estacionamientoId,
+                pageable
+        );
+
+        log.info("FIN - Listado de tickets");
+
+        return ResponseEntity.ok(
+                ApiResponse.of(
+                        httpRequest,
+                        HttpStatus.OK.value(),
+                        "Tickets consultados correctamente",
+                        response
+                )
+        );
+    }
+
+    /**
+     * Consulta un ticket activo por identificador validando permisos de alcance.
+     *
+     * <p>ADMIN puede consultar cualquier ticket. OWNER solo tickets de sus estacionamientos.
+     * OPERADOR solo tickets de estacionamientos asignados y USER solo tickets propios.</p>
+     *
+     * @param ticketId identificador interno del ticket solicitado
+     * @param jwt JWT validado por Spring Security con el claim usuarioId del usuario autenticado
+     * @param httpRequest solicitud HTTP usada para construir ApiResponse con transactionId
+     * @return respuesta estandarizada con el ticket consultado
+     */
+    @Operation(
+            summary = "Consultar ticket por ID",
+            description = """
+                    Consulta un ticket activo por identificador.
+                    ADMIN puede consultar cualquier ticket, OWNER solo tickets de sus estacionamientos,
+                    OPERADOR solo tickets de estacionamientos asignados y USER solo tickets propios.
+                    """
+    )
+    @io.swagger.v3.oas.annotations.responses.ApiResponses({
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                    responseCode = "200",
+                    description = "Ticket consultado correctamente"
+            ),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                    responseCode = "401",
+                    description = "Autenticacion requerida o token invalido"
+            ),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                    responseCode = "403",
+                    description = "El usuario autenticado no tiene permiso para consultar tickets"
+            ),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                    responseCode = "404",
+                    description = "Usuario autenticado o ticket no encontrado"
+            ),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                    responseCode = "409",
+                    description = "El usuario autenticado no tiene alcance sobre el ticket"
+            )
+    })
+    @PreAuthorize("hasAnyRole('ADMIN', 'OWNER', 'OPERADOR', 'USER')")
+    @GetMapping(
+            value = "/{ticketId}",
+            produces = MediaType.APPLICATION_JSON_VALUE
+    )
+    public ResponseEntity<ApiResponse<TicketResponse>> getTicketById(
+            @Parameter(description = "Identificador interno del ticket", example = "1")
+            @PathVariable Long ticketId,
+            @AuthenticationPrincipal Jwt jwt,
+            @Parameter(hidden = true) HttpServletRequest httpRequest
+    ) {
+        log.info("INICIO - Consulta de ticket. ticketId={}", ticketId);
+
+        Long usuarioAutenticadoId = getUsuarioId(jwt);
+        TicketResponse response = ticketService.getTicketById(usuarioAutenticadoId, ticketId);
+
+        log.info("FIN - Consulta de ticket. ticketId={}", response.id());
+
+        return ResponseEntity.ok(
+                ApiResponse.of(
+                        httpRequest,
+                        HttpStatus.OK.value(),
+                        "Ticket consultado correctamente",
+                        response
+                )
+        );
+    }
 
     /**
      * Registra la entrada de un vehiculo al estacionamiento usando un codigo de reserva vigente.
